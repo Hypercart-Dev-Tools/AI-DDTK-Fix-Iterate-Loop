@@ -9,7 +9,7 @@
 # └─────────────────────────────────────────────────────────┘
 #
 # INSTALLATION:
-#   git clone https://github.com/YOUR-ORG/AI-DDTK.git ~/bin/ai-ddtk
+#   git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git ~/bin/ai-ddtk
 #   cd ~/bin/ai-ddtk
 #   ./install.sh
 #
@@ -167,8 +167,8 @@ show_usage() {
 install_path() {
     echo -e "${CYAN}Setting up PATH...${NC}"
 
-    # Check if already in PATH
-    if grep -q "ai-ddtk/bin" "$SHELL_CONFIG" 2>/dev/null; then
+    # Check if already in PATH (use BIN_DIR to match actual path)
+    if grep -q "$BIN_DIR" "$SHELL_CONFIG" 2>/dev/null; then
         echo -e "${GREEN}✓ PATH already configured in $SHELL_CONFIG${NC}"
     else
         echo "" >> "$SHELL_CONFIG"
@@ -230,8 +230,8 @@ show_status() {
     echo "  Shell Config: $SHELL_CONFIG"
     echo ""
 
-    # Check PATH
-    if grep -q "ai-ddtk/bin" "$SHELL_CONFIG" 2>/dev/null; then
+    # Check PATH (use BIN_DIR to match actual path)
+    if grep -q "$BIN_DIR" "$SHELL_CONFIG" 2>/dev/null; then
         echo -e "  PATH: ${GREEN}✓ Configured${NC}"
     else
         echo -e "  PATH: ${RED}✗ Not configured${NC}"

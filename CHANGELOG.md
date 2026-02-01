@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-02-01
+
+### Added
+- WP Code Check (WPCC) embedded via git subtree at `tools/wp-code-check/`
+- Docker-based test suite for installation validation
+  - `test/Dockerfile` - Ubuntu 22.04 test container
+  - `test/test-install.sh` - 8 automated tests for install script
+
+### Fixed
+- Test script bash compatibility issues with `((PASSED++))` and `grep -c`
+
 ## [1.0.0] - 2025-02-01
 
 ### Added
@@ -48,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 1.0.1 | 2026-02-01 | WPCC embedded via git subtree, Docker test suite |
 | 1.0.0 | 2025-02-01 | Initial release with install script and WPCC integration |
 
 ---
@@ -59,7 +71,7 @@ First release - no upgrade path needed.
 
 **Fresh install:**
 ```bash
-git clone https://github.com/YOUR-ORG/AI-DDTK.git ~/bin/ai-ddtk
+git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git ~/bin/ai-ddtk
 cd ~/bin/ai-ddtk
 ./install.sh
 ./install.sh setup-wpcc

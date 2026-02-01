@@ -16,7 +16,7 @@ A central toolkit for AI-driven WordPress development, designed to be called fro
 
 ```bash
 # Clone to your bin directory
-git clone https://github.com/YOUR-ORG/AI-DDTK.git ~/bin/ai-ddtk
+git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git ~/bin/ai-ddtk
 cd ~/bin/ai-ddtk
 
 # Install (adds to PATH)
