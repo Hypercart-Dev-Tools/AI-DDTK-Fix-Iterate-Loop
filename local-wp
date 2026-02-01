@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Local WP-CLI Wrapper
+# Provides easy access to WP-CLI for Local by Flywheel sites
+#
+# Usage: local-wp <site-name> <wp-cli-command> [args...]
+
+set -e
+
+# Configuration
+LOCAL_SITES_DIR="/Users/noelsaw/Local Sites"
+LOCAL_RUN_DIR="/Users/noelsaw/Library/Application Support/Local/run"
+WP_CLI_PHAR="/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar"
+PHP_BIN="/Users/noelsaw/Library/Application Support/Local/lightning-services/php-8.2.27+1/bin/darwin-arm64/bin/php"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+show_usage() {
+  echo -e "${BLUE}Local WP-CLI Wrapper${NC}"
+  echo ""
+  echo "Usage: local-wp <site-name> <wp-cli-command> [args...]"
+  echo ""
+  echo "Examples:"
+  echo "  local-wp neochrome-timesheets plugin list"
+  echo "  local-wp neochrome-timesheets option get siteurl"
+  echo "  local-wp neochrome-timesheets core version"
+  echo ""
+  echo "Available sites:"
+  ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
+  echo ""
+}
+
+if [ $# -lt 1 ]; then
+  show_usage
+  exit 1
+fi
+
+if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+  show_usage
+  exit 0
+fi
+
+if [ "$1" = "--list" ]; then
+  echo -e "${BLUE}Available Local sites:${NC}"
+  ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
+  exit 0
+fi
+
+SITE_NAME="$1"
+shift
+
+SITE_PATH="$LOCAL_SITES_DIR/$SITE_NAME/app/public"
+
+if [ ! -d "$SITE_PATH" ]; then
+  echo -e "${RED}Error: Site not found: $SITE_NAME${NC}"
+  echo ""
+  echo -e "${YELLOW}Available sites:${NC}"
+  ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
+  exit 1
+fi
+
+if [ ! -f "$WP_CLI_PHAR" ]; then
+  echo -e "${RED}Error: WP-CLI not found${NC}"
+  exit 1
+fi
+
+if [ ! -f "$PHP_BIN" ]; then
+  echo -e "${RED}Error: PHP binary not found${NC}"
+  exit 1
+fi
+
+if [ ! -f "$SITE_PATH/wp-config.php" ]; then
+  echo -e "${RED}Error: WordPress not found at: $SITE_PATH${NC}"
+  exit 1
+fi
+
+# Find MySQL socket
+SITE_ID=$(grep -r "$SITE_NAME" "$LOCAL_RUN_DIR"/*/conf 2>/dev/null | head -1 | sed 's#.*/run/\([^/]*\)/.*#\1#')
+
+if [ -z "$SITE_ID" ]; then
+  echo -e "${RED}Error: Could not find site configuration${NC}"
+  exit 1
+fi
+
+MYSQL_SOCKET="$LOCAL_RUN_DIR/$SITE_ID/mysql/mysqld.sock"
+
+if [ ! -S "$MYSQL_SOCKET" ]; then
+  echo -e "${RED}Error: MySQL socket not found. Is the site running in Local?${NC}"
+  exit 1
+fi
+
+# Create temporary PHP ini with socket path
+PHP_INI_FILE="/tmp/local-wp-${SITE_NAME}.ini"
+cat > "$PHP_INI_FILE" << EOF
+mysqli.default_socket = "$MYSQL_SOCKET"
+pdo_mysql.default_socket = "$MYSQL_SOCKET"
+EOF
+
+cd "$SITE_PATH" || exit 1
+
+# Run WP-CLI with custom PHP ini
+"$PHP_BIN" -c "$PHP_INI_FILE" "$WP_CLI_PHAR" "$@"
+
+# Cleanup
+rm -f "$PHP_INI_FILE"
