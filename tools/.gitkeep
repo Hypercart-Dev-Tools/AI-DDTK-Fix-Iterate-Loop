@@ -1,0 +1,3 @@
+# This directory contains embedded tools/dependencies
+# WPCC (WP Code Check) will be added here via git subtree
+
