@@ -1,0 +1,45 @@
+{
+  "id": "unbounded-numberposts",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "CRITICAL",
+  "title": "Unbounded numberposts",
+  "description": "Detects get_posts() calls with numberposts set to -1, which retrieves all posts without limit and can cause memory exhaustion.",
+  "rationale": "Setting numberposts => -1 disables the post limit and loads all matching posts into memory. This is equivalent to posts_per_page => -1 and has the same performance risks.",
+  "detection": {
+    "type": "simple",
+    "search_pattern": "numberposts[[:space:]]*=>[[:space:]]*-1",
+    "file_patterns": ["*.php"]
+  },
+  "remediation": {
+    "summary": "Set a reasonable numberposts limit",
+    "steps": [
+      "Replace numberposts => -1 with a specific limit (e.g., 100, 500)",
+      "Consider using posts_per_page instead (more consistent with WP_Query)",
+      "If you need all posts, use pagination with offset",
+      "For large datasets, implement batch processing"
+    ],
+    "examples": {
+      "bad": [
+        "get_posts(array('numberposts' => -1));",
+        "$posts = get_posts(array('post_type' => 'product', 'numberposts' => -1));"
+      ],
+      "good": [
+        "get_posts(array('numberposts' => 100));",
+        "$posts = get_posts(array('post_type' => 'product', 'posts_per_page' => 500));"
+      ]
+    },
+    "references": [
+      "https://developer.wordpress.org/reference/functions/get_posts/",
+      "https://10up.github.io/Engineering-Best-Practices/php/#performance"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "unbounded-query", "memory", "get-posts"],
+    "impact": "CRITICAL",
+    "likelihood": "HIGH",
+    "effort": "LOW"
+  }
+}
+

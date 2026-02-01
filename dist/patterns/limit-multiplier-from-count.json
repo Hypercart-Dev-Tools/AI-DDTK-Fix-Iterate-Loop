@@ -1,0 +1,29 @@
+{
+  "id": "limit-multiplier-from-count",
+  "version": "1.0.0",
+  "enabled": true,
+  "detection_type": "grep",
+  "category": "performance",
+  "severity": "MEDIUM",
+  "title": "Query limit multiplier derived from count()",
+  "description": "Detects patterns like count($ids) * N used to derive query limits/candidate limits. This can multiply unexpectedly and trigger OOM when combined with object hydration.",
+  "rationale": "Multipliers based on input size can balloon result sets (e.g., users × 10 × 5) and cascade into memory-heavy hydration (WC_Order/WP_Post objects).",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "count\\(",
+    "exclude_patterns": [
+      "//.*count\\("
+    ],
+    "post_process": {
+      "enabled": true,
+      "type": "context_analysis",
+      "description": "Flag lines that contain count(...) * <number> (heuristic signal)."
+    }
+  },
+  "test_fixture": {
+    "path": null,
+    "expected_violations": null,
+    "expected_valid": null
+  }
+}

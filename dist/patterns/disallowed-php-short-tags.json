@@ -1,0 +1,36 @@
+{
+  "id": "disallowed-php-short-tags",
+  "title": "Disallowed PHP short tags",
+  "description": "WordPress Coding Standards require full <?php tags instead of short tags (<?= or <? ). Short tags may not be enabled on all servers and can cause compatibility issues.",
+  "severity": "MEDIUM",
+  "category": "KISS",
+  "detection": {
+    "type": "simple",
+    "patterns": [
+      {
+        "pattern": "<\\?=",
+        "message": "PHP short echo tag (<?=) used - WordPress requires full <?php tags",
+        "file_patterns": ["*.php"]
+      },
+      {
+        "pattern": "<\\?[[:space:]]",
+        "message": "PHP short open tag (<? ) used - WordPress requires full <?php tags",
+        "file_patterns": ["*.php"],
+        "note": "Pattern matches <? followed by whitespace, which naturally excludes <?php and <?xml"
+      }
+    ]
+  },
+  "remediation": {
+    "recommendation": "Replace short tags with full <?php tags",
+    "example_before": "<?= esc_html($variable); ?>\n<? echo 'Hello'; ?>",
+    "example_after": "<?php echo esc_html($variable); ?>\n<?php echo 'Hello'; ?>"
+  },
+  "references": [
+    "https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/#opening-and-closing-php-tags",
+    "https://www.php.net/manual/en/language.basic-syntax.phptags.php"
+  ],
+  "tags": ["coding-standards", "compatibility", "php"],
+  "priority": "P3",
+  "tier": "T2"
+}
+

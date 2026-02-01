@@ -1,0 +1,101 @@
+{
+  "id": "headless-hardcoded-wordpress-url",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.79",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "maintainability",
+  "severity": "MEDIUM",
+  "title": "Hardcoded WordPress API URL",
+  "description": "Detects hardcoded WordPress REST API or GraphQL URLs instead of environment variables. Hardcoded URLs break deployments across different environments (dev, staging, production).",
+  "rationale": "Headless WordPress projects typically have different WordPress instances for development, staging, and production. Hardcoded URLs require code changes for each environment, increasing deployment risk.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "hardcoded-wp-json-url",
+        "pattern": "fetch\\([[:space:]]*['\"]https?://[^'\"]+/wp-json",
+        "description": "Hardcoded full URL to wp-json endpoint"
+      },
+      {
+        "id": "hardcoded-graphql-url",
+        "pattern": "uri:[[:space:]]*['\"]https?://[^'\"]+/graphql['\"]",
+        "description": "Hardcoded GraphQL endpoint in Apollo Client"
+      },
+      {
+        "id": "hardcoded-wordpress-domain",
+        "pattern": "(const|let|var)[[:space:]]+[A-Z_]*URL[[:space:]]*=[[:space:]]*['\"]https?://[^'\"]*wordpress[^'\"]*['\"]",
+        "description": "Hardcoded WordPress domain in constant"
+      },
+      {
+        "id": "axios-hardcoded-baseurl",
+        "pattern": "baseURL:[[:space:]]*['\"]https?://[^'\"]+['\"]",
+        "description": "Hardcoded baseURL in axios config"
+      }
+    ],
+    "exclude_patterns": [
+      "process\\.env\\.",
+      "import\\.meta\\.env\\.",
+      "example\\.com",
+      "localhost",
+      "127\\.0\\.0\\.1"
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*",
+      "*example*",
+      "*.md"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/headless/fetch-antipatterns.js",
+    "expected_violations": 2,
+    "violation_lines": [17, 35],
+    "notes": "Tests hardcoded URLs in fetch and constants"
+  },
+  "remediation": {
+    "summary": "Use environment variables for all WordPress URLs. Different frameworks have different conventions.",
+    "framework_examples": {
+      "nextjs": {
+        "env_file": ".env.local",
+        "variable": "NEXT_PUBLIC_WORDPRESS_URL=https://wp.example.com",
+        "usage": "fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wp/v2/posts`)"
+      },
+      "nuxt": {
+        "env_file": ".env",
+        "variable": "NUXT_PUBLIC_WORDPRESS_URL=https://wp.example.com",
+        "usage": "const config = useRuntimeConfig()\nfetch(`${config.public.wordpressUrl}/wp-json/wp/v2/posts`)"
+      },
+      "vite": {
+        "env_file": ".env",
+        "variable": "VITE_WORDPRESS_URL=https://wp.example.com",
+        "usage": "fetch(`${import.meta.env.VITE_WORDPRESS_URL}/wp-json/wp/v2/posts`)"
+      },
+      "gatsby": {
+        "env_file": ".env.development / .env.production",
+        "variable": "GATSBY_WORDPRESS_URL=https://wp.example.com",
+        "usage": "fetch(`${process.env.GATSBY_WORDPRESS_URL}/wp-json/wp/v2/posts`)"
+      }
+    },
+    "examples": [
+      {
+        "bad": "const client = new ApolloClient({\n  uri: 'https://mysite.com/graphql',\n});",
+        "good": "const client = new ApolloClient({\n  uri: process.env.NEXT_PUBLIC_GRAPHQL_URL,\n});",
+        "note": "Use environment variable for GraphQL endpoint"
+      },
+      {
+        "bad": "fetch('https://wordpress.mysite.com/wp-json/wp/v2/posts')",
+        "good": "fetch(`${process.env.NEXT_PUBLIC_WORDPRESS_URL}/wp-json/wp/v2/posts`)",
+        "note": "Use environment variable for WordPress URL"
+      }
+    ],
+    "env_file_example": "# .env.local (Next.js)\nNEXT_PUBLIC_WORDPRESS_URL=https://wp.example.com\nNEXT_PUBLIC_GRAPHQL_URL=https://wp.example.com/graphql\n\n# Server-only (not exposed to browser)\nWP_AUTH_TOKEN=secret_token_here"
+  },
+  "references": [
+    "https://nextjs.org/docs/basic-features/environment-variables",
+    "https://vitejs.dev/guide/env-and-mode.html",
+    "https://nuxt.com/docs/guide/directory-structure/env"
+  ]
+}
+

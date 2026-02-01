@@ -1,0 +1,126 @@
+{
+  "id": "superglobal-with-nonce-context",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.74",
+  "enabled": true,
+  "detection_type": "context-aware",
+  "category": "security",
+  "severity": "HIGH",
+  "title": "Context-aware superglobal detection with nonce verification",
+  "description": "Enhanced detection that checks for nonce verification before $_POST/$_GET access. Skips findings when proper nonce + sanitization pattern is detected.",
+  "rationale": "WordPress best practice is to verify nonce BEFORE accessing superglobals, then sanitize the input. This pattern recognizes properly secured code and reduces false positives.",
+  "detection": {
+    "type": "context-aware-grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "\\$_(GET|POST|REQUEST)\\[",
+    "context_window": {
+      "lines_before": 10,
+      "lines_after": 0
+    },
+    "safe_patterns": [
+      {
+        "name": "nonce_with_sanitization",
+        "description": "Nonce verification in previous 10 lines AND sanitization on current line",
+        "context_pattern": "check_ajax_referer|wp_verify_nonce|check_admin_referer",
+        "current_line_pattern": "sanitize_|esc_|absint|intval|wc_clean",
+        "action": "skip"
+      }
+    ],
+    "exclude_patterns": [
+      "sanitize_",
+      "esc_",
+      "absint",
+      "intval",
+      "wc_clean",
+      "wp_unslash",
+      "//.*\\$_"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/superglobal-nonce-context.php",
+    "expected_violations": 2,
+    "expected_safe": 3,
+    "test_cases": [
+      {
+        "name": "SAFE: AJAX with nonce + sanitization",
+        "code": "check_ajax_referer( 'my_nonce', 'nonce' );\n$value = isset( $_POST['key'] ) ? sanitize_text_field( $_POST['key'] ) : '';",
+        "should_pass": true
+      },
+      {
+        "name": "SAFE: Admin with nonce + absint",
+        "code": "check_admin_referer( 'my_action' );\n$id = isset( $_POST['id'] ) ? absint( $_POST['id'] ) : 0;",
+        "should_pass": true
+      },
+      {
+        "name": "UNSAFE: No nonce verification",
+        "code": "$value = isset( $_POST['key'] ) ? sanitize_text_field( $_POST['key'] ) : '';",
+        "should_pass": false
+      },
+      {
+        "name": "UNSAFE: Nonce but no sanitization",
+        "code": "check_ajax_referer( 'my_nonce', 'nonce' );\n$value = $_POST['key'];",
+        "should_pass": false
+      }
+    ]
+  },
+  "irl_examples": [
+    {
+      "file": "temp/includes/class-ptt-timer-ajax.php",
+      "line": 56,
+      "plugin": "PTT Time Tracker v1.0.8",
+      "code": "$task_id = isset( $_POST['task_id'] ) ? absint( $_POST['task_id'] ) : 0;",
+      "context": "Line 54: check_ajax_referer( 'ptt_timer_nonce', 'nonce' );",
+      "status": "SAFE - Nonce verified 2 lines before, absint() sanitization applied",
+      "previously_flagged": true,
+      "now_skipped": true
+    },
+    {
+      "file": "temp/includes/admin/class-ptt-client-metabox.php",
+      "line": 141,
+      "plugin": "PTT Time Tracker v1.0.8",
+      "code": "if ( ! isset( $_POST['ptt_client_nonce'] ) || ! wp_verify_nonce( $_POST['ptt_client_nonce'], 'ptt_client_metabox' ) )",
+      "context": "Nonce verification check",
+      "status": "SAFE - Standard WordPress nonce verification pattern",
+      "previously_flagged": true,
+      "now_skipped": true
+    }
+  ],
+  "remediation": {
+    "summary": "This pattern is now recognized as SAFE when nonce verification precedes sanitized superglobal access",
+    "best_practice": "Always follow this pattern:\n1. Verify nonce (check_ajax_referer, wp_verify_nonce, check_admin_referer)\n2. Sanitize input (sanitize_*, esc_*, absint, intval)\n3. Use the data",
+    "examples": [
+      {
+        "pattern": "AJAX Handler",
+        "code": "public function handle_ajax() {\n  check_ajax_referer( 'my_nonce', 'nonce' );\n  $value = isset( $_POST['key'] ) ? sanitize_text_field( $_POST['key'] ) : '';\n  // Use $value safely\n}"
+      },
+      {
+        "pattern": "Admin Form Handler",
+        "code": "public function save_settings() {\n  check_admin_referer( 'my_settings_action' );\n  $option = isset( $_POST['option'] ) ? sanitize_text_field( $_POST['option'] ) : '';\n  update_option( 'my_option', $option );\n}"
+      }
+    ]
+  },
+  "calibration": {
+    "version": "1.0.74",
+    "date": "2026-01-02",
+    "reason": "Reduce false positives from 36 to near-zero for properly secured WordPress code",
+    "test_plugin": "PTT Time Tracker v1.0.8",
+    "before": {
+      "total_findings": 36,
+      "false_positives": 36,
+      "true_positives": 0
+    },
+    "after": {
+      "total_findings": "~0-2",
+      "false_positives": "~0",
+      "true_positives": "~0-2"
+    },
+    "impact": "Major reduction in false positives while maintaining security rigor"
+  },
+  "references": [
+    "https://developer.wordpress.org/apis/security/nonces/",
+    "https://developer.wordpress.org/apis/security/sanitizing-securing-output/",
+    "https://developer.wordpress.org/plugins/security/data-validation/"
+  ],
+  "notes": "This context-aware detection represents Phase 1 of calibration improvements. It recognizes the standard WordPress security pattern: nonce verification followed by sanitized input access."
+}
+

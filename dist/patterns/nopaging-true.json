@@ -1,0 +1,45 @@
+{
+  "id": "nopaging-true",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "CRITICAL",
+  "title": "nopaging => true",
+  "description": "Detects WP_Query calls with 'nopaging' => true, which disables pagination and retrieves all matching posts, potentially causing memory exhaustion.",
+  "rationale": "Setting 'nopaging' => true tells WordPress to ignore pagination entirely and return all results. This is equivalent to posts_per_page => -1 and can crash sites with large datasets.",
+  "detection": {
+    "type": "simple",
+    "search_pattern": "nopaging[[:space:]]*=>[[:space:]]*true",
+    "file_patterns": ["*.php"]
+  },
+  "remediation": {
+    "summary": "Remove nopaging or set it to false, use pagination instead",
+    "steps": [
+      "Remove 'nopaging' => true from WP_Query arguments",
+      "Set a reasonable posts_per_page limit",
+      "Implement pagination with 'paged' parameter",
+      "Use 'no_found_rows' => true if you don't need pagination counts"
+    ],
+    "examples": {
+      "bad": [
+        "$query = new WP_Query(array('nopaging' => true));",
+        "new WP_Query(array('post_type' => 'product', 'nopaging' => true));"
+      ],
+      "good": [
+        "$query = new WP_Query(array('posts_per_page' => 100, 'no_found_rows' => true));",
+        "new WP_Query(array('post_type' => 'product', 'posts_per_page' => 500, 'paged' => $paged));"
+      ]
+    },
+    "references": [
+      "https://developer.wordpress.org/reference/classes/wp_query/#pagination-parameters",
+      "https://10up.github.io/Engineering-Best-Practices/php/#performance"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "unbounded-query", "memory", "wp-query", "pagination"],
+    "impact": "CRITICAL",
+    "likelihood": "MEDIUM",
+    "effort": "LOW"
+  }
+}
+

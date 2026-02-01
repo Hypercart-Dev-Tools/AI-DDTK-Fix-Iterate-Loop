@@ -1,0 +1,36 @@
+{
+  "id": "rest-no-pagination",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "CRITICAL",
+  "title": "REST endpoints without pagination/limits",
+  "description": "Detects register_rest_route() calls without pagination parameters (per_page, limit, page), which can cause unbounded queries and memory exhaustion.",
+  "rationale": "REST endpoints without pagination can fetch ALL records from the database, causing severe performance issues and potential denial of service. Always implement pagination for production endpoints.",
+  "detection": {
+    "type": "scripted",
+    "file_patterns": ["*.php"],
+    "search_pattern": "register_rest_route[[:space:]]*\\(",
+    "validator_script": "validators/context-pattern-absent-check.sh",
+    "validator_args": ["'per_page'|\"per_page\"|'page'|\"page\"|'limit'|\"limit\"|pagination|paged|per_page", "15", "after"]
+  },
+  "remediation": {
+    "summary": "Add pagination parameters to REST endpoint arguments and implement per_page limits in the callback.",
+    "examples": [
+      {
+        "bad": "register_rest_route( 'myplugin/v1', '/posts', array(\n  'methods' => 'GET',\n  'callback' => 'get_all_posts'\n) );",
+        "good": "register_rest_route( 'myplugin/v1', '/posts', array(\n  'methods' => 'GET',\n  'callback' => 'get_posts_paginated',\n  'args' => array(\n    'per_page' => array(\n      'default' => 10,\n      'sanitize_callback' => 'absint'\n    ),\n    'page' => array(\n      'default' => 1,\n      'sanitize_callback' => 'absint'\n    )\n  )\n) );",
+        "note": "Always add per_page and page arguments with sensible defaults."
+      }
+    ],
+    "references": [
+      "https://developer.wordpress.org/rest-api/extending-the-rest-api/adding-custom-endpoints/"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "rest-api", "pagination", "unbounded-query"],
+    "added_in_version": "1.0.0",
+    "last_updated": "1.3.16"
+  }
+}
+

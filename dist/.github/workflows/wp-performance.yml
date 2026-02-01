@@ -1,0 +1,194 @@
+# Neochrome WP Performance Checks - Reusable Workflow
+# Version: 1.0.5
+#
+# This workflow provides grep-based static analysis to catch common
+# WordPress/WooCommerce performance antipatterns before they hit production.
+#
+# Usage: Call this workflow from your plugin's CI workflow:
+#   jobs:
+#     performance:
+#       uses: neochrome/automated-wp-code-testing/.github/workflows/wp-performance.yml@main
+#       with:
+#         paths: 'includes/ src/'
+
+name: WP Performance Checks
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        description: 'PHP version to use'
+        default: '8.2'
+        type: string
+      paths:
+        description: 'Space-separated paths to scan (e.g., "includes/ src/")'
+        default: '.'
+        type: string
+      fail-on-warning:
+        description: 'Whether to fail the build on warnings (N+1 patterns)'
+        default: false
+        type: boolean
+      exclude-patterns:
+        description: 'Grep exclude patterns (e.g., "vendor/ node_modules/")'
+        default: 'vendor/ node_modules/ .git/'
+        type: string
+
+jobs:
+  grep-checks:
+    name: Performance Pattern Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build exclude arguments
+        id: excludes
+        run: |
+          EXCLUDE_ARGS=""
+          for pattern in ${{ inputs.exclude-patterns }}; do
+            EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude-dir=$pattern"
+          done
+          echo "args=$EXCLUDE_ARGS" >> $GITHUB_OUTPUT
+
+      # ============================================================
+      # CRITICAL: Unbounded Query Detection (fails build)
+      # ============================================================
+      - name: "🚨 Check: Unbounded WP_Query (posts_per_page => -1)"
+        run: |
+          echo "Scanning for unbounded posts_per_page..."
+          if grep -rn ${{ steps.excludes.outputs.args }} \
+            -e "posts_per_page[[:space:]]*=>[[:space:]]*-1" \
+            -e "'posts_per_page'[[:space:]]*=>[[:space:]]*-1" \
+            -e "\"posts_per_page\"[[:space:]]*=>[[:space:]]*-1" \
+            --include="*.php" ${{ inputs.paths }} 2>/dev/null; then
+            echo "::error::Found unbounded posts_per_page => -1. This can cause memory exhaustion."
+            exit 1
+          fi
+          echo "✅ No unbounded posts_per_page found"
+
+      - name: "🚨 Check: Unbounded numberposts"
+        run: |
+          echo "Scanning for unbounded numberposts..."
+          if grep -rn ${{ steps.excludes.outputs.args }} \
+            -e "numberposts[[:space:]]*=>[[:space:]]*-1" \
+            -e "'numberposts'[[:space:]]*=>[[:space:]]*-1" \
+            -e "\"numberposts\"[[:space:]]*=>[[:space:]]*-1" \
+            --include="*.php" ${{ inputs.paths }} 2>/dev/null; then
+            echo "::error::Found unbounded numberposts => -1. This can cause memory exhaustion."
+            exit 1
+          fi
+          echo "✅ No unbounded numberposts found"
+
+      - name: "🚨 Check: nopaging => true"
+        run: |
+          echo "Scanning for nopaging => true..."
+          if grep -rn ${{ steps.excludes.outputs.args }} \
+            -e "nopaging[[:space:]]*=>[[:space:]]*true" \
+            -e "'nopaging'[[:space:]]*=>[[:space:]]*true" \
+            -e "\"nopaging\"[[:space:]]*=>[[:space:]]*true" \
+            --include="*.php" ${{ inputs.paths }} 2>/dev/null; then
+            echo "::error::Found nopaging => true. This disables pagination limits."
+            exit 1
+          fi
+          echo "✅ No nopaging => true found"
+
+      - name: "🚨 Check: get_terms without number limit"
+        run: |
+          echo "Scanning for get_terms() without number parameter..."
+          # Find get_terms calls and check if 'number' is NOT in the same context
+          # This is a heuristic - flags calls that don't have 'number' within 5 lines
+          TERMS_FILES=$(grep -rln ${{ steps.excludes.outputs.args }} \
+            -e "get_terms[[:space:]]*(" \
+            --include="*.php" ${{ inputs.paths }} 2>/dev/null || true)
+
+          if [ -n "$TERMS_FILES" ]; then
+            UNBOUNDED=false
+            for file in $TERMS_FILES; do
+              # Check if file has get_terms without 'number' nearby
+              if grep -A5 "get_terms[[:space:]]*(" "$file" 2>/dev/null | grep -qv "'number'"; then
+                # Has get_terms but check if ANY call lacks number
+                if ! grep -A5 "get_terms[[:space:]]*(" "$file" 2>/dev/null | grep -q "'number'"; then
+                  echo "$file: get_terms() call may be missing 'number' parameter"
+                  UNBOUNDED=true
+                fi
+              fi
+            done
+            if [ "$UNBOUNDED" = true ]; then
+              echo "::error::Found get_terms() without 'number' parameter. This can return unlimited terms."
+              exit 1
+            fi
+          fi
+          echo "✅ No unbounded get_terms found"
+
+      - name: "🚨 Check: Unbounded wc_get_orders"
+        run: |
+          echo "Scanning for unbounded wc_get_orders..."
+          if grep -rn ${{ steps.excludes.outputs.args }} \
+            -e "wc_get_orders[[:space:]]*([[:space:]]*)" \
+            -e "wc_get_orders[[:space:]]*([[:space:]]*\[\]" \
+            -e "'limit'[[:space:]]*=>[[:space:]]*-1" \
+            --include="*.php" ${{ inputs.paths }} 2>/dev/null; then
+            echo "::error::Found potentially unbounded wc_get_orders. Always specify a limit."
+            exit 1
+          fi
+          echo "✅ No unbounded wc_get_orders found"
+
+      - name: "🚨 Check: Raw SQL without LIMIT"
+        run: |
+          echo "Scanning for raw SQL patterns..."
+          # Check for SELECT without LIMIT (simplified - catches common cases)
+          if grep -rn ${{ steps.excludes.outputs.args }} \
+            -e '\$wpdb->get_results.*SELECT.*FROM' \
+            --include="*.php" ${{ inputs.paths }} 2>/dev/null | \
+            grep -v "LIMIT" | grep -v "COUNT(" | grep -v "limit"; then
+            echo "::warning::Found \$wpdb->get_results() without apparent LIMIT clause. Review manually."
+          fi
+          echo "✅ Raw SQL check complete"
+
+      # ============================================================
+      # WARNING: N+1 Pattern Detection (warns, optionally fails)
+      # ============================================================
+      - name: "⚠️ Check: get_post_meta in loops"
+        run: |
+          echo "Scanning for potential N+1 patterns..."
+          FOUND=0
+          
+          # Look for foreach/while/for followed by get_post_meta within 10 lines
+          for file in $(find ${{ inputs.paths }} -name "*.php" -type f 2>/dev/null | grep -v vendor | grep -v node_modules); do
+            if grep -n "get_post_meta\|get_term_meta\|get_user_meta" "$file" 2>/dev/null | head -20; then
+              # Check if these appear near loop constructs
+              if grep -l "foreach\|while[[:space:]]*(" "$file" 2>/dev/null | xargs -I{} grep -l "get_post_meta\|get_term_meta" {} 2>/dev/null; then
+                echo "::warning file=$file::Potential N+1: meta function calls found in file with loops. Review for loop optimization."
+                FOUND=1
+              fi
+            fi
+          done
+          
+          if [ "$FOUND" = "1" ] && [ "${{ inputs.fail-on-warning }}" = "true" ]; then
+            echo "::error::N+1 patterns detected and fail-on-warning is enabled."
+            exit 1
+          fi
+          echo "✅ N+1 pattern check complete"
+
+      # ============================================================
+      # WARNING: Timezone Issues (WooCommerce specific)
+      # ============================================================
+      - name: "⚠️ Check: Timezone-sensitive patterns in queries"
+        run: |
+          echo "Scanning for timezone-sensitive patterns..."
+          if grep -rn ${{ steps.excludes.outputs.args }} \
+            -e "current_time[[:space:]]*([[:space:]]*['\"]timestamp['\"]" \
+            -e "date[[:space:]]*([[:space:]]*['\"][YmdHis-]*['\"]" \
+            --include="*.php" ${{ inputs.paths }} 2>/dev/null; then
+            echo "::warning::Found current_time('timestamp') or date() in query context. Consider using time() or gmdate() for UTC consistency and cache compatibility."
+          fi
+          echo "✅ Timezone check complete"
+
+      - name: "📊 Summary"
+        run: |
+          echo "================================"
+          echo "Performance check complete!"
+          echo "Scanned paths: ${{ inputs.paths }}"
+          echo "================================"
+

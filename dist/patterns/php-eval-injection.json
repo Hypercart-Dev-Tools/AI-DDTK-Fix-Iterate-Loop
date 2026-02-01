@@ -1,0 +1,67 @@
+{
+  "id": "php-eval-injection",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.3.7",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "CRITICAL",
+  "title": "Dangerous eval() usage in PHP",
+  "description": "Detects eval() calls in PHP code, which execute arbitrary code and are almost never safe in WordPress plugins/themes.",
+  "rationale": "eval() executes arbitrary PHP code. In WordPress plugins/themes it is almost never required and is a common malware/backdoor pattern.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "patterns": [
+      {
+        "id": "eval-call",
+        "pattern": "eval[[:space:]]*\\(",
+        "description": "Direct eval() call in PHP code"
+      }
+    ],
+    "exclude_patterns": [
+      "//.*eval",
+      "/\\*.*eval",
+      "preg_replace",
+      "assert[[:space:]]*\\("
+    ],
+    "exclude_files": [
+      "*/vendor/*",
+      "*/node_modules/*",
+      "*/tests/*",
+      "*/test/*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/eval-and-include-antipatterns.php",
+    "expected_violations": 2,
+    "notes": "Fixture contains eval() calls sourced from variables and superglobals."
+  },
+  "remediation": {
+    "summary": "Remove eval() usage entirely. Replace with safer alternatives such as dedicated functions, callbacks, or configuration-driven behavior.",
+    "examples": [
+      {
+        "bad": "eval($code);",
+        "good": "$allowed = ['one' => 'handler_one']; $fn = $allowed[$action] ?? null; if ($fn) { $fn(); }",
+        "note": "Use explicit dispatch tables instead of evaluating arbitrary code."
+      },
+      {
+        "bad": "eval($_POST['snippet']);",
+        "good": "// Reject user-supplied PHP and use structured configuration instead.",
+        "note": "Never execute user-supplied PHP code."
+      }
+    ]
+  },
+  "security_impact": {
+    "level": "CRITICAL",
+    "cwe": "CWE-94",
+    "owasp": "A03:2021 Injection",
+    "notes": "Arbitrary code execution allows full compromise of the WordPress site, database, and underlying server."
+  },
+  "references": [
+    "https://www.php.net/manual/en/function.eval.php",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html",
+    "https://cwe.mitre.org/data/definitions/94.html"
+  ]
+}
+

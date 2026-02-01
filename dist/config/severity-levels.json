@@ -1,0 +1,321 @@
+{
+  "_metadata": {
+	    "version": "1.3.9",
+    "description": "WP Code Check - Severity Level Customization",
+    "last_updated": "2026-01-14",
+	    "total_checks": 38,
+    "instructions": "Copy this file and edit 'level' fields to customize severity. Leave 'factory_default' unchanged for reference. Use --severity-config <path> to apply customizations. Any field starting with underscore (_comment, _note, _reason, _ticket, etc.) is ignored by the parser and can be used for documentation.",
+    "_comment": "Example: This comment field is ignored during parsing. Use it to document your configuration decisions."
+  },
+  "severity_levels": {
+    "spo-001-debug-code": {
+      "id": "spo-001-debug-code",
+      "name": "Debug code in production",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "Console.log, debugger, alert, var_dump, print_r, error_log in production code",
+      "_comment": "Example: You can add comments to any check to document why you changed the severity"
+    },
+    "hcc-001-localstorage-exposure": {
+      "id": "hcc-001-localstorage-exposure",
+      "name": "Sensitive data in localStorage/sessionStorage",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "Plugin, cache, user, admin, or settings data stored in browser storage accessible to front-end scripts"
+    },
+    "hcc-002-client-serialization": {
+      "id": "hcc-002-client-serialization",
+      "name": "Serialization of objects to client storage",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "Objects serialized with JSON.stringify and stored in localStorage/sessionStorage, often containing sensitive metadata"
+    },
+    "spo-003-insecure-deserialization": {
+      "id": "spo-003-insecure-deserialization",
+      "name": "Insecure data deserialization",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "Unserialize or maybe_unserialize on untrusted data without validation"
+    },
+    "php-eval-injection": {
+      "id": "php-eval-injection",
+      "name": "Dangerous eval() usage in PHP",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "eval() calls in PHP code, which execute arbitrary code and are almost never safe in WordPress plugins/themes"
+    },
+    "php-dynamic-include": {
+      "id": "php-dynamic-include",
+      "name": "Dynamic PHP include/require with variables",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "include/require statements where the path expression contains variables; dynamic paths can lead directly to local/remote file inclusion and remote code execution"
+    },
+    "php-shell-exec-functions": {
+      "id": "php-shell-exec-functions",
+      "name": "Shell command execution functions in PHP",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "Usage of shell_exec(), exec(), system(), or passthru() in PHP code. These functions execute system commands and are almost never safe in WordPress plugins/themes."
+    },
+    "php-user-controlled-file-write": {
+      "id": "php-user-controlled-file-write",
+      "name": "Direct file write with user-controlled path",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "file_put_contents(), fopen(), or move_uploaded_file() where the target path is derived directly from PHP superglobals such as $_GET, $_POST, or $_REQUEST."
+    },
+    "php-hardcoded-credentials": {
+      "id": "php-hardcoded-credentials",
+      "name": "Hardcoded credentials in PHP",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "API keys, secrets, tokens, or passwords hardcoded into PHP source files (variables, constants, or Authorization headers)."
+    },
+    "unbounded-posts-per-page": {
+      "id": "unbounded-posts-per-page",
+      "name": "Unbounded posts_per_page",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "WP_Query with posts_per_page => -1 (fetches all posts, can crash site)"
+    },
+    "unbounded-numberposts": {
+      "id": "unbounded-numberposts",
+      "name": "Unbounded numberposts",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "get_posts with numberposts => -1 (fetches all posts)"
+    },
+    "nopaging-true": {
+      "id": "nopaging-true",
+      "name": "nopaging => true",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "WP_Query with nopaging => true (disables pagination, fetches all results)"
+    },
+    "unbounded-wc-get-orders": {
+      "id": "unbounded-wc-get-orders",
+      "name": "Unbounded wc_get_orders limit",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "WooCommerce wc_get_orders with limit => -1 (fetches all orders)"
+    },
+    "get-users-no-limit": {
+      "id": "get-users-no-limit",
+      "name": "get_users without number limit",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "get_users() without 'number' parameter (fetches all users, can crash large sites)"
+    },
+    "get-terms-no-limit": {
+      "id": "get-terms-no-limit",
+      "name": "get_terms without number limit",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "get_terms() without 'number' parameter (fetches all terms)"
+    },
+    "pre-get-posts-unbounded": {
+      "id": "pre-get-posts-unbounded",
+      "name": "pre_get_posts forcing unbounded queries",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "pre_get_posts hook setting posts_per_page to -1 or nopaging to true"
+    },
+    "rest-no-pagination": {
+      "id": "rest-no-pagination",
+      "name": "REST endpoints without pagination/limits",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "REST API endpoints missing pagination or per_page limits"
+    },
+    "spo-002-superglobals": {
+      "id": "spo-002-superglobals",
+      "name": "Direct superglobal manipulation",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "security",
+      "description": "Direct manipulation of $_GET, $_POST, $_REQUEST, $_COOKIE without sanitization"
+    },
+    "admin-no-capability-check": {
+      "id": "admin-no-capability-check",
+      "name": "Admin functions without capability checks",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "security",
+      "description": "Admin menu callbacks or AJAX handlers missing current_user_can() checks"
+    },
+    "ajax-no-nonce": {
+      "id": "ajax-no-nonce",
+      "name": "wp_ajax handlers without nonce validation",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "security",
+      "description": "AJAX handlers missing wp_verify_nonce() or check_ajax_referer()"
+    },
+    "ajax-polling-unbounded": {
+      "id": "ajax-polling-unbounded",
+      "name": "Unbounded AJAX polling (setInterval + fetch/ajax)",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "performance",
+      "description": "setInterval with AJAX/fetch calls without rate limiting or visibility checks"
+    },
+    "hcc-005-expensive-polling": {
+      "id": "hcc-005-expensive-polling",
+      "name": "Expensive WP functions in polling intervals (HCC-005)",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "performance",
+      "description": "Expensive WordPress functions (get_plugins, get_themes, WP_Query, get_users) called in setInterval"
+    },
+    "unbounded-sql-terms": {
+      "id": "unbounded-sql-terms",
+      "name": "Unbounded SQL on wp_terms/wp_term_taxonomy",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "performance",
+      "description": "Direct SQL queries on wp_terms or wp_term_taxonomy without LIMIT clause"
+    },
+    "cron-interval-unvalidated": {
+      "id": "cron-interval-unvalidated",
+      "name": "Unvalidated cron intervals",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "security",
+      "description": "wp_schedule_event with user-controlled interval without validation"
+    },
+    "file-get-contents-url": {
+      "id": "file-get-contents-url",
+      "name": "file_get_contents with external URLs",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "security",
+      "description": "file_get_contents() used with external URLs instead of wp_remote_get()"
+    },
+    "order-by-rand": {
+      "id": "order-by-rand",
+      "name": "Randomized ordering (ORDER BY RAND)",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "performance",
+      "description": "SQL queries using ORDER BY RAND() which is extremely slow on large datasets"
+    },
+    "hcc-008-unsafe-regexp": {
+      "id": "hcc-008-unsafe-regexp",
+      "name": "User input in RegExp without escaping (HCC-008)",
+      "level": "MEDIUM",
+      "factory_default": "MEDIUM",
+      "category": "security",
+      "description": "RegExp constructor with concatenated variables (likely user input) without escaping, can lead to ReDoS"
+    },
+    "like-leading-wildcard": {
+      "id": "like-leading-wildcard",
+      "name": "LIKE queries with leading wildcards",
+      "level": "MEDIUM",
+      "factory_default": "MEDIUM",
+      "category": "performance",
+      "description": "SQL LIKE queries with leading % wildcard (cannot use indexes, slow on large tables)"
+    },
+    "n-plus-one-pattern": {
+      "id": "n-plus-one-pattern",
+      "name": "Potential N+1 patterns (meta in loops)",
+      "level": "CRITICAL",
+      "factory_default": "MEDIUM",
+      "category": "performance",
+      "description": "get_post_meta, get_user_meta, or get_term_meta called inside foreach loops",
+      "_comment": "Upgraded to CRITICAL - N+1 queries can bring down production sites with large datasets"
+    },
+    "transient-no-expiration": {
+      "id": "transient-no-expiration",
+      "name": "Transients without expiration",
+      "level": "MEDIUM",
+      "factory_default": "MEDIUM",
+      "category": "performance",
+      "description": "set_transient() called with 0 or no expiration (transients never expire, database bloat)"
+    },
+    "script-versioning-time": {
+      "id": "script-versioning-time",
+      "name": "Script/style versioning with time()",
+      "level": "MEDIUM",
+      "factory_default": "MEDIUM",
+      "category": "performance",
+      "description": "wp_enqueue_script/style using time() for version (breaks browser caching on every request)"
+    },
+    "http-no-timeout": {
+      "id": "http-no-timeout",
+      "name": "HTTP requests without timeout",
+      "level": "MEDIUM",
+      "factory_default": "MEDIUM",
+      "category": "performance",
+      "description": "wp_remote_get/post without timeout parameter (can hang indefinitely)",
+      "_note": "You can use any underscore-prefixed field (_note, _reason, _ticket, etc.)"
+    },
+    "timezone-sensitive": {
+      "id": "timezone-sensitive",
+      "name": "Timezone-sensitive patterns (current_time/date)",
+      "level": "LOW",
+      "factory_default": "LOW",
+      "category": "maintenance",
+      "description": "Using current_time() or date() without timezone awareness (can cause issues across timezones)",
+      "_ticket": "JIRA-1234 - Downgraded per team discussion 2025-12-31"
+    },
+    "disallowed-php-short-tags": {
+      "id": "disallowed-php-short-tags",
+      "name": "Disallowed PHP short tags",
+      "level": "MEDIUM",
+      "factory_default": "MEDIUM",
+      "category": "compatibility",
+      "description": "PHP short tags (<?= or <? ) are used. WordPress Coding Standards require full <?php tags for server compatibility"
+    },
+    "wpdb-query-no-prepare": {
+      "id": "wpdb-query-no-prepare",
+      "name": "Direct database queries without $wpdb->prepare()",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "$wpdb->query, get_var, get_row, get_results, or get_col called without $wpdb->prepare() - SQL injection risk"
+    },
+    "unsanitized-superglobal-read": {
+      "id": "unsanitized-superglobal-read",
+      "name": "Unsanitized superglobal read ($_GET/$_POST)",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "security",
+      "description": "Direct access to $_GET, $_POST, or $_REQUEST without sanitization functions (sanitize_*, esc_*, absint, intval, wc_clean, wp_unslash)"
+    },
+    "wcs-get-subscriptions-no-limit": {
+      "id": "wcs-get-subscriptions-no-limit",
+      "name": "WooCommerce Subscriptions queries without limits",
+      "level": "MEDIUM",
+      "factory_default": "MEDIUM",
+      "category": "performance",
+      "description": "WooCommerce Subscriptions functions (wcs_get_subscriptions, wcs_get_subscriptions_for_order, etc.) called without 'limit' parameter - can cause performance issues with large subscription counts"
+    },
+    "wc-n-plus-one-pattern": {
+      "id": "wc-n-plus-one-pattern",
+      "name": "WooCommerce N+1 patterns (WC functions in loops)",
+      "level": "HIGH",
+      "factory_default": "HIGH",
+      "category": "performance",
+      "description": "WooCommerce functions (wc_get_order, wc_get_product, get_post_meta, get_user_meta, ->get_meta) called inside loops over orders/products - causes query multiplication (100 orders × 3 meta queries = 300 queries)"
+    }
+  }
+}
+

@@ -1,0 +1,45 @@
+{
+  "id": "unbounded-posts-per-page",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "CRITICAL",
+  "title": "Unbounded posts_per_page",
+  "description": "Detects WP_Query or get_posts() calls with posts_per_page set to -1, which retrieves all posts without limit and can cause memory exhaustion.",
+  "rationale": "Setting posts_per_page => -1 disables pagination and loads all matching posts into memory. On sites with thousands of posts, this can exhaust PHP memory limits and crash the site.",
+  "detection": {
+    "type": "simple",
+    "search_pattern": "posts_per_page[[:space:]]*=>[[:space:]]*-1",
+    "file_patterns": ["*.php"]
+  },
+  "remediation": {
+    "summary": "Set a reasonable posts_per_page limit or use pagination",
+    "steps": [
+      "Replace posts_per_page => -1 with a specific limit (e.g., 100, 500)",
+      "If you need all posts, use pagination with offset/paged",
+      "Consider using WP_Query with 'no_found_rows' => true for better performance",
+      "For large datasets, implement batch processing with cron jobs"
+    ],
+    "examples": {
+      "bad": [
+        "$query = new WP_Query(array('posts_per_page' => -1));",
+        "get_posts(array('posts_per_page' => -1));"
+      ],
+      "good": [
+        "$query = new WP_Query(array('posts_per_page' => 100, 'no_found_rows' => true));",
+        "get_posts(array('posts_per_page' => 500, 'paged' => $paged));"
+      ]
+    },
+    "references": [
+      "https://developer.wordpress.org/reference/classes/wp_query/",
+      "https://10up.github.io/Engineering-Best-Practices/php/#performance"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "unbounded-query", "memory", "wp-query"],
+    "impact": "CRITICAL",
+    "likelihood": "HIGH",
+    "effort": "LOW"
+  }
+}
+

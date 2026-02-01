@@ -1,0 +1,22 @@
+{
+  "id": "unbounded-wc-get-products",
+  "version": "1.0.0",
+  "enabled": true,
+  "detection_type": "grep",
+  "category": "performance",
+  "severity": "CRITICAL",
+  "title": "Unbounded wc_get_products()",
+  "description": "Detects wc_get_products() calls with explicit 'limit' => -1.",
+  "rationale": "Like orders, products are heavy objects. Loading unlimited products causes memory exhaustion.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "wc_get_products\\(",
+    "exclude_patterns": [],
+    "post_process": {
+      "enabled": true,
+      "type": "context_analysis",
+      "description": "Check for 'limit' => -1 in context."
+    }
+  }
+}

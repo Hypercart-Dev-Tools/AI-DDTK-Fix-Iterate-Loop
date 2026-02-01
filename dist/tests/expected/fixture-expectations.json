@@ -1,0 +1,54 @@
+{
+  "_meta": {
+    "version": "2.1.0",
+    "updated": "2026-01-10",
+    "description": "Expected error/warning counts for fixture files",
+    "notes": "Counts based on scanner v1.2.2 - absolute path bug fixed, expectations now consistent for both path types"
+  },
+  "ajax-antipatterns.js": {
+    "errors": 2,
+    "warnings": { "min": 0, "max": 0 },
+    "description": "JavaScript polling antipatterns"
+  },
+  "ajax-antipatterns.php": {
+    "errors": 1,
+    "warnings": { "min": 0, "max": 0 },
+    "description": "REST/AJAX antipatterns"
+  },
+  "ajax-safe.php": {
+    "errors": 0,
+    "warnings": { "min": 0, "max": 0 },
+    "description": "Safe AJAX patterns (negative test)"
+  },
+  "antipatterns.php": {
+    "errors": 9,
+    "warnings": { "min": 2, "max": 2 },
+    "description": "Intentional antipatterns for detection validation"
+  },
+  "clean-code.php": {
+    "errors": 1,
+    "warnings": { "min": 0, "max": 0 },
+    "description": "Clean code with minimal issues"
+  },
+  "cron-interval-validation.php": {
+    "errors": 1,
+    "warnings": { "min": 0, "max": 0 },
+    "description": "Unvalidated cron intervals"
+  },
+  "db-query-in-constructor.php": {
+    "errors": 6,
+    "warnings": { "min": 0, "max": 0 },
+    "description": "Database queries in __construct() methods (includes 2 false positives with safety guards)"
+  },
+  "file-get-contents-url.php": {
+    "errors": 1,
+    "warnings": { "min": 0, "max": 0 },
+    "description": "file_get_contents() with URLs"
+  },
+  "http-no-timeout.php": {
+    "errors": 0,
+    "warnings": { "min": 1, "max": 1 },
+    "description": "HTTP requests without timeout"
+  }
+}
+

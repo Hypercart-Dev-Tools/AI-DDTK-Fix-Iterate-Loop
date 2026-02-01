@@ -1,0 +1,41 @@
+{
+  "id": "unbounded-sql-terms",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "HIGH",
+  "title": "Unbounded SQL on wp_terms/wp_term_taxonomy",
+  "description": "Detects direct SQL queries on wp_terms or wp_term_taxonomy tables without LIMIT clauses, which can cause performance issues on sites with many terms.",
+  "rationale": "Unbounded queries on taxonomy tables can fetch thousands of terms at once, leading to memory exhaustion and slow page loads. Always use LIMIT clauses for production queries.",
+  "detection": {
+    "type": "scripted",
+    "file_patterns": ["*.php"],
+    "search_pattern": "\\$wpdb->(terms|term_taxonomy)",
+    "validator_script": "validators/sql-limit-check.sh",
+    "validator_args": ["5"]
+  },
+  "remediation": {
+    "summary": "Add a LIMIT clause to SQL queries on taxonomy tables.",
+    "examples": [
+      {
+        "bad": "$wpdb->get_results( \"SELECT * FROM {$wpdb->terms}\" );",
+        "good": "$wpdb->get_results( \"SELECT * FROM {$wpdb->terms} LIMIT 100\" );",
+        "note": "Always add LIMIT to prevent unbounded queries."
+      },
+      {
+        "bad": "$wpdb->query( \"DELETE FROM {$wpdb->term_taxonomy} WHERE term_id = $id\" );",
+        "good": "$wpdb->query( $wpdb->prepare( \"DELETE FROM {$wpdb->term_taxonomy} WHERE term_id = %d LIMIT 1\", $id ) );",
+        "note": "Use LIMIT even for DELETE queries to prevent accidental mass deletions."
+      }
+    ],
+    "references": [
+      "https://developer.wordpress.org/reference/classes/wpdb/"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "database", "sql", "unbounded-query", "taxonomy"],
+    "added_in_version": "1.0.0",
+    "last_updated": "1.3.16"
+  }
+}
+

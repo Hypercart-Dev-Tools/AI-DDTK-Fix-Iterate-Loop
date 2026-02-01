@@ -1,0 +1,77 @@
+{
+  "id": "njs-003-path-traversal",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.81",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "HIGH",
+  "title": "Potential path traversal in fs operations",
+  "description": "Detects file system operations that may be vulnerable to path traversal attacks via '../' sequences in user input.",
+  "rationale": "When user input is used directly in file paths without validation, attackers can use '../' sequences to access files outside the intended directory (e.g., /etc/passwd, configuration files, source code).",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "fs-concat-path",
+        "pattern": "fs\\.(readFile|readFileSync|writeFile|writeFileSync|unlink|unlinkSync)[[:space:]]*\\([^)]*\\+",
+        "description": "fs operation with string concatenation"
+      },
+      {
+        "id": "fs-variable-path",
+        "pattern": "fs\\.(readFile|readFileSync|writeFile|writeFileSync)[[:space:]]*\\([[:space:]]*[a-zA-Z_$][a-zA-Z0-9_$]*[[:space:]]*[,)]",
+        "description": "fs operation with direct variable path"
+      }
+    ],
+    "exclude_patterns": [
+      "path\\.join",
+      "path\\.resolve",
+      "path\\.basename",
+      "__dirname",
+      "__filename",
+      "//.*fs\\.",
+      "/\\*.*fs\\."
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*",
+      "webpack.config.js",
+      "gulpfile.js"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/js/security-antipatterns.js",
+    "expected_violations": 4,
+    "violation_lines": [79, 84, 89, 94],
+    "notes": "Tests fs.readFile, writeFile, unlink with user paths"
+  },
+  "remediation": {
+    "summary": "Always validate and sanitize file paths. Use path.basename() to strip directory components, path.join() with a base directory, and validate the resolved path stays within allowed directories.",
+    "examples": [
+      {
+        "bad": "fs.readFile('/uploads/' + userFilename, callback)",
+        "good": "const safePath = path.join('/uploads', path.basename(userFilename));\nfs.readFile(safePath, callback)",
+        "note": "path.basename strips directory traversal attempts"
+      },
+      {
+        "bad": "fs.readFileSync(userPath)",
+        "good": "const resolved = path.resolve(baseDir, userInput);\nif (!resolved.startsWith(baseDir)) throw new Error('Invalid path');\nfs.readFileSync(resolved)",
+        "note": "Validate resolved path is within allowed directory"
+      }
+    ],
+    "validation_pattern": "const safePath = path.join(UPLOAD_DIR, path.basename(userInput));\nconst resolved = path.resolve(safePath);\nif (!resolved.startsWith(path.resolve(UPLOAD_DIR))) {\n  throw new Error('Path traversal attempt');\n}"
+  },
+  "security_impact": {
+    "level": "HIGH",
+    "cwe": "CWE-22",
+    "owasp": "A01:2021 Broken Access Control",
+    "notes": "Path traversal can expose sensitive files (configs, credentials), source code, or enable arbitrary file read/write/delete"
+  },
+  "references": [
+    "https://nodejs.org/api/path.html",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Path_Traversal_Cheat_Sheet.html",
+    "https://cwe.mitre.org/data/definitions/22.html"
+  ]
+}
+

@@ -1,0 +1,176 @@
+# ============================================================================
+# CI Workflow for WP Code Check by Hypercart
+# ============================================================================
+#
+# ⚠️  WARNING: This is the ONLY workflow file that should exist in this repo!
+#
+# This consolidated workflow handles ALL CI needs:
+#   - Performance checks and audits
+#   - Test fixture validation (DISABLED - hangs in CI, see PROJECT/2-WORKING/FIX-CI-TEST-HANG.md)
+#   - Slack notifications (on PR failures only)
+#   - Artifact uploads
+#
+# TRIGGERS:
+#   - Pull requests to main/development branches
+#   - Manual runs via workflow_dispatch
+#   - Does NOT run on push to reduce CI noise
+#
+# DO NOT create additional workflow files for:
+#   - Slack notifications (already integrated here)
+#   - Performance audits (already integrated here)
+#   - Additional CI checks (add them to this file instead)
+#
+# If you need to modify CI behavior, edit THIS file only.
+# Multiple workflows cause duplicate runs and waste CI resources.
+#
+# History: Consolidated from 3 separate workflows on 2025-12-31
+#   - Removed: performance-audit-slack.yml
+#   - Removed: performance-audit-slack-on-failure.yml
+#   - Kept: ci.yml (this file) with all functionality merged
+#   - Triggers: Only on PRs (not on push) to reduce CI noise
+#
+# ============================================================================
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - development
+  workflow_dispatch:  # Allow manual triggers
+
+# Prevent duplicate runs: use branch name as concurrency key
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  performance-checks:
+    name: Performance Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install jq (for JSON processing and Slack)
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Make scripts executable
+        run: |
+          chmod +x ./dist/bin/check-performance.sh
+          chmod +x ./dist/tests/run-fixture-tests.sh
+          chmod +x ./dist/bin/post-to-slack.sh
+
+      - name: Run performance audit
+        id: audit
+        run: |
+          echo "Running performance audit on toolkit repository..."
+
+          # Run in JSON mode for Slack integration
+          ./dist/bin/check-performance.sh \
+            --paths "." \
+            --format json \
+            --strict \
+            > audit-results.json && EXIT_CODE=0 || EXIT_CODE=$?
+
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # Show summary in workflow logs
+          if [ -f audit-results.json ]; then
+            echo "## Performance Audit Summary"
+            jq -r '.summary // "No summary available"' audit-results.json || echo "Could not parse summary"
+          fi
+
+          # Don't fail the step yet - we want to send Slack notification first
+          exit 0
+        continue-on-error: true
+
+      - name: Post failure to Slack (on PR failures only)
+        if: steps.audit.outputs.exit_code != '0'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            echo "📤 Posting failure to Slack..."
+            ./dist/bin/post-to-slack.sh audit-results.json --format detailed || {
+              echo "::warning::Failed to post to Slack"
+            }
+          else
+            echo "ℹ️  SLACK_WEBHOOK_URL not configured, skipping Slack notification"
+          fi
+
+      - name: Upload audit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-audit-results-${{ github.run_number }}
+          path: audit-results.json
+          retention-days: 30
+
+      - name: Display check info
+        if: always()
+        run: |
+          EXIT_CODE="${{ steps.audit.outputs.exit_code }}"
+          if [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "::warning::Performance audit found issues (exit code: $EXIT_CODE)"
+            echo "Note: The toolkit itself may have intentional patterns for testing"
+            echo "This is informational for the toolkit repository"
+          else
+            echo "✅ Performance checks completed successfully"
+          fi
+
+  # DISABLED: Test fixtures hang in CI environment
+  # See: PROJECT/2-WORKING/FIX-CI-TEST-HANG.md
+  # validate-test-fixtures:
+  #   name: Validate Test Fixtures
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     contents: read
+  #
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Install dependencies
+  #       run: sudo apt-get update && sudo apt-get install -y jq
+  #
+  #     - name: Environment snapshot
+  #       run: |
+  #         echo "=== CI Environment Diagnostic ==="
+  #         echo "OS: $(uname -a)"
+  #         echo "Shell: $SHELL ($BASH_VERSION)"
+  #         echo "jq: $(command -v jq && jq --version || echo 'NOT INSTALLED')"
+  #         echo "perl: $(perl -v | head -2)"
+  #         echo "grep: $(grep --version | head -1)"
+  #         echo "================================="
+  #
+  #     - name: Make scripts executable
+  #       run: |
+  #         chmod +x ./dist/bin/check-performance.sh
+  #         chmod +x ./dist/tests/run-fixture-tests.sh
+  #
+  #     - name: Run automated fixture tests
+  #       run: |
+  #         echo "Running automated fixture validation..."
+  #         cd dist && ./tests/run-fixture-tests.sh
+  #
+  #     - name: Test antipatterns detection (legacy check)
+  #       run: |
+  #         echo "Testing that antipatterns are correctly detected..."
+  #         if ./dist/bin/check-performance.sh --paths "dist/tests/fixtures/antipatterns.php" --no-log; then
+  #           echo "::error::Antipatterns should have been detected but weren't!"
+  #           exit 1
+  #         else
+  #           echo "✅ Antipatterns correctly detected (expected failure)"
+  #           exit 0
+  #         fi
+  #
+  #     - name: Test clean code passes
+  #       run: |
+  #         echo "Testing that clean code passes checks..."
+  #         # Clean code might have N+1 warnings, so we don't use --strict
+  #         ./dist/bin/check-performance.sh --paths "dist/tests/fixtures/clean-code.php" --no-log || {
+  #           echo "::warning::Clean code fixture has warnings (this is acceptable)"
+  #         }
+  #         echo "✅ Clean code validation complete"

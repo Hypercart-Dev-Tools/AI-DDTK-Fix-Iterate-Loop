@@ -1,0 +1,50 @@
+{
+  "id": "timezone-sensitive-code",
+  "version": "1.0.0",
+  "enabled": true,
+  "title": "Timezone-sensitive patterns (current_time/date)",
+  "description": "Detects timezone-sensitive functions that may cause inconsistent behavior across different server configurations. Uses current_time('timestamp') or date() without proper timezone handling.",
+  "severity": "LOW",
+  "category": "Performance",
+  "detection": {
+    "type": "scripted",
+    "search_pattern": "current_time[[:space:]]*\\([[:space:]]*['\"]timestamp|[^a-zA-Z_]date[[:space:]]*\\(",
+    "file_patterns": ["*.php"],
+    "validator_script": "validators/phpcs-ignore-check.sh",
+    "context_lines": 10,
+    "notes": [
+      "Combines two patterns: current_time('timestamp') and date()",
+      "The date() pattern excludes gmdate() by requiring non-word character before 'date'",
+      "Validator checks for phpcs:ignore suppression comments"
+    ]
+  },
+  "remediation": {
+    "recommendation": "Use timezone-safe alternatives or add phpcs:ignore comment if timezone-awareness is intentional",
+    "examples": {
+      "bad": [
+        "current_time('timestamp')",
+        "$now = date('Y-m-d H:i:s');"
+      ],
+      "good": [
+        "time()  // Always UTC",
+        "gmdate('Y-m-d H:i:s')  // Always UTC",
+        "// phpcs:ignore -- Intentionally using local timezone\n$local_time = date('Y-m-d H:i:s');"
+      ]
+    },
+    "notes": [
+      "WordPress stores all dates/times in UTC in the database",
+      "Use gmdate() for consistent UTC timestamps",
+      "Use current_time('mysql') for display purposes only",
+      "Add phpcs:ignore comment if local timezone is intentional"
+    ]
+  },
+  "references": [
+    "https://developer.wordpress.org/reference/functions/current_time/",
+    "https://developer.wordpress.org/apis/handbook/common-apis/working-with-dates-and-times/",
+    "https://make.wordpress.org/core/2019/09/23/date-time-improvements-wp-5-3/"
+  ],
+  "tags": ["timezone", "date", "time", "utc", "performance"],
+  "priority": "P3",
+  "tier": "T2"
+}
+

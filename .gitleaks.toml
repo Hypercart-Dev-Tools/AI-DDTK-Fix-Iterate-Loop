@@ -1,0 +1,20 @@
+# Gitleaks configuration for WP Code Check
+# Excludes test fixtures containing fake secrets
+
+title = "WP Code Check - Gitleaks Configuration"
+
+# Exclude test files and fixtures from secret scanning
+[allowlist]
+description = "Allowlist for test fixtures with fake secrets"
+paths = [
+  '''dist/tests/.*''',
+  '''dist/tests/fixtures/.*''',
+  '''tests/.*''',
+]
+
+# Exclude specific patterns that are known to be test data
+regexes = [
+  '''sk_live_1234567890abcdef1234567890abcdef''',  # Fake Stripe key in test-js-pattern.js
+  '''ghp_1234567890abcdefghijklmnopqrstuvwxyz''',  # Fake GitHub token in test-js-pattern.js
+]
+

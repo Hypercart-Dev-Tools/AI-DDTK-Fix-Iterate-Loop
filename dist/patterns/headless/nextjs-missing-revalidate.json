@@ -1,0 +1,73 @@
+{
+  "id": "headless-nextjs-missing-revalidate",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.79",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "performance",
+  "severity": "MEDIUM",
+  "title": "Next.js getStaticProps without revalidate (stale WordPress data)",
+  "description": "Detects Next.js getStaticProps that fetch WordPress data but don't include a revalidate property, causing WordPress content to never update after initial build.",
+  "rationale": "Without revalidate (ISR - Incremental Static Regeneration), pages built at deploy time will never show new WordPress content until the next deployment. This defeats the purpose of a CMS where content editors expect changes to appear.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "getStaticProps-no-revalidate",
+        "pattern": "export[[:space:]]+(async[[:space:]]+)?function[[:space:]]+getStaticProps",
+        "context_check": {
+          "window": 20,
+          "must_contain": ["wp-json", "graphql", "wordpress"],
+          "must_not_contain": ["revalidate"]
+        },
+        "description": "getStaticProps fetching WordPress data without revalidate"
+      },
+      {
+        "id": "getStaticProps-arrow-no-revalidate",
+        "pattern": "export[[:space:]]+const[[:space:]]+getStaticProps[[:space:]]*=[[:space:]]*(async)?",
+        "context_check": {
+          "window": 20,
+          "must_contain": ["wp-json", "graphql", "wordpress"],
+          "must_not_contain": ["revalidate"]
+        },
+        "description": "Arrow function getStaticProps without revalidate"
+      }
+    ],
+    "exclude_patterns": [
+      "revalidate:",
+      "revalidate ="
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/headless/nextjs-antipatterns.js",
+    "expected_violations": 2,
+    "violation_lines": [16, 27],
+    "notes": "Tests getStaticProps without revalidate property"
+  },
+  "remediation": {
+    "summary": "Always add a revalidate property to getStaticProps when fetching WordPress data. This enables ISR so pages regenerate periodically.",
+    "examples": [
+      {
+        "bad": "export async function getStaticProps() {\n  const posts = await fetch('/wp-json/wp/v2/posts').then(r => r.json());\n  return { props: { posts } };\n}",
+        "good": "export async function getStaticProps() {\n  const posts = await fetch('/wp-json/wp/v2/posts').then(r => r.json());\n  return {\n    props: { posts },\n    revalidate: 60, // Regenerate page every 60 seconds\n  };\n}",
+        "note": "Add revalidate for ISR"
+      }
+    ],
+    "recommended_revalidate_values": {
+      "blog_posts": "60-300 (1-5 minutes)",
+      "product_pages": "60 (1 minute for inventory)",
+      "static_pages": "3600 (1 hour)",
+      "frequently_updated": "10-30 seconds"
+    }
+  },
+  "references": [
+    "https://nextjs.org/docs/basic-features/data-fetching/incremental-static-regeneration",
+    "https://vercel.com/docs/concepts/incremental-static-regeneration/overview"
+  ]
+}
+

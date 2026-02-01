@@ -1,0 +1,193 @@
+# WP Code Check - Public Repository .gitignore
+# Protects user-generated content and proprietary information
+
+# ============================================
+# USER-GENERATED CONTENT (Never commit these)
+# ============================================
+
+# Log files from scans (may contain file paths and code snippets)
+dist/logs/*.log
+dist/logs/*.json
+!dist/logs/.gitkeep
+
+# HTML reports from scans (may contain proprietary code)
+dist/reports/*.html
+!dist/reports/.gitkeep
+
+# User-created project templates (contain absolute paths)
+dist/TEMPLATES/*.txt
+!dist/TEMPLATES/_TEMPLATE.txt
+!dist/TEMPLATES/_AI_INSTRUCTIONS.md
+!dist/TEMPLATES/README.md
+!dist/TEMPLATES/.gitkeep
+
+# Baseline files (contain project-specific findings)
+# Exception: Test fixture baseline is needed for CI tests
+!dist/tests/fixtures/.hcc-baseline
+.hcc-baseline
+*.hcc-baseline
+**/.hcc-baseline
+
+# IRL (In Real Life) examples - user-generated real-world code samples
+# Keep: folder structure and documentation
+# Ignore: actual code files (may contain proprietary code)
+dist/tests/irl/*
+!dist/tests/irl/
+!dist/tests/irl/README.md
+!dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md
+!dist/tests/irl/.gitkeep
+
+# Auto-generated pattern library files (managed by pattern-library-manager.sh)
+# The main JSON/Markdown artifacts are generated as needed; temp files are
+# cleaned up automatically but we ignore any that leak through.
+dist/PATTERN-LIBRARY.json
+dist/PATTERN-LIBRARY.md
+dist/PATTERN-LIBRARY.json.tmp.*
+dist/PATTERN-LIBRARY.md.tmp.*
+
+# Data analysis temporary files (from STANDARDIZED DATA ANALYSIS PATTERN)
+# See AGENTS.md for usage guidelines
+data-stream.json
+data-stream-*.json
+data-stream.txt
+data-stream.csv
+
+# ============================================
+# DEVELOPMENT & TESTING
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.directory
+.fuse_hidden*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+*.bak
+*.tmp
+*.temp
+.project
+.settings/
+.classpath
+
+# ============================================
+# DEPENDENCIES (if added in future)
+# ============================================
+
+# Node modules (if JS tooling added)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+
+# Composer (if PHP dependencies added)
+vendor/
+composer.lock
+
+# ============================================
+# BUILD ARTIFACTS
+# ============================================
+
+# Compressed archives
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Distribution builds
+dist-release/
+build/
+
+# ============================================
+# SECURITY & CREDENTIALS
+# ============================================
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.production
+
+# SSH keys
+*.pem
+*.key
+*.pub
+id_rsa*
+id_ed25519*
+
+# API keys and secrets
+secrets.txt
+credentials.json
+*.credentials
+.secrets/
+
+# SSL certificates
+*.crt
+*.cer
+*.p12
+
+# ============================================
+# TESTING & CI/CD
+# ============================================
+
+# Test coverage
+coverage/
+.nyc_output/
+htmlcov/
+
+# PHPUnit
+phpunit.xml
+.phpunit.result.cache
+
+# Jest
+jest.config.js
+
+# ============================================
+# MISC
+# ============================================
+
+# Temporary files
+tmp/
+temp/
+temp*
+*.cache
+.cache/
+
+# Generic log files (but not our dist/logs/ folder which has .gitkeep)
+*.log
+*.log.*
+
+# OS generated files
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Backup files
+*.backup
+*.old
+*.orig
+
+/Local Dev Output

@@ -1,0 +1,88 @@
+{
+  "id": "njs-002-command-injection",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.81",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "CRITICAL",
+  "title": "Potential command injection (child_process)",
+  "description": "Detects usage of child_process.exec, execSync, or spawn with shell:true that may be vulnerable to command injection.",
+  "rationale": "child_process functions that accept string commands or enable shell mode can execute arbitrary system commands. When user input reaches these functions, attackers can run malicious commands on the server.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "exec-variable",
+        "pattern": "exec[[:space:]]*\\([[:space:]]*[a-zA-Z_$]",
+        "description": "exec() with variable argument"
+      },
+      {
+        "id": "execSync-variable",
+        "pattern": "execSync[[:space:]]*\\([[:space:]]*[a-zA-Z_$]",
+        "description": "execSync() with variable argument"
+      },
+      {
+        "id": "spawn-shell-true",
+        "pattern": "spawn[[:space:]]*\\([^)]*shell:[[:space:]]*true",
+        "description": "spawn() with shell: true option"
+      }
+    ],
+    "exclude_patterns": [
+      "//.*exec",
+      "/\\*.*exec",
+      "execFile",
+      "\\.test\\."
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*",
+      "gulpfile.js",
+      "webpack.config.js"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/js/security-antipatterns.js",
+    "expected_violations": 4,
+    "violation_lines": [52, 58, 64, 70],
+    "notes": "Tests exec, execSync, spawn with shell:true"
+  },
+  "remediation": {
+    "summary": "Use execFile() with argument arrays instead of exec(). Never pass user input directly to shell commands. Validate and sanitize all inputs.",
+    "examples": [
+      {
+        "bad": "exec('grep -r \"' + userInput + '\" /var/www')",
+        "good": "execFile('grep', ['-r', userInput, '/var/www'])",
+        "note": "execFile with argument array prevents shell injection"
+      },
+      {
+        "bad": "spawn(userCommand, { shell: true })",
+        "good": "spawn('safe-command', userArgs)",
+        "note": "Avoid shell: true, use argument array"
+      },
+      {
+        "bad": "execSync(userCommand)",
+        "good": "execFileSync('known-command', [validated_arg])",
+        "note": "Use execFileSync and validate arguments"
+      }
+    ],
+    "safe_alternatives": [
+      "execFile() - Takes command and args separately, no shell interpretation",
+      "spawnSync() without shell: true - Safe argument passing",
+      "child_process.fork() - For running Node.js scripts only"
+    ]
+  },
+  "security_impact": {
+    "level": "CRITICAL",
+    "cwe": "CWE-78",
+    "owasp": "A03:2021 Injection",
+    "notes": "Command injection can lead to complete server compromise, data exfiltration, ransomware, or lateral movement in the network"
+  },
+  "references": [
+    "https://nodejs.org/api/child_process.html#child_processexeccommand-options-callback",
+    "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+    "https://cwe.mitre.org/data/definitions/78.html"
+  ]
+}
+

@@ -1,0 +1,57 @@
+{
+  "id": "array-merge-in-loop",
+  "version": "1.0.0",
+  "enabled": true,
+  "title": "array_merge() inside loops (heuristic)",
+  "description": "Detects array_merge() calls inside loops that can cause quadratic memory usage and performance degradation. The pattern $x = array_merge($x, ...) inside a loop creates a new array on each iteration.",
+  "severity": "LOW",
+  "category": "Performance",
+  "detection": {
+    "type": "scripted",
+    "search_pattern": "\\$[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*=[[:space:]]*array_merge\\([[:space:]]*\\$[a-zA-Z_][a-zA-Z0-9_]*[[:space:]]*,",
+    "file_patterns": ["*.php"],
+    "validator_script": "validators/loop-context-check.sh",
+    "context_lines": 15,
+    "notes": [
+      "Targets the expensive form: $x = array_merge($x, ...)",
+      "Validator checks for loop keywords (foreach, for, while) within 15 lines before the match",
+      "Only flags when loop context is detected"
+    ]
+  },
+  "remediation": {
+    "recommendation": "Use array append operator [] or preallocate arrays instead of array_merge() in loops",
+    "examples": {
+      "bad": [
+        "foreach ($items as $item) {",
+        "    $result = array_merge($result, process($item));  // Quadratic memory usage",
+        "}"
+      ],
+      "good": [
+        "// Option 1: Use array append",
+        "foreach ($items as $item) {",
+        "    $result[] = process($item);",
+        "}",
+        "",
+        "// Option 2: Collect then merge once",
+        "$chunks = [];",
+        "foreach ($items as $item) {",
+        "    $chunks[] = process($item);",
+        "}",
+        "$result = array_merge(...$chunks);  // Single merge operation"
+      ]
+    },
+    "notes": [
+      "array_merge() creates a new array on each call, copying all elements",
+      "In a loop with N iterations, this causes O(N²) memory allocations",
+      "Using [] append is O(1) per iteration, O(N) total",
+      "If you must merge arrays in a loop, collect them and merge once after the loop"
+    ]
+  },
+  "references": [
+    "https://www.php.net/manual/en/function.array-merge.php",
+    "https://stackoverflow.com/questions/559844/whats-better-to-use-in-php-array-value-or-array-pusharray-value"
+  ],
+  "tags": ["array", "loop", "performance", "memory", "quadratic"],
+  "priority": "P3",
+  "tier": "T2"
+}

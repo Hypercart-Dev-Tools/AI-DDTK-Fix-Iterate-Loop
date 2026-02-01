@@ -1,0 +1,132 @@
+{
+  "id": "wc-smart-coupons-thankyou-perf",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.1.1",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "performance",
+  "severity": "HIGH",
+  "title": "WooCommerce Smart Coupons active with potential thank-you page performance impact",
+  "description": "Detects WooCommerce Smart Coupons plugin which is known to trigger expensive database queries (LOWER(post_title) lookups) on the thank-you/order-received page. This can cause 15-30 second page load times on sites with large wp_posts tables.",
+  "rationale": "WooCommerce Smart Coupons hooks into woocommerce_thankyou and performs coupon lookups using wc_get_coupon_id_by_code(), which triggers a slow query: SELECT ID FROM wp_posts WHERE LOWER(post_title) = LOWER('code') AND post_type = 'shop_coupon'. This query: (1) Cannot use indexes due to LOWER() function, (2) Scans hundreds of thousands of rows, (3) Runs on every thank-you page load, (4) Blocks page rendering. On sites with 300k+ posts, this can cause 19+ second delays.",
+  "detection": {
+    "type": "multi_step_grep",
+    "description": "Two-step detection: (1) Detect Smart Coupons plugin files, (2) Check for thank-you page hooks or wc_get_coupon_id_by_code usage",
+    "file_patterns": ["*.php"],
+    "step_1": {
+      "description": "Detect WooCommerce Smart Coupons plugin presence",
+      "patterns": [
+        {
+          "id": "smart-coupons-main-file",
+          "pattern": "Plugin Name:[[:space:]]*WooCommerce Smart Coupons",
+          "description": "Smart Coupons plugin header"
+        },
+        {
+          "id": "smart-coupons-class",
+          "pattern": "class[[:space:]]+WC_Smart_Coupons|class[[:space:]]+Smart_Coupons",
+          "description": "Smart Coupons main class"
+        },
+        {
+          "id": "smart-coupons-namespace",
+          "pattern": "namespace[[:space:]]+WooCommerce\\\\SmartCoupons",
+          "description": "Smart Coupons namespace"
+        },
+        {
+          "id": "smart-coupons-constant",
+          "pattern": "define\\([[:space:]]*['\"]WC_SC_",
+          "description": "Smart Coupons constants"
+        }
+      ]
+    },
+    "step_2": {
+      "description": "Check for thank-you page hooks or coupon lookup functions",
+      "patterns": [
+        {
+          "id": "thankyou-hook",
+          "pattern": "add_action\\([[:space:]]*['\"]woocommerce_thankyou",
+          "description": "Hooks into woocommerce_thankyou"
+        },
+        {
+          "id": "order-received-hook",
+          "pattern": "add_action\\([[:space:]]*['\"]woocommerce_order_details_after",
+          "description": "Hooks into order details display"
+        },
+        {
+          "id": "coupon-lookup-by-code",
+          "pattern": "wc_get_coupon_id_by_code\\(",
+          "description": "Coupon lookup by code (triggers slow query)"
+        },
+        {
+          "id": "coupon-post-query",
+          "pattern": "get_page_by_title\\([^,]+,[^,]+,[[:space:]]*['\"]shop_coupon",
+          "description": "Direct coupon post lookup by title"
+        }
+      ]
+    },
+    "exclude_files": [
+      "*/vendor/*",
+      "*/node_modules/*",
+      "*/tests/*",
+      "*test*.php",
+      "*spec*.php"
+    ]
+  },
+  "remediation": {
+    "summary": "Optimize Smart Coupons performance or disable thank-you page features. Add database index to improve query performance.",
+    "immediate_actions": [
+      "1. Add database index: ALTER TABLE wp_posts ADD INDEX idx_coupon_lookup (post_title(50), post_type, post_status);",
+      "2. Monitor Query Monitor logs on thank-you page to confirm slow queries",
+      "3. Check Smart Coupons settings to disable thank-you page features if not needed",
+      "4. Consider caching coupon lookups with transients (15-minute TTL)"
+    ],
+    "long_term_solutions": [
+      "1. Contact Smart Coupons support about performance optimization",
+      "2. Use object caching (Redis/Memcached) to cache coupon ID lookups",
+      "3. Consider alternative coupon plugins with better performance",
+      "4. Implement custom coupon lookup with proper indexing"
+    ],
+    "database_optimization": {
+      "index_sql": "ALTER TABLE wp_posts ADD INDEX idx_coupon_lookup (post_title(50), post_type, post_status);",
+      "index_rationale": "This index allows MySQL to quickly find coupons by title without full table scan. The post_title(50) prefix index balances index size with lookup performance.",
+      "expected_improvement": "Query time should drop from 15-30 seconds to under 100ms",
+      "verification_query": "EXPLAIN SELECT ID FROM wp_posts WHERE post_title = 'TESTCODE' AND post_type = 'shop_coupon' AND post_status = 'publish';"
+    },
+    "code_example": {
+      "bad": "// Smart Coupons default behavior\nadd_action('woocommerce_thankyou', function($order_id) {\n  $coupon_id = wc_get_coupon_id_by_code('SOMECODE'); // ❌ Slow query on every page load\n});",
+      "good": "// Cached coupon lookup\nadd_action('woocommerce_thankyou', function($order_id) {\n  $cache_key = 'coupon_id_' . md5('SOMECODE');\n  $coupon_id = get_transient($cache_key);\n  \n  if (false === $coupon_id) {\n    $coupon_id = wc_get_coupon_id_by_code('SOMECODE');\n    set_transient($cache_key, $coupon_id, 15 * MINUTE_IN_SECONDS);\n  }\n});",
+      "note": "Caching reduces database load but doesn't eliminate the underlying query performance issue"
+    }
+  },
+  "performance_impact": {
+    "severity": "HIGH",
+    "typical_delay": "15-30 seconds per thank-you page load",
+    "affected_pages": ["Thank-you page", "Order received page", "Order confirmation emails (if Smart Coupons processes them)"],
+    "database_impact": "Full table scan on wp_posts (300k+ rows typical on mature WooCommerce sites)",
+    "user_experience": "Customers see blank/loading page after checkout, may think payment failed",
+    "business_impact": "Increased support tickets, cart abandonment, negative reviews"
+  },
+  "detection_confidence": {
+    "step_1_only": "MEDIUM - Plugin is installed but may not be active or causing issues",
+    "step_1_and_step_2": "HIGH - Plugin is active AND uses thank-you hooks or coupon lookups",
+    "recommended_action": "If both steps match, investigate immediately with Query Monitor"
+  },
+  "references": [
+    "https://woocommerce.com/products/smart-coupons/",
+    "https://developer.wordpress.org/reference/functions/get_page_by_title/",
+    "https://github.com/woocommerce/woocommerce/blob/trunk/plugins/woocommerce/includes/data-stores/class-wc-coupon-data-store-cpt.php#L790",
+    "https://wordpress.org/plugins/query-monitor/"
+  ],
+  "notes": "This pattern detects the POTENTIAL for performance issues based on plugin presence and code patterns. Actual performance impact depends on: (1) wp_posts table size, (2) Database server specs, (3) Whether object caching is enabled, (4) Smart Coupons configuration. Use Query Monitor to confirm actual slow queries before implementing fixes.",
+  "false_positive_scenarios": [
+    "Smart Coupons installed but not active",
+    "Smart Coupons active but thank-you page features disabled in settings",
+    "Site has object caching (Redis/Memcached) that mitigates the issue",
+    "wp_posts table is small (< 10k posts) so query is fast enough",
+    "Custom code has already added the recommended database index"
+  ],
+  "related_patterns": [
+    "wc-coupon-in-thankyou - Detects custom coupon logic in thank-you context",
+    "unbounded-queries - Detects queries without LIMIT clauses"
+  ]
+}
+

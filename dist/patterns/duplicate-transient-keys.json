@@ -1,0 +1,121 @@
+{
+  "id": "duplicate-transient-keys",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.60",
+  "enabled": true,
+  "detection_type": "aggregated",
+  "category": "duplication",
+  "severity": "MEDIUM",
+  "title": "Duplicate transient keys across files",
+  "description": "Detects get_transient(), set_transient(), and delete_transient() calls with hard-coded transient keys appearing in multiple files. This indicates a DRY violation where transient keys should be centralized as constants.",
+  "rationale": "Hard-coded transient keys scattered across files lead to cache invalidation bugs, typos, and make it difficult to track cache usage. Centralizing transient keys as constants ensures consistency and makes cache management easier.",
+
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "(get_transient|set_transient|delete_transient)\\( *['\"]([a-z0-9_]+)['\"]",
+    "capture_group": 2,
+    "exclude_patterns": [
+      "//.*transient",
+      "/\\*.*transient.*\\*/",
+      "define\\(",
+      "const [A-Z_]+ ="
+    ],
+    "exclude_files": [
+      "*/vendor/*",
+      "*/node_modules/*",
+      "*/tests/*",
+      "*-test.php"
+    ]
+  },
+  
+  "aggregation": {
+    "enabled": true,
+    "group_by": "capture_group",
+    "min_total_matches": 4,
+    "min_distinct_files": 3,
+    "top_k_groups": 15,
+    "report_format": "Transient '{match}' appears in {file_count} files ({total_count} times)",
+    "sort_by": "file_count_desc"
+  },
+  
+  "remediation": {
+    "summary": "Extract transient keys to a constants file or class constants. This prevents cache invalidation bugs and makes cache management easier.",
+    "priority": "MEDIUM",
+    "effort": "LOW",
+    "examples": [
+      {
+        "bad": "// Scattered across 4 files\n$data = get_transient( 'user_data_cache' );\nset_transient( 'user_data_cache', $data, HOUR_IN_SECONDS );\ndelete_transient( 'user_data_cache' );",
+        "good": "// includes/constants.php\ndefine( 'CACHE_KEY_USER_DATA', 'user_data_cache' );\n\n// Usage in any file\n$data = get_transient( CACHE_KEY_USER_DATA );\nset_transient( CACHE_KEY_USER_DATA, $data, HOUR_IN_SECONDS );\ndelete_transient( CACHE_KEY_USER_DATA );",
+        "note": "Centralize in includes/constants.php with CACHE_KEY_ prefix"
+      },
+      {
+        "bad": "// Multiple files with typo risk\nget_transient( 'api_response_cache' );\nget_transient( 'api_reponse_cache' ); // Typo!",
+        "good": "// includes/class-cache.php\nclass My_Plugin_Cache {\n    const API_RESPONSE = 'api_response_cache';\n    \n    public static function get_api_response() {\n        return get_transient( self::API_RESPONSE );\n    }\n    \n    public static function set_api_response( $data, $expiration = HOUR_IN_SECONDS ) {\n        return set_transient( self::API_RESPONSE, $data, $expiration );\n    }\n    \n    public static function clear_api_response() {\n        return delete_transient( self::API_RESPONSE );\n    }\n}\n\n// Usage\n$data = My_Plugin_Cache::get_api_response();",
+        "note": "Use class constants + helper methods for better encapsulation and default expiration"
+      }
+    ],
+    "refactoring_steps": [
+      "1. Create includes/constants.php or includes/class-cache.php",
+      "2. Define constants for all duplicated transient keys (use CACHE_KEY_ prefix)",
+      "3. Use find-and-replace to update all references (test cache invalidation!)",
+      "4. Add PHPDoc comments documenting each transient's purpose and expiration",
+      "5. Consider adding helper methods with default expiration times"
+    ]
+  },
+  
+  "test_fixture": {
+    "path": "dist/tests/fixtures/dry/duplicate-transients.php",
+    "expected_violations": 2,
+    "expected_groups": [
+      "user_data_cache",
+      "api_response_cache"
+    ],
+    "notes": "Fixture simulates transient keys scattered across multiple functions (representing different files)"
+  },
+  
+  "performance_impact": {
+    "runtime": "None - this is a maintainability issue, not a performance issue",
+    "maintenance": "HIGH - scattered transient keys lead to cache invalidation bugs and stale data"
+  },
+  
+  "security_impact": {
+    "level": "LOW",
+    "notes": "Typos in transient keys could lead to cache misses and unnecessary API calls, but not a direct security vulnerability"
+  },
+  
+  "real_world_examples": [
+    {
+      "scenario": "Plugin with transient key typo in delete_transient() call",
+      "impact": "Cache never invalidated, users saw stale data for 24 hours after settings change",
+      "solution": "Centralized transient keys to constants, typo caught by IDE immediately"
+    },
+    {
+      "scenario": "Refactoring transient key from 'cache_data' to 'external_api_cache'",
+      "impact": "Without constants, had to manually search/replace across 8 files, missed delete_transient() call",
+      "solution": "With constants, changed in one place, all get/set/delete calls updated automatically"
+    },
+    {
+      "scenario": "Developer couldn't find where transient was being set",
+      "impact": "Spent 2 hours grepping for transient key string across codebase",
+      "solution": "With constants, IDE 'Find Usages' shows all get/set/delete calls instantly"
+    }
+  ],
+  
+  "best_practices": {
+    "naming_convention": "Use CACHE_KEY_ prefix for all transient key constants",
+    "documentation": "Document expiration time and invalidation triggers in PHPDoc",
+    "helper_methods": "Consider wrapper methods that encapsulate get/set/delete logic",
+    "expiration_constants": "Define expiration times as constants too (e.g., CACHE_TTL_USER_DATA)"
+  },
+  
+  "references": [
+    "https://developer.wordpress.org/reference/functions/get_transient/",
+    "https://developer.wordpress.org/reference/functions/set_transient/",
+    "https://developer.wordpress.org/reference/functions/delete_transient/",
+    "https://developer.wordpress.org/apis/transients/"
+  ],
+  
+  "notes": "Transient key duplication is particularly dangerous because typos lead to cache invalidation bugs that are hard to debug. Start with conservative thresholds (3+ files, 4+ occurrences) to catch the worst offenders first."
+}
+

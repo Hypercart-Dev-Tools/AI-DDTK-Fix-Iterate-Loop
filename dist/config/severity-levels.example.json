@@ -1,0 +1,83 @@
+{
+  "_metadata": {
+    "version": "1.0.60",
+    "description": "WP Code Check - Severity Level Customization (Example)",
+    "last_updated": "2025-12-31",
+    "total_checks": 28,
+    "instructions": "This is an EXAMPLE config showing how to customize severity levels and add comments. Copy severity-levels.json to a new file, edit 'level' fields, and use --severity-config <path> to apply.",
+    "_comment": "Any field starting with underscore is ignored by the parser - use for documentation"
+  },
+  "_usage_examples": {
+    "_comment": "You can add comments anywhere in the JSON structure",
+    "_note": "Common underscore field names: _comment, _note, _reason, _ticket, _date, _author",
+    "_example_1": "Document why you changed a severity level",
+    "_example_2": "Reference a ticket number or team decision",
+    "_example_3": "Add dates for when changes were made",
+    "_example_4": "Track who requested the change"
+  },
+  "severity_levels": {
+    "spo-001-debug-code": {
+      "id": "spo-001-debug-code",
+      "name": "Debug code in production",
+      "level": "CRITICAL",
+      "factory_default": "CRITICAL",
+      "category": "security",
+      "description": "Console.log, debugger, alert, var_dump, print_r, error_log in production code",
+      "_comment": "Keep at CRITICAL - debug code in production is a security risk"
+    },
+    "unbounded-posts-per-page": {
+      "id": "unbounded-posts-per-page",
+      "name": "Unbounded posts_per_page",
+      "level": "HIGH",
+      "factory_default": "CRITICAL",
+      "category": "performance",
+      "description": "WP_Query with posts_per_page => -1 (fetches all posts, can crash site)",
+      "_comment": "Downgraded to HIGH - our site has < 1000 posts, not critical yet",
+      "_ticket": "JIRA-5678",
+      "_date": "2025-12-31",
+      "_author": "john@example.com"
+    },
+    "n-plus-one-pattern": {
+      "id": "n-plus-one-pattern",
+      "name": "Potential N+1 patterns (meta in loops)",
+      "level": "CRITICAL",
+      "factory_default": "MEDIUM",
+      "category": "performance",
+      "description": "get_post_meta, get_user_meta, or get_term_meta called inside foreach loops",
+      "_comment": "Upgraded to CRITICAL - we had a production incident from N+1 queries",
+      "_reason": "Site went down when product catalog grew to 10k items",
+      "_ticket": "INC-1234",
+      "_date": "2025-12-15"
+    },
+    "timezone-sensitive": {
+      "id": "timezone-sensitive",
+      "name": "Timezone-sensitive patterns (current_time/date)",
+      "level": "LOW",
+      "factory_default": "LOW",
+      "category": "maintenance",
+      "description": "Using current_time() or date() without timezone awareness (can cause issues across timezones)",
+      "_note": "We only operate in one timezone, so this is low priority for us"
+    },
+    "ajax-no-nonce": {
+      "id": "ajax-no-nonce",
+      "name": "wp_ajax handlers without nonce validation",
+      "level": "CRITICAL",
+      "factory_default": "HIGH",
+      "category": "security",
+      "description": "AJAX handlers missing wp_verify_nonce() or check_ajax_referer()",
+      "_comment": "Upgraded to CRITICAL per security audit requirements",
+      "_ticket": "SEC-2025-001",
+      "_author": "security-team@example.com",
+      "_date": "2025-12-20",
+      "_reason": "All security checks must be CRITICAL per company policy"
+    }
+  },
+  "_notes": {
+    "_workflow": "1. Copy severity-levels.json to my-config.json",
+    "_step_2": "2. Edit 'level' fields (CRITICAL, HIGH, MEDIUM, LOW)",
+    "_step_3": "3. Add _comment fields to document your decisions",
+    "_step_4": "4. Run: ./bin/check-performance.sh --severity-config my-config.json",
+    "_reminder": "Never edit 'factory_default' - it's your reference to original values"
+  }
+}
+

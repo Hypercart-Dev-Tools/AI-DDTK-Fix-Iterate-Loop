@@ -1,0 +1,133 @@
+{
+  "id": "wc-coupon-in-thankyou",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.1.0",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "reliability",
+  "severity": "HIGH",
+  "title": "Coupon logic in WooCommerce thank-you/order-received context",
+  "description": "Detects coupon-related operations (apply_coupon, remove_coupon, WC_Coupon instantiation) in WooCommerce thank-you or order-received contexts. This is a reliability anti-pattern because the order is already complete and coupon operations should not be performed post-checkout.",
+  "rationale": "Running coupon logic (apply_coupon, remove_coupon, has_coupon checks) in the thank-you/order-received context is problematic because: (1) The order is already completed and paid, (2) Modifying coupons at this stage can cause data inconsistencies, (3) It may indicate logic that should have run during checkout, (4) Can cause unexpected side effects on completed orders. Coupon operations belong in cart/checkout contexts, not post-purchase.",
+  "detection": {
+    "type": "multi_step_grep",
+    "description": "Two-step detection: (1) Find files with thank-you/order-received context markers, (2) Search those files for coupon operations",
+    "file_patterns": ["*.php"],
+    "step_1": {
+      "description": "Find files containing thank-you or order-received context markers",
+      "patterns": [
+        {
+          "id": "thankyou-hook",
+          "pattern": "(add_action|do_action|apply_filters|add_filter)\\([[:space:]]*['\"]([a-z_]*woocommerce_thankyou[a-z_]*)['\"]",
+          "description": "Hooks to woocommerce_thankyou or variants"
+        },
+        {
+          "id": "order-received-check",
+          "pattern": "is_order_received_page\\(|is_wc_endpoint_url\\([[:space:]]*['\"]order-received['\"]",
+          "description": "Order received page conditional checks"
+        },
+        {
+          "id": "thankyou-template",
+          "pattern": "woocommerce/checkout/(thankyou|order-received)\\.php",
+          "description": "Thank-you or order-received template paths"
+        }
+      ]
+    },
+    "step_2": {
+      "description": "Within files from step 1, search for coupon-related operations",
+      "patterns": [
+        {
+          "id": "apply-coupon",
+          "pattern": "->apply_coupon\\(|\\$[a-z_]+->apply_coupon\\(",
+          "description": "Calls to apply_coupon() method"
+        },
+        {
+          "id": "remove-coupon",
+          "pattern": "->remove_coupon\\(|\\$[a-z_]+->remove_coupon\\(",
+          "description": "Calls to remove_coupon() method"
+        },
+        {
+          "id": "has-coupon",
+          "pattern": "->has_coupon\\(|\\$[a-z_]+->has_coupon\\(",
+          "description": "Calls to has_coupon() method"
+        },
+        {
+          "id": "wc-coupon-instantiation",
+          "pattern": "new[[:space:]]+WC_Coupon\\(|wc_get_coupon\\(",
+          "description": "WC_Coupon object instantiation or retrieval"
+        },
+        {
+          "id": "wc-get-coupon-id-by-code",
+          "pattern": "wc_get_coupon_id_by_code\\(",
+          "description": "Coupon lookup by code (triggers slow LOWER(post_title) query)"
+        },
+        {
+          "id": "get-used-coupons",
+          "pattern": "->get_used_coupons\\(|->get_coupon_codes\\(",
+          "description": "Retrieving used coupons (may indicate manipulation logic)"
+        },
+        {
+          "id": "coupon-validity-filters",
+          "pattern": "(add_filter|apply_filters)\\([[:space:]]*['\"]woocommerce_coupon_is_valid",
+          "description": "Filtering coupon validity in post-purchase context"
+        },
+        {
+          "id": "coupon-action-hooks",
+          "pattern": "(add_action|do_action)\\([[:space:]]*['\"]woocommerce_(applied|removed)_coupon",
+          "description": "Hooking into coupon application/removal actions"
+        }
+      ]
+    },
+    "exclude_patterns": [
+      "//.*display.*coupon",
+      "//.*show.*coupon",
+      "/\\*.*display.*coupon.*\\*/",
+      "echo.*coupon",
+      "esc_html.*coupon"
+    ],
+    "exclude_files": [
+      "*/vendor/*",
+      "*/node_modules/*",
+      "*/tests/*",
+      "*test*.php",
+      "*spec*.php"
+    ]
+  },
+  "bash_implementation": {
+    "description": "Standalone bash script using ripgrep for direct execution",
+    "script": "#!/bin/bash\n\n# Step 1: Find files with thank-you/order-received context markers\necho \"# Step 1: Finding files with thank-you/order-received context...\"\nrg -l -n -S --type php \\\n  -e '(add_action|do_action|apply_filters|add_filter)\\([[:space:]]*['\\''\"]([a-z_]*woocommerce_thankyou[a-z_]*)['\\''\"]' \\\n  -e 'is_order_received_page\\(' \\\n  -e 'is_wc_endpoint_url\\([[:space:]]*['\\''\"]order-received['\\''\"]' \\\n  -e 'woocommerce/checkout/(thankyou|order-received)\\.php' \\\n  --glob '!vendor/*' --glob '!node_modules/*' --glob '!tests/*' --glob '!*test*.php' \\\n  > /tmp/thankyou_context_files.txt\n\nif [ ! -s /tmp/thankyou_context_files.txt ]; then\n  echo \"# No thank-you/order-received context files found.\"\n  exit 0\nfi\n\necho \"# Found $(wc -l < /tmp/thankyou_context_files.txt) files with thank-you context.\"\necho \"\"\necho \"# Step 2: Searching for coupon operations in those files...\"\necho \"\"\n\n# Step 2: Search those files for coupon operations\nwhile IFS= read -r file; do\n  rg -n -S --type php \\\n    -e '->apply_coupon\\(' \\\n    -e '->remove_coupon\\(' \\\n    -e '->has_coupon\\(' \\\n    -e 'new[[:space:]]+WC_Coupon\\(' \\\n    -e 'wc_get_coupon\\(' \\\n    -e '->get_used_coupons\\(' \\\n    -e '->get_coupon_codes\\(' \\\n    -e '(add_filter|apply_filters)\\([[:space:]]*['\\''\"]woocommerce_coupon_is_valid' \\\n    -e '(add_action|do_action)\\([[:space:]]*['\\''\"]woocommerce_(applied|removed)_coupon' \\\n    \"$file\" 2>/dev/null && echo \"\"\ndone < /tmp/thankyou_context_files.txt\n\n# Cleanup\nrm -f /tmp/thankyou_context_files.txt\n\n# Fallback using grep if ripgrep not available\n# grep -Rl -E '(add_action|do_action).*woocommerce_thankyou|is_order_received_page|is_wc_endpoint_url.*order-received' --include='*.php' . | \\\n#   xargs grep -nE 'apply_coupon|remove_coupon|has_coupon|WC_Coupon|wc_get_coupon|get_used_coupons|get_coupon_codes|woocommerce_coupon_is_valid' 2>/dev/null"
+  },
+  "remediation": {
+    "summary": "Move coupon logic to appropriate cart/checkout hooks. Use thank-you page only for displaying order information, not modifying it.",
+    "examples": [
+      {
+        "bad": "add_action('woocommerce_thankyou', function($order_id) {\n  $order = wc_get_order($order_id);\n  $order->apply_coupon('THANKYOU10'); // ❌ Applying coupon after order complete\n});",
+        "good": "add_action('woocommerce_checkout_order_processed', function($order_id) {\n  $order = wc_get_order($order_id);\n  // Apply coupon logic during checkout, before order completion\n});",
+        "note": "Use woocommerce_checkout_order_processed or earlier hooks for coupon operations"
+      },
+      {
+        "bad": "if (is_order_received_page()) {\n  WC()->cart->apply_coupon('NEXTORDER'); // ❌ Modifying cart on thank-you page\n}",
+        "good": "add_action('woocommerce_add_to_cart', function() {\n  // Apply next-order coupon logic during cart operations\n});",
+        "note": "Cart modifications belong in cart/checkout context, not post-purchase"
+      }
+    ],
+    "appropriate_hooks": [
+      "woocommerce_before_calculate_totals - For dynamic coupon application based on cart contents",
+      "woocommerce_checkout_order_processed - For post-checkout logic before thank-you page",
+      "woocommerce_add_to_cart - For cart-level coupon logic",
+      "woocommerce_applied_coupon - For reacting to coupon application (not initiating it on thank-you page)"
+    ]
+  },
+  "references": [
+    "https://woocommerce.com/document/introduction-to-hooks-actions-and-filters/",
+    "https://woocommerce.github.io/code-reference/hooks/hooks.html",
+    "https://developer.woocommerce.com/docs/cart-and-checkout-blocks/checkout-flow-and-events/"
+  ],
+  "notes": "This is a heuristic pattern with potential false positives. Displaying coupon information (read-only) on the thank-you page is acceptable. The concern is MODIFYING coupon state (apply/remove) or performing coupon validation logic post-purchase. Manual review recommended for flagged instances.",
+  "false_positive_scenarios": [
+    "Displaying used coupons for order confirmation (read-only)",
+    "Showing 'next order' coupon code as a marketing message (not applying it)",
+    "Logging/analytics that reference coupon data without modification"
+  ]
+}
+

@@ -1,0 +1,72 @@
+{
+  "id": "db-query-in-constructor",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "HIGH",
+  "title": "Database queries in __construct() methods",
+  "description": "Detects database queries (get_users, get_posts, WP_Query, $wpdb) inside __construct() methods. Constructors run on every class instantiation, often on every page load when using singleton pattern. DB queries should be lazy-loaded or moved to admin-only hooks. Note: Only detects direct DB calls in constructors; does not detect indirect queries through method calls.",
+  "rationale": "Constructors are executed every time a class is instantiated. In WordPress plugins using the singleton pattern, this often happens on every page load (frontend and backend). Database queries in constructors can cause severe performance degradation, especially when the class is instantiated early in the WordPress lifecycle. This pattern detects direct DB query calls within 50 lines of the constructor definition. Limitation: Does not detect DB queries hidden behind method calls (e.g., $this->get_data() that internally calls get_users()).",
+  "detection_type": "scripted",
+  "detection": {
+    "type": "scripted",
+    "file_patterns": ["*.php"],
+    "search_pattern": "function[[:space:]]+__construct[[:space:]]*\\(",
+    "validator_script": "validators/context-pattern-check.sh",
+    "validator_args": ["get_users|get_posts|WP_Query|WP_User_Query|wpdb->get_|wpdb->query|wc_get_orders|wc_get_products", "50", "after"]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/db-query-in-constructor.php",
+    "expected_violations": 4,
+    "expected_valid": 2,
+    "notes": "Fixture includes 4 violations (get_users, WP_Query, $wpdb, get_posts in constructors) and 2 safe patterns (lazy-loaded query, admin-only guard)"
+  },
+  "irl_examples": [
+    {
+      "file": "includes/class-wwlc-user-account.php",
+      "line": 49,
+      "plugin": "WooCommerce Wholesale Lead Capture",
+      "code": "$this->total_unmoderated_users = $this->get_total_unmoderated_users();",
+      "context": "Constructor calls method that executes get_users() with role filter",
+      "risk": "Runs on every page load (frontend and backend) via singleton instantiation",
+      "impact": "Unnecessary database query on every request, even when user count is not needed",
+      "real_world_scenario": "Plugin instantiated on line 93 of main file, which runs on 'after_setup_theme' hook - executes on EVERY page load"
+    }
+  ],
+  "remediation": {
+    "summary": "Move database queries out of constructors. Use lazy-loading, admin-only guards, or hook-based initialization.",
+    "examples": [
+      {
+        "bad": "public function __construct() {\n    $this->total_users = count( get_users( array( 'role' => 'subscriber' ) ) );\n}",
+        "good": "public function __construct() {\n    // Constructor is lightweight\n}\n\npublic function get_total_users() {\n    if ( is_null( $this->total_users ) ) {\n        $this->total_users = count( get_users( array( 'role' => 'subscriber' ) ) );\n    }\n    return $this->total_users;\n}",
+        "note": "Lazy-load the query only when the data is actually needed"
+      },
+      {
+        "bad": "public function __construct() {\n    global $wpdb;\n    $this->pending_orders = $wpdb->get_results( \"SELECT * FROM {$wpdb->prefix}posts WHERE post_status = 'pending'\" );\n}",
+        "good": "public function __construct() {\n    if ( ! is_admin() ) {\n        return;\n    }\n    add_action( 'admin_init', array( $this, 'load_pending_orders' ) );\n}\n\npublic function load_pending_orders() {\n    global $wpdb;\n    $this->pending_orders = $wpdb->get_results( $wpdb->prepare( \"SELECT * FROM {$wpdb->prefix}posts WHERE post_status = %s LIMIT 100\", 'pending' ) );\n}",
+        "note": "Guard with is_admin() and use hook-based initialization with proper prepare() and LIMIT"
+      }
+    ]
+  },
+  "performance_impact": {
+    "small_sites": {
+      "impact": "Low - may add 10-50ms per page load",
+      "recommendation": "Still fix - unnecessary overhead"
+    },
+    "medium_sites": {
+      "impact": "Medium - 50-200ms per page load",
+      "recommendation": "MUST fix - noticeable performance degradation"
+    },
+    "large_sites": {
+      "impact": "HIGH - 200ms+ per page load, potential timeouts",
+      "recommendation": "CRITICAL fix - can bring down site under load"
+    }
+  },
+  "references": [
+    "https://developer.wordpress.org/plugins/plugin-basics/best-practices/#lazy-loading",
+    "https://developer.wordpress.org/reference/functions/is_admin/",
+    "https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#performance"
+  ],
+  "notes": "This pattern is particularly dangerous in WordPress plugins using the singleton pattern, as the constructor runs on every page load. Found in real-world production plugin (WooCommerce Wholesale Lead Capture)."
+}
+

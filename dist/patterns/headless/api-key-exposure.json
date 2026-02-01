@@ -1,0 +1,90 @@
+{
+  "id": "headless-api-key-exposure",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.79",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "CRITICAL",
+  "title": "API keys/secrets exposed in client-side code",
+  "description": "Detects API keys, secrets, tokens, or passwords that may be exposed in client-side JavaScript bundles. In headless WordPress setups, this commonly happens with NEXT_PUBLIC_ environment variables containing sensitive values.",
+  "rationale": "Any code shipped to the browser is visible to users. API keys in client bundles can be extracted and abused, leading to unauthorized access, data breaches, or unexpected billing charges.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "hardcoded-api-key",
+        "pattern": "(API_KEY|SECRET|TOKEN|PASSWORD|PRIVATE_KEY)[[:space:]]*=[[:space:]]*['\"][a-zA-Z0-9_-]{16,}['\"]",
+        "description": "Hardcoded API key or secret in variable assignment"
+      },
+      {
+        "id": "next-public-secret",
+        "pattern": "process\\.env\\.NEXT_PUBLIC_[A-Z_]*(SECRET|KEY|TOKEN|PASSWORD|PRIVATE)",
+        "description": "Sensitive value in NEXT_PUBLIC_ env var (exposed to browser)"
+      },
+      {
+        "id": "nuxt-public-secret", 
+        "pattern": "process\\.env\\.NUXT_PUBLIC_[A-Z_]*(SECRET|KEY|TOKEN|PASSWORD)",
+        "description": "Sensitive value in NUXT_PUBLIC_ env var (exposed to browser)"
+      },
+      {
+        "id": "vite-public-secret",
+        "pattern": "import\\.meta\\.env\\.VITE_[A-Z_]*(SECRET|KEY|TOKEN|PASSWORD)",
+        "description": "Sensitive value in VITE_ env var (exposed to browser)"
+      }
+    ],
+    "exclude_patterns": [
+      "//.*SECRET",
+      "//.*KEY",
+      "/\\*.*SECRET.*\\*/",
+      "PUBLIC_KEY",
+      "PUBLISHABLE_KEY"
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*/.next/*",
+      "*/dist/*",
+      "*test*",
+      "*spec*",
+      "*mock*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/headless/fetch-antipatterns.js",
+    "expected_violations": 4,
+    "violation_lines": [52, 53, 56, 57],
+    "notes": "Tests hardcoded secrets and NEXT_PUBLIC_ exposure patterns"
+  },
+  "remediation": {
+    "summary": "Never expose API keys or secrets in client-side code. Use server-side API routes or environment variables that are NOT prefixed with NEXT_PUBLIC_, NUXT_PUBLIC_, or VITE_.",
+    "examples": [
+      {
+        "bad": "const API_KEY = 'sk_live_abc123secretkey';",
+        "good": "// Move to server-side API route\n// pages/api/data.js\nconst API_KEY = process.env.API_KEY; // Not NEXT_PUBLIC_",
+        "note": "Server-side env vars are not exposed to browser"
+      },
+      {
+        "bad": "const secret = process.env.NEXT_PUBLIC_API_SECRET_KEY;",
+        "good": "const publicUrl = process.env.NEXT_PUBLIC_WORDPRESS_URL;\n// Secrets should use: process.env.API_SECRET_KEY (server-only)",
+        "note": "Only use NEXT_PUBLIC_ for non-sensitive values like URLs"
+      },
+      {
+        "bad": "fetch('/api/data', { headers: { 'X-API-Key': process.env.NEXT_PUBLIC_SECRET_KEY } })",
+        "good": "// Create a server-side API route that adds the key\n// Client calls: fetch('/api/data')\n// Server (pages/api/data.js) adds the secret key",
+        "note": "Proxy sensitive requests through server-side API routes"
+      }
+    ],
+    "nextjs_pattern": {
+      "description": "For Next.js, use API routes to proxy requests that need authentication",
+      "code": "// pages/api/wordpress.js\nexport default async function handler(req, res) {\n  const response = await fetch(`${process.env.WORDPRESS_URL}/wp-json/wp/v2/posts`, {\n    headers: {\n      'Authorization': `Bearer ${process.env.WP_AUTH_TOKEN}`, // Server-only\n    },\n  });\n  const data = await response.json();\n  res.json(data);\n}\n\n// In your component:\nconst posts = await fetch('/api/wordpress').then(r => r.json());"
+    }
+  },
+  "references": [
+    "https://nextjs.org/docs/basic-features/environment-variables#exposing-environment-variables-to-the-browser",
+    "https://owasp.org/www-community/vulnerabilities/Sensitive_Data_Exposure",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html"
+  ],
+  "notes": "This is a CRITICAL security issue. API keys exposed in client bundles can be extracted by anyone viewing page source or browser dev tools. Common in headless WordPress when developers aren't aware of NEXT_PUBLIC_ exposure."
+}
+

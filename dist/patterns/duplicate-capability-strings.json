@@ -1,0 +1,131 @@
+{
+  "id": "duplicate-capability-strings",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.60",
+  "enabled": true,
+  "detection_type": "aggregated",
+  "category": "duplication",
+  "severity": "LOW",
+  "title": "Duplicate capability strings across files",
+  "description": "Detects current_user_can() and user_can() calls with hard-coded capability strings appearing in many files. While some duplication is normal (e.g., 'manage_options'), excessive duplication suggests capability checks should be centralized.",
+  "rationale": "Hard-coded capability strings scattered across files make permission changes risky and inconsistent. Centralizing capability checks as helper methods provides a single source of truth and makes it easier to add custom logic (e.g., logging, feature flags).",
+
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "(current_user_can|user_can)\\( *['\"]([a-z0-9_]+)['\"]",
+    "capture_group": 2,
+    "exclude_patterns": [
+      "//.*can",
+      "/\\*.*can.*\\*/",
+      "function.*can\\(",
+      "method.*can\\("
+    ],
+    "exclude_files": [
+      "*/vendor/*",
+      "*/node_modules/*",
+      "*/tests/*",
+      "*-test.php"
+    ]
+  },
+  
+  "aggregation": {
+    "enabled": true,
+    "group_by": "capture_group",
+    "min_total_matches": 10,
+    "min_distinct_files": 5,
+    "top_k_groups": 10,
+    "report_format": "Capability '{match}' appears in {file_count} files ({total_count} times)",
+    "sort_by": "file_count_desc"
+  },
+  
+  "remediation": {
+    "summary": "For custom capabilities or complex permission logic, centralize capability checks into helper methods. For standard WordPress capabilities (manage_options, edit_posts), duplication is acceptable but consider helpers for consistency.",
+    "priority": "LOW",
+    "effort": "MEDIUM",
+    "examples": [
+      {
+        "bad": "// Scattered across 8 files\nif ( ! current_user_can( 'manage_my_plugin_settings' ) ) { return; }\nif ( ! current_user_can( 'manage_my_plugin_settings' ) ) { wp_die(); }",
+        "good": "// includes/class-security.php\nclass My_Plugin_Security {\n    const CAP_MANAGE_SETTINGS = 'manage_my_plugin_settings';\n    \n    public static function can_manage_settings( $user_id = null ) {\n        $user_id = $user_id ?? get_current_user_id();\n        return user_can( $user_id, self::CAP_MANAGE_SETTINGS );\n    }\n    \n    public static function require_manage_settings() {\n        if ( ! self::can_manage_settings() ) {\n            wp_die( __( 'You do not have permission to access this page.', 'my-plugin' ) );\n        }\n    }\n}\n\n// Usage\nif ( ! My_Plugin_Security::can_manage_settings() ) { return; }\nMy_Plugin_Security::require_manage_settings();",
+        "note": "Centralize custom capabilities with helper methods for consistency and easier testing"
+      },
+      {
+        "bad": "// Complex permission logic duplicated\nif ( current_user_can( 'edit_posts' ) && get_option( 'my_plugin_feature_enabled' ) ) {\n    // Feature code\n}",
+        "good": "// includes/class-permissions.php\nclass My_Plugin_Permissions {\n    public static function can_use_feature() {\n        if ( ! current_user_can( 'edit_posts' ) ) {\n            return false;\n        }\n        \n        if ( ! get_option( 'my_plugin_feature_enabled' ) ) {\n            return false;\n        }\n        \n        // Easy to add logging, feature flags, etc.\n        do_action( 'my_plugin_feature_access_check', get_current_user_id() );\n        \n        return true;\n    }\n}\n\n// Usage\nif ( My_Plugin_Permissions::can_use_feature() ) {\n    // Feature code\n}",
+        "note": "Centralize complex permission logic to avoid duplication and make testing easier"
+      }
+    ],
+    "refactoring_steps": [
+      "1. Identify custom capabilities (not WordPress core capabilities)",
+      "2. Create includes/class-security.php or includes/class-permissions.php",
+      "3. Define class constants for custom capability strings",
+      "4. Create helper methods for common permission checks",
+      "5. Add logging/auditing to helper methods if needed",
+      "6. Gradually migrate high-risk areas (admin pages, AJAX handlers) to use helpers"
+    ]
+  },
+  
+  "test_fixture": {
+    "path": "dist/tests/fixtures/dry/duplicate-capabilities.php",
+    "expected_violations": 1,
+    "expected_groups": [
+      "manage_my_plugin_settings"
+    ],
+    "notes": "Fixture focuses on custom capabilities, not WordPress core capabilities like 'manage_options'"
+  },
+  
+  "performance_impact": {
+    "runtime": "None - this is a maintainability issue, not a performance issue",
+    "maintenance": "MEDIUM - scattered capability checks make permission changes risky"
+  },
+  
+  "security_impact": {
+    "level": "MEDIUM",
+    "notes": "Inconsistent capability checks could lead to privilege escalation if some checks are missed during refactoring. Centralizing reduces this risk."
+  },
+  
+  "real_world_examples": [
+    {
+      "scenario": "Plugin changed custom capability from 'manage_settings' to 'manage_plugin_settings'",
+      "impact": "Without centralization, had to update 12 files, missed 2 AJAX handlers that became accessible to all users",
+      "solution": "With centralized helper, changed capability in one place, all checks updated automatically"
+    },
+    {
+      "scenario": "Plugin needed to add feature flag check to all permission checks",
+      "impact": "Without centralization, had to add feature flag check to 15 different files",
+      "solution": "With centralized helper, added feature flag check in one method, all callers got the new logic"
+    }
+  ],
+  
+  "allowlist": {
+    "description": "Common WordPress core capabilities that appear everywhere and should not be flagged unless threshold is very high",
+    "patterns": [
+      "manage_options",
+      "edit_posts",
+      "edit_pages",
+      "edit_others_posts",
+      "publish_posts",
+      "read",
+      "delete_posts",
+      "upload_files"
+    ],
+    "notes": "These are WordPress core capabilities. Duplication is normal and acceptable. Only flag if appearing in 10+ files."
+  },
+  
+  "best_practices": {
+    "when_to_centralize": "Centralize custom capabilities, complex permission logic, or when you need logging/auditing",
+    "when_duplication_is_ok": "WordPress core capabilities (manage_options, edit_posts) can be used directly",
+    "naming_convention": "Use CAP_ prefix for capability constants (e.g., CAP_MANAGE_SETTINGS)",
+    "helper_methods": "Provide both can_*() methods (return bool) and require_*() methods (wp_die on failure)"
+  },
+  
+  "references": [
+    "https://developer.wordpress.org/reference/functions/current_user_can/",
+    "https://developer.wordpress.org/reference/functions/user_can/",
+    "https://wordpress.org/documentation/article/roles-and-capabilities/",
+    "https://developer.wordpress.org/plugins/security/checking-user-capabilities/"
+  ],
+  
+  "notes": "This pattern has higher thresholds (5+ files, 10+ occurrences) because some capability duplication is normal in WordPress. Focus on custom capabilities and complex permission logic rather than flagging every use of 'manage_options'."
+}
+

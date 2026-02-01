@@ -1,0 +1,82 @@
+{
+  "id": "unsanitized-superglobal-isset-bypass",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.67",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "HIGH",
+  "title": "Unsanitized superglobal read ($_GET/$_POST)",
+  "description": "Detects $_GET/$_POST/$_REQUEST used directly after isset/empty check on same line without sanitization",
+  "rationale": "isset() and empty() only check existence, they don't sanitize. Direct usage after these checks is vulnerable to injection attacks.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "\\$_(GET|POST|REQUEST)\\[",
+    "exclude_patterns": [
+      "sanitize_",
+      "esc_",
+      "absint",
+      "intval",
+      "wc_clean",
+      "wp_unslash",
+      "//.*\\$_"
+    ],
+    "post_process": {
+      "enabled": true,
+      "type": "bash_function",
+      "function_name": "filter_isset_bypass",
+      "description": "Count superglobal occurrences per line. Skip if only 1 occurrence with isset/empty (existence check). Report if 2+ occurrences (isset + usage)."
+    }
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/unsanitized-superglobal-isset-bypass.php",
+    "expected_violations": 5,
+    "expected_valid": 6
+  },
+  "irl_examples": [
+    {
+      "file": "dist/tests/irl/woocommerce-all-products-for-subscriptions/class-wcs-att-admin-irl.php",
+      "line": 58,
+      "original_line": 451,
+      "plugin": "WooCommerce All Products for Subscriptions v6.0.6",
+      "code": "isset( $_GET['tab'] ) && $_GET['tab'] === 'subscriptions'",
+      "context": "Admin scripts loading - checking if on subscriptions settings tab"
+    },
+    {
+      "file": "dist/tests/irl/kiss-woo-coupon-debugger/AdminUI-irl.php",
+      "line": 91,
+      "original_line": 434,
+      "plugin": "KISS Woo Coupon Debugger v2.1.0",
+      "code": "$params['skip_smart_coupons'] = (bool) $_GET['skip_smart_coupons'];",
+      "context": "URL parameter parsing - boolean cast without sanitization before error logging"
+    },
+    {
+      "file": "dist/tests/irl/kiss-woo-coupon-debugger/AdminUI-irl.php",
+      "line": 137,
+      "original_line": 472,
+      "plugin": "KISS Woo Coupon Debugger v2.1.0",
+      "code": "isset($_GET['wc_sc_debug']) && $_GET['wc_sc_debug'] == '1'",
+      "context": "Debug mode detection - string comparison without sanitization"
+    }
+  ],
+  "remediation": {
+    "summary": "Always sanitize superglobals before use, even after isset/empty checks",
+    "examples": [
+      {
+        "bad": "if ( isset( $_GET['tab'] ) && $_GET['tab'] === 'subscriptions' ) {",
+        "good": "if ( isset( $_GET['tab'] ) && sanitize_text_field( wp_unslash( $_GET['tab'] ) ) === 'subscriptions' ) {"
+      },
+      {
+        "bad": "return isset( $_GET['id'] ) && $_GET['id'];",
+        "good": "return isset( $_GET['id'] ) && absint( $_GET['id'] );"
+      }
+    ]
+  },
+  "references": [
+    "https://developer.wordpress.org/apis/security/sanitizing-securing-output/",
+    "https://developer.wordpress.org/plugins/security/data-validation/"
+  ],
+  "notes": "This pattern catches a common developer misconception that isset() or empty() sanitizes data. It's a security education opportunity."
+}
+

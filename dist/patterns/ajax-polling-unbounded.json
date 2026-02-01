@@ -1,0 +1,36 @@
+{
+  "id": "ajax-polling-unbounded",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "HIGH",
+  "title": "Unbounded AJAX polling (setInterval + fetch/ajax)",
+  "description": "Detects setInterval() calls that perform AJAX requests without rate limiting, which can cause excessive server load.",
+  "rationale": "Unbounded AJAX polling can generate thousands of requests per hour, overwhelming the server and degrading performance for all users. Always implement rate limiting and backoff strategies.",
+  "detection": {
+    "type": "scripted",
+    "file_patterns": ["*.js"],
+    "search_pattern": "setInterval[[:space:]]*\\(",
+    "validator_script": "validators/context-pattern-check.sh",
+    "validator_args": ["\\.ajax|fetch\\(|axios\\(|XMLHttpRequest|wp\\.apiFetch", "5", "after"]
+  },
+  "remediation": {
+    "summary": "Implement rate limiting, exponential backoff, or use alternatives like Server-Sent Events or WebSockets.",
+    "examples": [
+      {
+        "bad": "setInterval(() => { fetch('/api/status'); }, 1000);",
+        "good": "// Use exponential backoff\nlet interval = 5000;\nfunction poll() {\n  fetch('/api/status')\n    .then(() => { interval = 5000; })\n    .catch(() => { interval = Math.min(interval * 2, 60000); })\n    .finally(() => { setTimeout(poll, interval); });\n}\npoll();",
+        "note": "Exponential backoff reduces load during errors."
+      }
+    ],
+    "references": [
+      "https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "javascript", "ajax", "polling", "rate-limiting"],
+    "added_in_version": "1.0.0",
+    "last_updated": "1.3.16"
+  }
+}
+

@@ -1,0 +1,64 @@
+{
+  "id": "php-user-controlled-file-write",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.3.9",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "CRITICAL",
+  "title": "Direct file write with user-controlled path",
+  "description": "Detects file writes where the target path is derived directly from PHP superglobals (user-controlled input). This is a common pattern for arbitrary file write vulnerabilities.",
+  "rationale": "Allowing users to control filesystem paths lets attackers overwrite plugin/theme files, drop backdoors, or write arbitrary PHP files. When combined with web-accessible directories, this frequently leads to remote code execution.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "patterns": [
+      {
+        "id": "file_put_contents-superglobal-path",
+        "pattern": "file_put_contents[[:space:]]*\\([^,]*\\$_(GET|POST|REQUEST|COOKIE|SERVER|FILES)",
+        "description": "file_put_contents() where the target path is derived directly from a PHP superglobal"
+      },
+      {
+        "id": "fopen-superglobal-path",
+        "pattern": "fopen[[:space:]]*\\([^,]*\\$_(GET|POST|REQUEST|COOKIE|SERVER|FILES)",
+        "description": "fopen() where the path argument is derived directly from a PHP superglobal"
+      },
+      {
+        "id": "move_uploaded_file-superglobal-dest",
+        "pattern": "move_uploaded_file[[:space:]]*\\([^,]+,[^,]*\\$_(GET|POST|REQUEST|COOKIE|SERVER)",
+        "description": "move_uploaded_file() where the destination path is derived directly from a PHP superglobal"
+      }
+    ],
+    "exclude_patterns": [
+      "//.*file_put_contents",
+      "//.*fopen",
+      "//.*move_uploaded_file"
+    ],
+    "exclude_files": [
+      "*/vendor/*",
+      "*/node_modules/*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/php-user-controlled-file-write.php",
+    "expected_violations": 3,
+    "notes": "Fixture contains direct file writes where the path argument comes directly from PHP superglobals."
+  },
+  "remediation": {
+    "summary": "Never use user-controlled data directly as a filesystem path. Resolve paths from whitelists or validated identifiers and prefer WordPress filesystem APIs when possible.",
+    "examples": [
+      {
+        "bad": "file_put_contents($_GET['file'], $content);",
+        "good": "$allowed = array('log' => __DIR__ . '/log.txt');\n$key = isset($_GET['file']) ? sanitize_key($_GET['file']) : 'log';\n$path = isset($allowed[$key]) ? $allowed[$key] : __DIR__ . '/log.txt';\nfile_put_contents($path, $content);",
+        "note": "Map user input to a fixed set of allowed paths instead of writing to arbitrary locations."
+      }
+    ]
+  },
+  "security_impact": {
+    "level": "CRITICAL",
+    "cwe": "CWE-73",
+    "owasp": "A01:2021 Broken Access Control",
+    "notes": "User-controlled file paths can be abused to overwrite plugin/theme files or drop web shells, leading directly to remote code execution."
+  }
+}
+

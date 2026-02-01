@@ -1,0 +1,82 @@
+{
+  "id": "headless-fetch-no-error-handling",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.79",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "reliability",
+  "severity": "HIGH",
+  "title": "fetch/axios calls without error handling",
+  "description": "Detects fetch() or axios calls to WordPress REST API endpoints without proper error handling. Missing error handling leads to silent failures, broken UIs, and poor user experience.",
+  "rationale": "Network requests can fail for many reasons: server errors, timeouts, CORS issues, or connectivity problems. Without error handling, the application will break silently, leaving users confused.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "fetch-wp-json-no-catch",
+        "pattern": "fetch\\([^)]*wp-json",
+        "context_check": {
+          "window": 5,
+          "must_not_contain": [".catch", "try[[:space:]]*{", "if.*!.*response.ok", "response.ok"]
+        },
+        "description": "fetch to wp-json without .catch() or try/catch"
+      },
+      {
+        "id": "axios-get-no-catch",
+        "pattern": "axios\\.(get|post|put|delete)\\([^)]*wp-json",
+        "context_check": {
+          "window": 5,
+          "must_not_contain": [".catch", "try[[:space:]]*{"]
+        },
+        "description": "axios call without error handling"
+      },
+      {
+        "id": "await-fetch-no-try",
+        "pattern": "await[[:space:]]+fetch\\(",
+        "context_check": {
+          "window": 3,
+          "must_not_contain": ["try[[:space:]]*{"]
+        },
+        "description": "await fetch without try/catch wrapper"
+      }
+    ],
+    "exclude_patterns": [
+      "\\.catch\\(",
+      "try[[:space:]]*\\{",
+      "if[[:space:]]*\\([[:space:]]*!response\\.ok"
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*",
+      "*spec*",
+      "*mock*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/headless/fetch-antipatterns.js",
+    "expected_violations": 4,
+    "violation_lines": [16, 22, 40, 62],
+    "notes": "Tests various fetch patterns without error handling"
+  },
+  "remediation": {
+    "summary": "Always wrap fetch/axios calls in try/catch, check response.ok, and handle errors gracefully. Provide meaningful error messages to users.",
+    "examples": [
+      {
+        "bad": "const response = await fetch('/wp-json/wp/v2/posts');\nconst posts = await response.json();",
+        "good": "try {\n  const response = await fetch('/wp-json/wp/v2/posts');\n  if (!response.ok) throw new Error(`HTTP ${response.status}`);\n  const posts = await response.json();\n  return posts;\n} catch (error) {\n  console.error('Failed to fetch posts:', error);\n  return { error: 'Failed to load posts' };\n}",
+        "note": "Wrap in try/catch and check response.ok"
+      },
+      {
+        "bad": "fetch('/wp-json/wp/v2/pages').then(r => r.json()).then(setPages);",
+        "good": "fetch('/wp-json/wp/v2/pages')\n  .then(r => {\n    if (!r.ok) throw new Error('Failed to fetch');\n    return r.json();\n  })\n  .then(setPages)\n  .catch(err => {\n    console.error(err);\n    setError('Failed to load pages');\n  });",
+        "note": "Add .catch() and check response.ok in promise chain"
+      }
+    ]
+  },
+  "references": [
+    "https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#checking_that_the_fetch_was_successful",
+    "https://kentcdodds.com/blog/using-fetch-with-type-script"
+  ]
+}
+

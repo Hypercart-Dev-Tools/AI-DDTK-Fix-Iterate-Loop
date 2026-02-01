@@ -1,0 +1,42 @@
+{
+  "id": "php-shell-exec-functions",
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "CRITICAL",
+  "title": "Shell command execution functions in PHP (shell_exec/exec/system/passthru)",
+  "description": "Usage of shell_exec(), exec(), system(), or passthru() in PHP code. These functions execute system commands and are almost never safe in WordPress plugins/themes.",
+  "added_in_scanner_version": "1.3.8",
+  "languages": ["php"],
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "patterns": [
+      {
+        "id": "shell_exec-call",
+        "pattern": "shell_exec[[:space:]]*\\("
+      },
+      {
+        "id": "exec-call",
+        "pattern": "exec[[:space:]]*\\("
+      },
+      {
+        "id": "system-call",
+        "pattern": "system[[:space:]]*\\("
+      },
+      {
+        "id": "passthru-call",
+        "pattern": "passthru[[:space:]]*\\("
+      }
+    ]
+  },
+  "rationale": "Shell command execution APIs are high-risk in a web context and are strong indicators of malware, backdoors, or fragile integrations. Legitimate uses in WordPress themes/plugins are rare and should undergo manual review.",
+  "remediation": "Remove shell_exec/exec/system/passthru usage where possible. Prefer WordPress APIs, PHP built-ins, or background jobs that do not execute arbitrary shell commands. If absolutely required, tightly constrain inputs (whitelists), escape arguments safely, and restrict execution to trusted administrators only.",
+  "references": [
+    "https://www.php.net/manual/en/function.exec.php",
+    "https://owasp.org/www-community/attacks/Command_Injection"
+  ],
+  "test_fixtures": [
+    "dist/tests/fixtures/shell-exec-antipatterns.php"
+  ]
+}
+

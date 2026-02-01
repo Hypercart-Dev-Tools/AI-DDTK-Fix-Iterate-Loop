@@ -1,0 +1,42 @@
+{
+  "id": "http-no-timeout",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "MEDIUM",
+  "title": "HTTP requests without timeout",
+  "description": "Detects wp_remote_get/post/request/head calls without explicit timeout parameters, which can hang the entire site if the remote server doesn't respond.",
+  "rationale": "HTTP requests without timeouts can block PHP execution indefinitely if the remote server is slow or unresponsive. This can cause site-wide hangs, especially when requests are made during page load. Always set explicit timeouts.",
+  "detection": {
+    "type": "scripted",
+    "file_patterns": ["*.php"],
+    "search_pattern": "wp_remote_(get|post|request|head)[[:space:]]*\\(",
+    "validator_script": "validators/http-timeout-check.sh",
+    "validator_args": ["20"]
+  },
+  "remediation": {
+    "summary": "Always specify a timeout parameter in HTTP request args (recommended: 5-10 seconds).",
+    "examples": [
+      {
+        "bad": "$response = wp_remote_get( 'https://api.example.com/data' );",
+        "good": "$response = wp_remote_get( 'https://api.example.com/data', array(\n  'timeout' => 10\n) );",
+        "note": "10 seconds is a reasonable default for most API calls."
+      },
+      {
+        "bad": "$response = wp_remote_post( $url, array( 'body' => $data ) );",
+        "good": "$response = wp_remote_post( $url, array(\n  'body' => $data,\n  'timeout' => 15\n) );",
+        "note": "POST requests may need longer timeouts for large payloads."
+      }
+    ],
+    "references": [
+      "https://developer.wordpress.org/reference/functions/wp_remote_get/",
+      "https://developer.wordpress.org/reference/classes/wp_http/request/"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "http", "timeout", "reliability"],
+    "added_in_version": "1.0.0",
+    "last_updated": "1.3.16"
+  }
+}
+
