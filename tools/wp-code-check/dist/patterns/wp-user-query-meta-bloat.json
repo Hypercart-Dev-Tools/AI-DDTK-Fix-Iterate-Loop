@@ -1,0 +1,22 @@
+{
+  "id": "wp-user-query-meta-bloat",
+  "version": "1.0.0",
+  "enabled": true,
+  "detection_type": "grep",
+  "category": "performance",
+  "severity": "CRITICAL",
+  "title": "WP_User_Query Full Meta Hydration",
+  "description": "Detects WP_User_Query without 'update_user_meta_cache' => false.",
+  "rationale": "By default, WP_User_Query loads all user meta. On WooCommerce sites, this consumes massive memory per user.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "new WP_User_Query\\(",
+    "exclude_patterns": [],
+    "post_process": {
+      "enabled": true,
+      "type": "context_analysis",
+      "description": "Flag if 'update_user_meta_cache' => false is MISSING."
+    }
+  }
+}

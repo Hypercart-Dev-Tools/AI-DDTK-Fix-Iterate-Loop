@@ -1,0 +1,7 @@
+# Ignore all generated issue files
+*.md
+
+# But keep this .gitignore and README
+!.gitignore
+!README.md
+

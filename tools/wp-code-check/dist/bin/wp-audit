@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+#
+# WP Audit - Unified CLI for WP Code Check Toolkit
+#
+# Orchestrates multiple analysis tools for comprehensive WordPress code quality checks.
+#
+# © Copyright 2025 Hypercart (a DBA of Neochrome, Inc.)
+# License: Apache-2.0
+# Version: 1.0.0
+
+set -euo pipefail
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m' # No Color
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Tool paths
+QUICK_SCANNER="${SCRIPT_DIR}/check-performance.sh"
+GOLDEN_RULES="${SCRIPT_DIR}/experimental/golden-rules-analyzer.php"
+JSON_TO_HTML="${SCRIPT_DIR}/json-to-html.py"
+
+# Usage
+usage() {
+    cat << EOF
+${BOLD}WP Audit - Unified WordPress Code Quality Toolkit${NC}
+
+${BOLD}USAGE:${NC}
+  wp-audit <command> <path> [options]
+
+${BOLD}COMMANDS:${NC}
+  ${CYAN}quick${NC}      Fast scan (30+ checks, <5s, zero dependencies)
+  ${CYAN}deep${NC}       Semantic analysis (6 architectural rules, requires PHP)
+  ${CYAN}full${NC}       Run both quick + deep analysis
+  ${CYAN}report${NC}     Generate HTML report from JSON logs
+
+${BOLD}EXAMPLES:${NC}
+  # Quick scan (recommended for CI/CD)
+  wp-audit quick ~/my-plugin
+
+  # Deep analysis (code review)
+  wp-audit deep ~/my-plugin
+
+  # Full analysis (both tools)
+  wp-audit full ~/my-plugin
+
+  # Generate HTML report from JSON
+  wp-audit report ~/my-plugin/scan-results.json
+
+${BOLD}OPTIONS:${NC}
+  --strict           Fail on warnings (quick scan only)
+  --verbose          Show all matches (quick scan only)
+  --format=<type>    Output format: text, json, github
+  --fail-on=<level>  Exit non-zero on: error, warning, info (deep analysis)
+  --rule=<name>      Run specific rule (deep analysis only)
+  --no-log           Disable log file creation
+  --help             Show this help
+
+${BOLD}QUICK SCAN OPTIONS:${NC}
+  All options from check-performance.sh are supported.
+  See: check-performance.sh --help
+
+${BOLD}DEEP ANALYSIS RULES:${NC}
+  duplication        Find duplicate functions across files
+  state-gates        Catch direct state mutations
+  single-truth       Eliminate magic strings
+  query-boundaries   Detect unbounded queries and N+1 patterns
+  graceful-failure   Find missing error handling
+  ship-clean         Flag debug code and TODOs
+
+${BOLD}WORKFLOW EXAMPLES:${NC}
+  # CI/CD: Quick scan only (fast, zero dependencies)
+  wp-audit quick . --strict --format json
+
+  # Pre-release: Full analysis
+  wp-audit full ~/my-plugin --format json
+
+  # Code review: Deep analysis on specific rule
+  wp-audit deep ~/my-plugin --rule=duplication
+
+  # Generate report from previous scan
+  wp-audit report dist/logs/2025-01-09-120000-UTC.json
+
+${BOLD}EXIT CODES:${NC}
+  0  All checks passed
+  1  Issues found (or warnings in strict mode)
+
+${BOLD}MORE INFO:${NC}
+  Repository: https://github.com/Hypercart-Dev-Tools/WP-Code-Check
+  Docs: dist/README.md
+
+EOF
+}
+
+# Check if command provided
+if [[ $# -lt 1 ]] || [[ "$1" == "--help" ]] || [[ "$1" == "-h" ]]; then
+    usage
+    exit 0
+fi
+
+COMMAND="$1"
+shift
+
+# Execute command
+case "$COMMAND" in
+    quick)
+        echo -e "${CYAN}━━━ Running Quick Scan (30+ checks) ━━━${NC}"
+        exec "$QUICK_SCANNER" --paths "$@"
+        ;;
+    
+    deep)
+        echo -e "${CYAN}━━━ Running Deep Analysis (6 Golden Rules) ━━━${NC}"
+        if ! command -v php &> /dev/null; then
+            echo -e "${RED}Error: PHP is required for deep analysis${NC}" >&2
+            echo "Install PHP or use 'wp-audit quick' instead" >&2
+            exit 1
+        fi
+        exec php "$GOLDEN_RULES" "$@"
+        ;;
+    
+    full)
+        if [[ $# -lt 1 ]]; then
+            echo -e "${RED}Error: Path required${NC}" >&2
+            echo "Usage: wp-audit full <path> [options]" >&2
+            exit 1
+        fi
+        
+        PATH_TO_SCAN="$1"
+        shift
+        
+        echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${BOLD}  WP Code Check - Full Analysis${NC}"
+        echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo ""
+        
+        # Run quick scan
+        echo -e "${CYAN}▸ Step 1/2: Quick Scan (30+ checks)${NC}"
+        "$QUICK_SCANNER" --paths "$PATH_TO_SCAN" "$@" || QUICK_EXIT=$?
+        echo ""
+        
+        # Run deep analysis
+        echo -e "${CYAN}▸ Step 2/2: Deep Analysis (6 Golden Rules)${NC}"
+        if command -v php &> /dev/null; then
+            php "$GOLDEN_RULES" "$PATH_TO_SCAN" "$@" || DEEP_EXIT=$?
+        else
+            echo -e "${YELLOW}⚠ Skipping deep analysis (PHP not installed)${NC}"
+        fi
+        
+        echo ""
+        echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        echo -e "${BOLD}  Analysis Complete${NC}"
+        echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
+        
+        # Exit with error if either tool failed
+        if [[ ${QUICK_EXIT:-0} -ne 0 ]] || [[ ${DEEP_EXIT:-0} -ne 0 ]]; then
+            exit 1
+        fi
+        ;;
+    
+    report)
+        if [[ $# -lt 1 ]]; then
+            echo -e "${RED}Error: JSON file required${NC}" >&2
+            echo "Usage: wp-audit report <json-file> [output.html]" >&2
+            exit 1
+        fi
+        
+        JSON_FILE="$1"
+        HTML_FILE="${2:-${JSON_FILE%.json}.html}"
+        
+        if [[ ! -f "$JSON_FILE" ]]; then
+            echo -e "${RED}Error: File not found: $JSON_FILE${NC}" >&2
+            exit 1
+        fi
+        
+        echo -e "${CYAN}Generating HTML report...${NC}"
+        python3 "$JSON_TO_HTML" "$JSON_FILE" "$HTML_FILE"
+        ;;
+    
+    *)
+        echo -e "${RED}Error: Unknown command '$COMMAND'${NC}" >&2
+        echo ""
+        usage
+        exit 1
+        ;;
+esac
+

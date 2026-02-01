@@ -1,0 +1,36 @@
+{
+  "id": "wcs-get-subscriptions-no-limit",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "MEDIUM",
+  "title": "WooCommerce Subscriptions queries without limits",
+  "description": "Detects wcs_get_subscriptions*() calls without a 'limit' parameter, which can fetch ALL subscriptions and cause performance issues.",
+  "rationale": "Without a 'limit' parameter, WooCommerce Subscriptions queries will fetch all subscriptions from the database, which can cause memory exhaustion and timeouts on sites with many subscriptions.",
+  "detection": {
+    "type": "scripted",
+    "file_patterns": ["*.php"],
+    "search_pattern": "wcs_get_subscriptions[a-zA-Z_]*[[:space:]]*\\(",
+    "validator_script": "validators/parameter-presence-check.sh",
+    "validator_args": ["limit", "10"]
+  },
+  "remediation": {
+    "summary": "Add a 'limit' parameter to limit the number of subscriptions fetched.",
+    "examples": [
+      {
+        "bad": "$subscriptions = wcs_get_subscriptions();",
+        "good": "$subscriptions = wcs_get_subscriptions( array( 'subscriptions_per_page' => 100, 'limit' => 100 ) );",
+        "note": "Always specify a reasonable limit for production sites."
+      }
+    ],
+    "references": [
+      "https://woocommerce.com/document/subscriptions/develop/functions/"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "woocommerce", "subscriptions", "unbounded-query"],
+    "added_in_version": "1.0.0",
+    "last_updated": "1.3.16"
+  }
+}
+

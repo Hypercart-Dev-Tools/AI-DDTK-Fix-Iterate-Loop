@@ -1,0 +1,126 @@
+{
+  "id": "duplicate-functions",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.78",
+  "enabled": true,
+  "detection_type": "clone_detection",
+  "category": "duplication",
+  "severity": "MEDIUM",
+  "title": "Duplicate function definitions across files",
+  "description": "Detects exact function clones (Type 1) using hash-based comparison of normalized function bodies. Functions with identical logic (after removing comments and normalizing whitespace) appearing in multiple files indicate copy-paste violations.",
+  "rationale": "Copy-pasted functions across files violate DRY principle, create maintenance burden (bugs must be fixed in multiple places), and increase codebase complexity. Extracting duplicated functions to a shared helper file or class creates a single source of truth.",
+
+  "detection": {
+    "type": "function_clone",
+    "method": "hash_normalized",
+    "file_patterns": ["*.php"],
+    "function_pattern": "function\\s+([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\([^)]*\\)\\s*\\{",
+    "normalization": {
+      "remove_comments": true,
+      "remove_inline_comments": true,
+      "remove_block_comments": true,
+      "normalize_whitespace": true,
+      "trim_empty_lines": true,
+      "hash_algorithm": "md5"
+    },
+    "exclude_patterns": [
+      "__construct",
+      "__destruct",
+      "__get",
+      "__set",
+      "__call",
+      "__toString",
+      "test_",
+      "setUp",
+      "tearDown"
+    ],
+    "exclude_files": [
+      "*/vendor/*",
+      "*/node_modules/*",
+      "*/tests/*",
+      "*-test.php",
+      "*/test-*.php"
+    ]
+  },
+  
+  "aggregation": {
+    "enabled": true,
+    "group_by": "normalized_hash",
+    "min_total_matches": 2,
+    "min_distinct_files": 2,
+    "min_lines": 5,
+    "max_lines": 500,
+    "top_k_groups": 20,
+    "report_format": "Function '{function_name}' duplicated in {file_count} files ({total_count} occurrences, {line_count} lines)",
+    "sort_by": "file_count_desc"
+  },
+  
+  "remediation": {
+    "summary": "Extract duplicated functions to a shared helper file or class. This creates a single source of truth and makes bug fixes easier.",
+    "priority": "MEDIUM",
+    "effort": "MEDIUM",
+    "examples": [
+      {
+        "bad": "// File A: includes/user-validation.php\nfunction validate_user_email($email) {\n    if (empty($email)) return false;\n    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return false;\n    return true;\n}\n\n// File B: admin/settings.php\nfunction validate_user_email($email) {  // ← EXACT COPY\n    if (empty($email)) return false;\n    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return false;\n    return true;\n}",
+        "good": "// includes/helpers.php\nfunction validate_user_email($email) {\n    if (empty($email)) return false;\n    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) return false;\n    return true;\n}\n\n// File A: includes/user-validation.php\nrequire_once 'helpers.php';\n// Use validate_user_email() from helpers.php\n\n// File B: admin/settings.php\nrequire_once 'helpers.php';\n// Use validate_user_email() from helpers.php",
+        "note": "Extract to includes/helpers.php or similar shared location"
+      },
+      {
+        "bad": "// Duplicated in 5 files\nfunction sanitize_api_key($key) {\n    return preg_replace('/[^a-zA-Z0-9]/', '', $key);\n}",
+        "good": "// includes/class-api.php\nclass My_Plugin_API {\n    public static function sanitize_key($key) {\n        return preg_replace('/[^a-zA-Z0-9]/', '', $key);\n    }\n}\n\n// Usage in any file\n$clean_key = My_Plugin_API::sanitize_key($raw_key);",
+        "note": "Use class methods for better organization and namespacing"
+      }
+    ],
+    "refactoring_steps": [
+      "1. Identify the canonical version (most recent or most complete)",
+      "2. Create includes/helpers.php or add to existing helper class",
+      "3. Move the canonical function to the shared location",
+      "4. Update all files to require/use the shared function",
+      "5. Remove duplicate definitions from other files",
+      "6. Test thoroughly to ensure all call sites still work",
+      "7. Add PHPDoc comments documenting the function's purpose"
+    ]
+  },
+  
+  "test_fixture": {
+    "path": "dist/tests/fixtures/dry/duplicate-functions.php",
+    "expected_violations": 2,
+    "expected_groups": [
+      "validate_user_email",
+      "sanitize_api_key"
+    ],
+    "notes": "Fixture contains exact function clones to validate hash-based detection"
+  },
+  
+  "performance_impact": {
+    "runtime": "None - this is a maintainability issue, not a performance issue",
+    "maintenance": "HIGH - duplicated functions mean bugs must be fixed in multiple places, increasing risk of inconsistency"
+  },
+  
+  "security_impact": {
+    "level": "MEDIUM",
+    "notes": "If a security bug is found in a duplicated function, all copies must be patched. Missing one copy leaves a vulnerability."
+  },
+  
+  "real_world_examples": [
+    {
+      "scenario": "Email validation function duplicated in 8 files",
+      "impact": "Security bug (missing sanitization) was fixed in 6 files but missed in 2, leaving vulnerability",
+      "solution": "Extracted to shared helper, bug fixed once, all call sites secured"
+    },
+    {
+      "scenario": "API key sanitization duplicated in 5 files with slight variations",
+      "impact": "Inconsistent behavior - some files allowed dashes, others didn't",
+      "solution": "Centralized to single function with configurable allowed characters"
+    }
+  ],
+  
+  "notes": "This is a Tier 1 (Type 1 clone) detector using hash-based matching. It catches exact copies only. Future phases may add Type 2 (renamed variables) and Type 3 (modified logic) detection using AST.",
+  
+  "references": [
+    "https://en.wikipedia.org/wiki/Duplicate_code",
+    "https://refactoring.guru/smells/duplicate-code",
+    "https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#dont-repeat-yourself"
+  ]
+}
+

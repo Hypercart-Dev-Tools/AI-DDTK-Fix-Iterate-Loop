@@ -1,0 +1,55 @@
+{
+  "id": "spo-002-superglobals",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "security",
+  "severity": "HIGH",
+  "title": "Direct superglobal manipulation",
+  "description": "Detects direct modification of PHP superglobals ($_GET, $_POST, $_REQUEST, $_COOKIE) which can bypass security filters and create vulnerabilities.",
+  "rationale": "Modifying superglobals directly (assignment, unset) can bypass WordPress sanitization and nonce verification, leading to security vulnerabilities. This is a Single Point of Failure (SPO) anti-pattern.",
+  "detection": {
+    "type": "simple",
+    "search_pattern": "unset\\(\\$_(GET|POST|REQUEST|COOKIE)\\[|\\$_(GET|POST|REQUEST)[[:space:]]*=|\\$_(GET|POST|REQUEST|COOKIE)\\[[^]]*\\][[:space:]]*=",
+    "file_patterns": ["*.php"],
+    "exclude_patterns": [
+      "//.*\\$_"
+    ],
+    "notes": "Phase 2 migration: Basic pattern only. Guard detection and severity adjustment from inline code not yet migrated. See validator script for future enhancement."
+  },
+  "remediation": {
+    "summary": "Use WordPress input handling APIs instead of modifying superglobals",
+    "steps": [
+      "Remove direct superglobal assignments and unset() calls",
+      "Use sanitize_*() functions to clean input values",
+      "Use wp_unslash() to remove WordPress slashes",
+      "Store sanitized values in local variables",
+      "Add nonce verification for form submissions",
+      "Add capability checks for privileged operations"
+    ],
+    "examples": {
+      "bad": [
+        "unset($_GET['debug']);",
+        "$_POST['user_id'] = 123;",
+        "$_REQUEST = array_merge($_REQUEST, $custom);"
+      ],
+      "good": [
+        "// Don't modify superglobals - use local variables",
+        "$user_id = isset($_POST['user_id']) ? absint($_POST['user_id']) : 0;",
+        "$name = isset($_GET['name']) ? sanitize_text_field(wp_unslash($_GET['name'])) : '';"
+      ]
+    },
+    "references": [
+      "https://developer.wordpress.org/apis/security/sanitizing-securing-output/",
+      "https://developer.wordpress.org/apis/security/nonces/"
+    ]
+  },
+  "metadata": {
+    "tags": ["security", "spo", "superglobals", "input-validation"],
+    "cwe": ["CWE-20"],
+    "owasp": ["A03:2021 - Injection"],
+    "impact": "HIGH",
+    "likelihood": "MEDIUM",
+    "effort": "LOW"
+  }
+}
+

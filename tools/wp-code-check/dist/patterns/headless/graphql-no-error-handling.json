@@ -1,0 +1,93 @@
+{
+  "id": "headless-graphql-no-error-handling",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.79",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "reliability",
+  "severity": "HIGH",
+  "title": "GraphQL queries/mutations without error handling",
+  "description": "Detects Apollo Client useQuery/useMutation hooks without error handling. Missing error handling in GraphQL operations leads to silent failures and broken UIs.",
+  "rationale": "WPGraphQL queries can fail due to authentication issues, invalid queries, or server errors. Without error handling, users see broken pages with no feedback.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "useQuery-no-error",
+        "pattern": "useQuery\\([^)]+\\)",
+        "context_check": {
+          "window": 3,
+          "must_not_contain": ["error", "onError", "errorPolicy"]
+        },
+        "description": "useQuery without error destructuring or onError callback"
+      },
+      {
+        "id": "useMutation-no-error",
+        "pattern": "useMutation\\([^)]+\\)",
+        "context_check": {
+          "window": 5,
+          "must_not_contain": ["error", "onError"]
+        },
+        "description": "useMutation without error handling"
+      },
+      {
+        "id": "useSWR-no-error",
+        "pattern": "useSWR\\([^)]+\\)",
+        "context_check": {
+          "window": 3,
+          "must_not_contain": ["error"]
+        },
+        "description": "useSWR without error destructuring"
+      }
+    ],
+    "exclude_patterns": [
+      ", error",
+      "error,",
+      "error }",
+      "onError:",
+      "errorPolicy:"
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/headless/graphql-antipatterns.js",
+    "expected_violations": 4,
+    "violation_lines": [24, 37, 56, 68],
+    "notes": "Tests useQuery, useMutation, and client setup without error handling"
+  },
+  "remediation": {
+    "summary": "Always destructure error from hooks and provide error UI. Use onError callbacks for logging and user feedback.",
+    "examples": [
+      {
+        "bad": "const { data, loading } = useQuery(GET_POSTS);",
+        "good": "const { data, loading, error } = useQuery(GET_POSTS, {\n  onError: (err) => console.error('Query failed:', err),\n  errorPolicy: 'all',\n});\nif (error) return <ErrorMessage error={error} />;",
+        "note": "Destructure error and add onError callback"
+      },
+      {
+        "bad": "const [createPost] = useMutation(CREATE_POST);",
+        "good": "const [createPost, { error }] = useMutation(CREATE_POST, {\n  onError: (err) => {\n    console.error('Mutation failed:', err);\n    toast.error('Failed to create post');\n  },\n});",
+        "note": "Handle mutation errors with user feedback"
+      },
+      {
+        "bad": "const { data } = useSWR('/api/posts', fetcher);",
+        "good": "const { data, error, isLoading } = useSWR('/api/posts', fetcher);\nif (error) return <div>Failed to load</div>;\nif (isLoading) return <div>Loading...</div>;",
+        "note": "Handle all states: loading, error, and success"
+      }
+    ],
+    "errorPolicy_options": {
+      "none": "Default - any error returns no data (strict)",
+      "ignore": "Errors ignored, return partial data (risky)",
+      "all": "Return both data and errors (recommended for flexibility)"
+    }
+  },
+  "references": [
+    "https://www.apollographql.com/docs/react/data/error-handling/",
+    "https://swr.vercel.app/docs/error-handling",
+    "https://www.wpgraphql.com/docs/debugging"
+  ]
+}
+

@@ -1,0 +1,28 @@
+{
+  "id": "asset-version-time",
+	  "version": "1.0.0",
+	  "enabled": true,
+	  "title": "Script/style versioning with time()",
+	  "description": "Using time() as the version parameter for wp_enqueue_script() or wp_enqueue_style() prevents browser caching and forces re-download on every page load, significantly impacting performance.",
+	  "severity": "MEDIUM",
+	  "category": "Performance",
+  "detection": {
+    "type": "simple",
+    "search_pattern": "wp_(register|enqueue)_(script|style)[[:space:]]*\\([^)]*,[[:space:]]*time[[:space:]]*\\(",
+    "file_patterns": ["*.php"]
+  },
+  "remediation": {
+    "recommendation": "Use plugin/theme version constant instead of time() for asset versioning",
+    "example_before": "wp_enqueue_script('my-script', $url, array(), time());",
+    "example_after": "wp_enqueue_script('my-script', $url, array(), MY_PLUGIN_VERSION);\n// Or use filemtime() for cache-busting only when file changes:\nwp_enqueue_script('my-script', $url, array(), filemtime($file_path));"
+  },
+  "references": [
+    "https://developer.wordpress.org/reference/functions/wp_enqueue_script/",
+    "https://developer.wordpress.org/reference/functions/wp_enqueue_style/",
+    "https://10up.github.io/Engineering-Best-Practices/php/#performance"
+  ],
+  "tags": ["performance", "caching", "assets", "wp-enqueue"],
+  "priority": "P3",
+  "tier": "T2"
+}
+

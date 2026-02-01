@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WP Code Check Performance Report - {{TIMESTAMP}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+    
+    .header .meta {
+      opacity: 0.9;
+      font-size: 0.9em;
+    }
+    
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      padding: 30px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    
+    .stat-card .label {
+      font-size: 0.85em;
+      color: #6c757d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    
+    .stat-card .value {
+      font-size: 2em;
+      font-weight: bold;
+    }
+    
+    .stat-card.errors .value { color: #dc3545; }
+    .stat-card.warnings .value { color: #ffc107; }
+    .stat-card.baselined .value { color: #17a2b8; }
+    .stat-card.passed .value { color: #28a745; }
+    
+    .content {
+      padding: 30px;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+    }
+    
+    .section h2 {
+      font-size: 1.5em;
+      margin-bottom: 15px;
+      color: #495057;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+    }
+    
+    .finding {
+      background: #f8f9fa;
+      border-left: 4px solid #6c757d;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+    }
+    
+    .finding.critical { border-left-color: #dc3545; }
+    .finding.high { border-left-color: #fd7e14; }
+    .finding.medium { border-left-color: #ffc107; }
+    .finding.low { border-left-color: #17a2b8; }
+    
+    .finding-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .finding-title {
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75em;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .badge.critical { background: #dc3545; color: white; }
+    .badge.high { background: #fd7e14; color: white; }
+    .badge.medium { background: #ffc107; color: #000; }
+    .badge.low { background: #17a2b8; color: white; }
+    
+    .finding-details {
+      font-size: 0.9em;
+      color: #6c757d;
+      margin-top: 8px;
+    }
+    
+    .code-snippet {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      margin-top: 10px;
+    }
+    
+    .file-path {
+      color: #667eea;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+
+    .file-path a {
+      color: #667eea;
+      text-decoration: none;
+      border-bottom: 1px dotted #667eea;
+      transition: all 0.2s ease;
+    }
+
+    .file-path a:hover {
+      color: #764ba2;
+      border-bottom: 1px solid #764ba2;
+      background: rgba(102, 126, 234, 0.1);
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    
+    .footer {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      text-align: center;
+      color: #6c757d;
+      font-size: 0.9em;
+      border-top: 1px solid #dee2e6;
+    }
+
+    .fixture-validation {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .fixture-validation.passed {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .fixture-validation.failed {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .fixture-validation.skipped {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .copy-btn {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 4px;
+      color: white;
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .copy-btn:active {
+      transform: translateY(0);
+    }
+
+    .copy-btn.copied {
+      background: rgba(40, 167, 69, 0.8);
+      border-color: rgba(40, 167, 69, 1);
+    }
+
+    .status-banner {
+      padding: 20px;
+      text-align: center;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+
+    .status-banner.pass { background: #d4edda; color: #155724; }
+    .status-banner.fail { background: #f8d7da; color: #721c24; }
+
+    .search-container {
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 12px 20px;
+      font-size: 1em;
+      border: 2px solid #667eea;
+      border-radius: 8px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    .search-box:focus {
+      border-color: #764ba2;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .search-info {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #6c757d;
+      text-align: center;
+    }
+
+    .finding.hidden {
+      display: none;
+    }
+    
+    @media (max-width: 768px) {
+      .summary { grid-template-columns: 1fr; }
+      .finding-header { flex-direction: column; align-items: flex-start; }
+      .badge { margin-top: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🚀 WP Code Check Performance Report</h1>
+      <div class="meta">
+        {{PROJECT_INFO}}
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+          <div>Generated (UTC): {{TIMESTAMP}}</div>
+          <div id="local-time">Local Time/Date: <span id="local-timestamp">Loading...</span></div>
+          <div>Script Version: {{VERSION}}</div>
+          <div>
+            Paths Scanned: {{PATHS_SCANNED}}
+            <button class="copy-btn" onclick="copyFolderPath()" title="Copy folder path to clipboard">📋 Copy Path</button>
+          </div>
+          {{JSON_LOG_LINK}}
+          <div>Strict Mode: {{STRICT_MODE}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Banner -->
+    <div class="status-banner {{STATUS_CLASS}}">
+      {{STATUS_MESSAGE}}
+    </div>
+
+    <!-- Search/Filter Box -->
+    <div class="search-container">
+      <input
+        type="text"
+        id="search-box"
+        class="search-box"
+        placeholder="🔍 Search findings by keyword (file path, message, code, severity, etc.)..."
+        autocomplete="off"
+      />
+      <div class="search-info">
+        <span id="search-results-info"></span>
+      </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="summary">
+      <div class="stat-card errors">
+        <div class="label">Error Types</div>
+        <div class="value">{{TOTAL_ERRORS}}</div>
+      </div>
+      <div class="stat-card warnings">
+        <div class="label">Warning Types</div>
+        <div class="value">{{TOTAL_WARNINGS}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Magic Strings</div>
+        <div class="value" style="color: #ffc107;">{{MAGIC_STRING_COUNT}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Function Clones</div>
+        <div class="value" style="color: #ffc107;">{{FUNCTION_CLONE_COUNT}}</div>
+      </div>
+      <div class="stat-card baselined">
+        <div class="label">Baselined</div>
+        <div class="value">{{BASELINED}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Stale Baseline</div>
+        <div class="value">{{STALE_BASELINE}}</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <!-- Findings Section -->
+      <div class="section">
+        <h2>📋 Findings ({{FINDINGS_COUNT}})</h2>
+        {{FINDINGS_HTML}}
+      </div>
+
+      <!-- Magic Strings Section -->
+      <div class="section">
+        <h2>🔤 Magic Strings ({{MAGIC_STRING_COUNT}})</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">Hardcoded values that should be constants</p>
+        {{MAGIC_STRINGS_HTML}}
+      </div>
+
+      <!-- Function Clones Section -->
+      <div class="section">
+        <h2>🔄 Function Clones ({{FUNCTION_CLONE_COUNT}})</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">Duplicate functions detected across files</p>
+        {{FUNCTION_CLONES_HTML}}
+      </div>
+
+      <!-- Checks Summary -->
+      <div class="section">
+        <h2>✓ Checks Summary</h2>
+        {{CHECKS_HTML}}
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      Generated by <a href="https://WPCodeCheck.com" target="_blank" style="color: #6366f1; text-decoration: none; font-weight: 600;">WP Code Check</a> by Hypercart v{{VERSION}} |
+      Exit Code: {{EXIT_CODE}} |
+      Strict Mode: {{STRICT_MODE}} |
+      <span class="fixture-validation {{FIXTURE_STATUS_CLASS}}">{{FIXTURE_STATUS_TEXT}}</span>
+    </div>
+  </div>
+
+  <script>
+    // Copy to clipboard functions (must be in global scope for onclick handlers)
+    const folderPath = '{{JS_FOLDER_PATH}}';
+    const logPath = '{{JS_LOG_PATH}}';
+
+    function copyFolderPath() {
+      copyToClipboard(folderPath, 'Folder path copied!', 'Open in Finder/Explorer: ' + folderPath);
+    }
+
+    function copyLogPath() {
+      copyToClipboard(logPath, 'JSON log path copied!', 'Open file: ' + logPath);
+    }
+
+    function copyToClipboard(text, successMessage, detailMessage) {
+      if (!text) {
+        alert('No path available to copy');
+        return;
+      }
+
+      navigator.clipboard.writeText(text).then(() => {
+        // Show success feedback
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.classList.add('copied');
+
+        // Show alert with helpful message
+        alert(successMessage + '\n\n' + detailMessage);
+
+        // Reset button after 2 seconds
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        alert('Failed to copy to clipboard. Please copy manually:\n\n' + text);
+        console.error('Copy failed:', err);
+      });
+    }
+
+    // Convert UTC timestamp to local time
+    document.addEventListener('DOMContentLoaded', function() {
+      // Get the UTC timestamp from the page
+      const utcTimestamp = '{{TIMESTAMP}}';
+
+      // Parse the UTC timestamp (format: YYYY-MM-DDTHH:MM:SSZ)
+      const utcDate = new Date(utcTimestamp);
+
+      // Format options for local time display
+      const options = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short'
+      };
+
+      // Convert to local time string
+      const localTimeString = utcDate.toLocaleString(undefined, options);
+
+      // Update the local timestamp element
+      const localTimestampElement = document.getElementById('local-timestamp');
+      if (localTimestampElement) {
+        localTimestampElement.textContent = localTimeString;
+      }
+
+      // Search/Filter functionality
+      const searchBox = document.getElementById('search-box');
+      const searchInfo = document.getElementById('search-results-info');
+      const findings = document.querySelectorAll('.finding');
+      const sections = document.querySelectorAll('.section');
+      const totalFindings = findings.length;
+
+      function filterFindings() {
+        const searchTerm = searchBox.value.toLowerCase().trim();
+        let visibleCount = 0;
+        const sectionsWithHeaderMatch = new Set();
+
+        // First pass: identify sections with matching headers
+        sections.forEach(section => {
+          const sectionHeader = section.querySelector('h2');
+          const sectionHeaderText = sectionHeader ? sectionHeader.textContent.toLowerCase() : '';
+
+          if (searchTerm !== '' && sectionHeaderText.includes(searchTerm)) {
+            sectionsWithHeaderMatch.add(section);
+          }
+        });
+
+        // Second pass: filter findings
+        findings.forEach(finding => {
+          const parentSection = finding.closest('.section');
+
+          if (searchTerm === '') {
+            // No search term - show everything
+            finding.classList.remove('hidden');
+            visibleCount++;
+          } else if (sectionsWithHeaderMatch.has(parentSection)) {
+            // Parent section header matches - show all findings in that section
+            finding.classList.remove('hidden');
+            visibleCount++;
+          } else {
+            // Check if finding content matches search term
+            const findingText = finding.textContent.toLowerCase();
+
+            if (findingText.includes(searchTerm)) {
+              finding.classList.remove('hidden');
+              visibleCount++;
+            } else {
+              finding.classList.add('hidden');
+            }
+          }
+        });
+
+        // Third pass: show/hide sections based on visible content
+        sections.forEach(section => {
+          const visibleFindingsInSection = section.querySelectorAll('.finding:not(.hidden)').length;
+
+          if (searchTerm === '') {
+            // Show all sections when no search term
+            section.style.display = '';
+          } else if (sectionsWithHeaderMatch.has(section)) {
+            // Show section if header matches search term
+            section.style.display = '';
+          } else if (visibleFindingsInSection > 0) {
+            // Show section if it has visible findings
+            section.style.display = '';
+          } else {
+            // Hide section if no matches
+            section.style.display = 'none';
+          }
+        });
+
+        // Update search info
+        if (searchTerm === '') {
+          searchInfo.textContent = '';
+        } else {
+          const visibleSections = Array.from(sections).filter(s => s.style.display !== 'none').length;
+
+          if (visibleCount === 0 && visibleSections === 0) {
+            searchInfo.textContent = 'No results match your search';
+            searchInfo.style.color = '#dc3545';
+          } else if (visibleCount > 0) {
+            searchInfo.textContent = `Showing ${visibleCount} of ${totalFindings} items`;
+            searchInfo.style.color = '#28a745';
+          } else {
+            searchInfo.textContent = `Showing matching sections`;
+            searchInfo.style.color = '#28a745';
+          }
+        }
+      }
+
+      // Add event listener for search box
+      if (searchBox) {
+        searchBox.addEventListener('input', filterFindings);
+
+        // Add keyboard shortcut (Ctrl/Cmd + F to focus search)
+        document.addEventListener('keydown', function(e) {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            searchBox.focus();
+          }
+        });
+      }
+
+      // Add collapsible functionality for findings
+      findings.forEach(finding => {
+        finding.style.cursor = 'pointer';
+        const details = finding.querySelector('.finding-details');
+        const snippet = finding.querySelector('.code-snippet');
+
+        if (details || snippet) {
+          finding.addEventListener('click', function(e) {
+            // Don't collapse if clicking on a link
+            if (e.target.tagName === 'A') return;
+
+            if (details) details.style.display = details.style.display === 'none' ? 'block' : 'none';
+            if (snippet) snippet.style.display = snippet.style.display === 'none' ? 'block' : 'none';
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+

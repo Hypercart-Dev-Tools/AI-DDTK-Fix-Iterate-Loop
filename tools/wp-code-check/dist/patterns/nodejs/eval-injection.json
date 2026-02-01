@@ -1,0 +1,89 @@
+{
+  "id": "njs-001-eval-injection",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.81",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "CRITICAL",
+  "title": "Dangerous eval() or code execution",
+  "description": "Detects usage of eval(), Function constructor, and other code execution patterns that can lead to code injection vulnerabilities.",
+  "rationale": "eval() and Function constructor execute arbitrary JavaScript code. When combined with user input, attackers can execute malicious code on the server or in users' browsers.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "eval-call",
+        "pattern": "eval[[:space:]]*\\(",
+        "description": "Direct eval() call"
+      },
+      {
+        "id": "function-constructor",
+        "pattern": "new[[:space:]]+Function[[:space:]]*\\(",
+        "description": "Function constructor (equivalent to eval)"
+      },
+      {
+        "id": "function-string",
+        "pattern": "Function[[:space:]]*\\([[:space:]]*['\"]",
+        "description": "Function constructor with string argument"
+      }
+    ],
+    "exclude_patterns": [
+      "//.*eval",
+      "/\\*.*eval",
+      "JSON\\.parse",
+      "\\.eslintrc",
+      "webpack\\.config"
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*",
+      "*.min.js",
+      "*bundle*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/js/security-antipatterns.js",
+    "expected_violations": 5,
+    "violation_lines": [18, 23, 28, 33, 37],
+    "notes": "Tests eval, Function constructor, setTimeout with string"
+  },
+  "remediation": {
+    "summary": "Replace eval() with safer alternatives. Use JSON.parse() for JSON, use object literals or Maps for dynamic property access.",
+    "examples": [
+      {
+        "bad": "eval('obj.' + propName)",
+        "good": "obj[propName]",
+        "note": "Use bracket notation for dynamic property access"
+      },
+      {
+        "bad": "eval(jsonString)",
+        "good": "JSON.parse(jsonString)",
+        "note": "Use JSON.parse for JSON strings"
+      },
+      {
+        "bad": "new Function('a', 'b', 'return a + b')",
+        "good": "(a, b) => a + b",
+        "note": "Use arrow functions or regular functions"
+      },
+      {
+        "bad": "setTimeout('doSomething()', 1000)",
+        "good": "setTimeout(doSomething, 1000)",
+        "note": "Pass function reference, not string"
+      }
+    ]
+  },
+  "security_impact": {
+    "level": "CRITICAL",
+    "cwe": "CWE-94",
+    "owasp": "A03:2021 Injection",
+    "notes": "Code injection can lead to complete server compromise, data theft, or client-side attacks (XSS)"
+  },
+  "references": [
+    "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/eval#never_use_eval!",
+    "https://cheatsheetseries.owasp.org/cheatsheets/Injection_Prevention_Cheat_Sheet.html",
+    "https://cwe.mitre.org/data/definitions/94.html"
+  ]
+}
+

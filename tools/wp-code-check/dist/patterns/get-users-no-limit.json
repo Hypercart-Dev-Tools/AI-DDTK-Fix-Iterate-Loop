@@ -1,0 +1,129 @@
+{
+  "id": "get-users-no-limit",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "CRITICAL",
+  "title": "get_users() without 'number' limit",
+  "description": "Detects get_users() calls without the 'number' parameter, which can fetch ALL users from the database and cause memory exhaustion on large sites.",
+  "rationale": "On sites with 10,000+ users, unbounded get_users() queries can consume gigabytes of memory and cause timeouts or crashes. Always limit user queries with the 'number' parameter.",
+  "detection": {
+    "type": "scripted",
+    "file_patterns": ["*.php"],
+    "search_pattern": "get_users[[:space:]]*\\(",
+    "validator_script": "validators/parameter-presence-check.sh",
+    "validator_args": ["number", "10"]
+  },
+  "test_fixture": {
+    "path": null,
+    "expected_violations": null,
+    "expected_valid": null,
+    "notes": "No dedicated fixture yet - pattern is tested via IRL examples. TODO: Create comprehensive test fixture."
+  },
+  "irl_examples": [
+    {
+      "file": "dist/tests/irl/wp-security-audit-log/class-select2-wpws-irl.php",
+      "line": 230,
+      "original_line": 197,
+      "plugin": "WP Activity Log v5.5.4",
+      "code": "$users = get_users( $query_params );",
+      "context": "AJAX user search for Select2 dropdown - no 'number' limit in $query_params",
+      "risk": "On sites with 10k+ users, this loads ALL users into memory during AJAX search",
+      "impact": "Memory exhaustion, timeouts, poor user experience",
+      "real_world_scenario": "Enterprise WordPress site with 50,000 users - this query would attempt to load all 50k users"
+    },
+    {
+      "file": "dist/tests/irl/wp-security-audit-log/class-select2-wpws-irl.php",
+      "line": 444,
+      "original_line": 352,
+      "plugin": "WP Activity Log v5.5.4",
+      "code": "$args['data'] = self::get_users();",
+      "context": "Pre-loading users when count is below threshold - still unbounded",
+      "risk": "Even with threshold check, if threshold is set too high (e.g., 10k), loads all into memory",
+      "impact": "Memory spikes, slow page loads, potential crashes",
+      "real_world_scenario": "Admin sets threshold to 5,000 users - page load attempts to serialize 5k user objects to JSON"
+    }
+  ],
+  "remediation": {
+    "summary": "Always add 'number' parameter to get_users() calls to limit results. Use pagination for large result sets.",
+    "examples": [
+      {
+        "bad": "$users = get_users();",
+        "good": "$users = get_users( array( 'number' => 100 ) );",
+        "note": "Add hard limit of 100 users (or appropriate limit for your use case)"
+      },
+      {
+        "bad": "$users = get_users( array( 'search' => $search_term ) );",
+        "good": "$users = get_users( array( 'search' => $search_term, 'number' => 50 ) );",
+        "note": "Even with search, limit results to prevent memory issues"
+      },
+      {
+        "bad": "$query_params = array( 'role' => 'subscriber' );\n$users = get_users( $query_params );",
+        "good": "$query_params = array( 'role' => 'subscriber', 'number' => 100 );\n$users = get_users( $query_params );",
+        "note": "Add 'number' to query params array"
+      },
+      {
+        "bad": "// AJAX endpoint\n$users = get_users( array( 'search' => $_GET['term'] ) );",
+        "good": "// AJAX endpoint with pagination\n$page = isset( $_GET['page'] ) ? absint( $_GET['page'] ) : 1;\n$users = get_users( array(\n    'search' => sanitize_text_field( $_GET['term'] ),\n    'number' => 50,\n    'paged' => $page\n) );",
+        "note": "For AJAX/Select2, use pagination with reasonable page size"
+      }
+    ],
+    "pagination_example": {
+      "description": "For large result sets, use pagination instead of loading all at once",
+      "code": "// Get total count first\n$total_users = count_users();\n$users_per_page = 100;\n$total_pages = ceil( $total_users['total_users'] / $users_per_page );\n\n// Get current page\n$paged = isset( $_GET['paged'] ) ? absint( $_GET['paged'] ) : 1;\n\n// Query with limit and offset\n$users = get_users( array(\n    'number' => $users_per_page,\n    'paged' => $paged\n) );"
+    },
+    "select2_ajax_example": {
+      "description": "For Select2 dropdowns, use AJAX search with limits",
+      "code": "// AJAX handler\nfunction my_ajax_search_users() {\n    $search = isset( $_GET['term'] ) ? sanitize_text_field( $_GET['term'] ) : '';\n    $page = isset( $_GET['page'] ) ? absint( $_GET['page'] ) : 1;\n    \n    $users = get_users( array(\n        'search' => '*' . $search . '*',\n        'search_columns' => array( 'user_login', 'user_email', 'display_name' ),\n        'number' => 50,\n        'paged' => $page\n    ) );\n    \n    $results = array();\n    foreach ( $users as $user ) {\n        $results[] = array(\n            'id' => $user->ID,\n            'text' => $user->display_name . ' (' . $user->user_email . ')'\n        );\n    }\n    \n    wp_send_json_success( array( 'results' => $results ) );\n}"
+    }
+  },
+  "performance_impact": {
+    "small_sites": {
+      "users": "< 1,000",
+      "impact": "Low - may not notice performance issues",
+      "recommendation": "Still add limits for future-proofing"
+    },
+    "medium_sites": {
+      "users": "1,000 - 10,000",
+      "impact": "Medium - noticeable slowdowns, increased memory usage",
+      "recommendation": "MUST add limits - risk of timeouts"
+    },
+    "large_sites": {
+      "users": "10,000+",
+      "impact": "CRITICAL - site crashes, memory exhaustion, database overload",
+      "recommendation": "MUST add limits + pagination + caching"
+    },
+    "enterprise_sites": {
+      "users": "50,000+",
+      "impact": "SEVERE - guaranteed crashes without limits",
+      "recommendation": "MUST use pagination, AJAX search, and consider alternative user selection methods"
+    }
+  },
+  "alternatives": {
+    "description": "For very large user bases, consider alternatives to get_users()",
+    "options": [
+      {
+        "method": "Direct $wpdb queries with LIMIT",
+        "use_case": "When you need specific user data and want full control",
+        "example": "$wpdb->get_results( $wpdb->prepare( \"SELECT ID, display_name FROM {$wpdb->users} WHERE display_name LIKE %s LIMIT 50\", '%' . $wpdb->esc_like( $search ) . '%' ) );"
+      },
+      {
+        "method": "WP_User_Query with 'fields' parameter",
+        "use_case": "When you only need specific user fields (reduces memory)",
+        "example": "$query = new WP_User_Query( array( 'fields' => array( 'ID', 'display_name' ), 'number' => 100 ) );"
+      },
+      {
+        "method": "Autocomplete with minimum character requirement",
+        "use_case": "For Select2/autocomplete, require 3+ characters before searching",
+        "example": "// In JavaScript: minimumInputLength: 3"
+      }
+    ]
+  },
+  "references": [
+    "https://developer.wordpress.org/reference/functions/get_users/",
+    "https://developer.wordpress.org/reference/classes/wp_user_query/",
+    "https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#performance"
+  ],
+  "notes": "This is a CRITICAL performance issue that becomes more severe as user count grows. Many developers don't realize get_users() is unbounded by default. On enterprise sites, this single issue can bring down the entire site."
+}
+

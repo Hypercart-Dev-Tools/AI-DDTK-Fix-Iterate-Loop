@@ -1,0 +1,38 @@
+{
+  "id": "wp-json-html-escape",
+  "title": "HTML-escaping in JSON response URL fields",
+  "description": "Detects HTML escaping functions (esc_url, esc_attr, esc_html) used in JSON response fields with URL-like names. This can cause double-encoding issues where & becomes &#038; breaking redirects in JavaScript.",
+  "severity": "MEDIUM",
+  "category": "reliability",
+  "enabled": true,
+  "heuristic": true,
+  "type": "php",
+  "pattern": "wp_send_json|WP_REST_Response|wp_json_encode",
+  "context_pattern": "esc_url\\(|esc_attr\\(|esc_html\\(",
+  "url_key_pattern": "(url|redirect|link|href|view_url|redirect_url|edit_url|delete_url|ajax_url|api_url|endpoint)",
+  "message": "Potential HTML-escaping in JSON response. esc_url() encodes & → &#038; which can break redirects in JS. Prefer raw URL in JSON; escape when rendering into HTML.",
+  "remediation": "Remove HTML escaping from JSON URL fields. Use raw URLs in JSON responses and escape only when rendering into HTML context.\n\n❌ Bad:\nwp_send_json_success(array(\n    'redirect_url' => esc_url($url)\n));\n\n✅ Good:\nwp_send_json_success(array(\n    'redirect_url' => $url  // Raw URL, escape in JS when needed\n));\n\nNote: If sending HTML fragments intentionally, this is acceptable. Use baseline to suppress.",
+  "references": [
+    "https://developer.wordpress.org/apis/handbook/rest-api/",
+    "https://developer.wordpress.org/reference/functions/wp_send_json_success/"
+  ],
+  "tags": ["wordpress", "json", "ajax", "escaping", "reliability", "heuristic"],
+  "detection_method": "two-step",
+  "detection_notes": "Step 1: Find JSON response functions (wp_send_json_*, WP_REST_Response, wp_json_encode). Step 2: Check for esc_url/esc_attr/esc_html in array keys matching URL patterns (url, redirect, link, href, etc.).",
+  "false_positive_notes": "May flag intentional HTML fragments in JSON (e.g., 'html_content' => esc_html($html)). Use baseline to suppress legitimate cases.",
+  "examples": {
+    "bad": [
+      "wp_send_json_success(array('redirect_url' => esc_url($url)));",
+      "wp_send_json_error(array('view_url' => esc_attr($link)));",
+      "return new WP_REST_Response(array('edit_url' => esc_url($edit_link)));",
+      "$data = array('ajax_url' => esc_url(admin_url('admin-ajax.php'))); wp_json_encode($data);"
+    ],
+    "good": [
+      "wp_send_json_success(array('redirect_url' => $url));",
+      "wp_send_json_success(array('html_content' => esc_html($content)));",
+      "return new WP_REST_Response(array('edit_url' => admin_url('post.php?post=' . $id)));",
+      "$data = array('ajax_url' => admin_url('admin-ajax.php')); wp_json_encode($data);"
+    ]
+  }
+}
+

@@ -1,0 +1,73 @@
+{
+  "id": "njs-004-unhandled-promise",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.81",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "reliability",
+  "severity": "HIGH",
+  "title": "Promise without error handling",
+  "description": "Detects promises that lack .catch() handlers or async functions without try/catch blocks, which can lead to unhandled promise rejections.",
+  "rationale": "Unhandled promise rejections cause silent failures, make debugging difficult, and in Node.js can crash the application. As of Node.js 15+, unhandled rejections terminate the process by default.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "then-no-catch",
+        "pattern": "\\.then[[:space:]]*\\([^)]+\\)[[:space:]]*;[[:space:]]*$",
+        "description": "Promise chain ending with .then() without .catch()"
+      },
+      {
+        "id": "promise-all-then",
+        "pattern": "Promise\\.all[[:space:]]*\\([^)]+\\)\\.then",
+        "description": "Promise.all() followed by .then() (check for .catch)"
+      }
+    ],
+    "exclude_patterns": [
+      "\\.catch",
+      "try[[:space:]]*\\{",
+      "//.*\\.then"
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/js/promise-antipatterns.js",
+    "expected_violations": 4,
+    "violation_lines": [18, 25, 55, 72],
+    "notes": "Tests promise chains without .catch()"
+  },
+  "remediation": {
+    "summary": "Always handle promise rejections with .catch() or try/catch. Use Promise.allSettled() when you need all results regardless of failures.",
+    "examples": [
+      {
+        "bad": "fetch('/api').then(r => r.json()).then(data => process(data));",
+        "good": "fetch('/api')\n  .then(r => r.json())\n  .then(data => process(data))\n  .catch(err => handleError(err));",
+        "note": "Add .catch() at end of promise chain"
+      },
+      {
+        "bad": "async function getData() {\n  const res = await fetch('/api');\n  return res.json();\n}",
+        "good": "async function getData() {\n  try {\n    const res = await fetch('/api');\n    return res.json();\n  } catch (err) {\n    console.error('Failed:', err);\n    throw err;\n  }\n}",
+        "note": "Wrap await calls in try/catch"
+      },
+      {
+        "bad": "Promise.all([p1, p2]).then(results => process(results));",
+        "good": "Promise.all([p1, p2])\n  .then(results => process(results))\n  .catch(err => handleError(err));\n\n// Or use allSettled:\nPromise.allSettled([p1, p2]).then(results => {\n  const successes = results.filter(r => r.status === 'fulfilled');\n  const failures = results.filter(r => r.status === 'rejected');\n});",
+        "note": "Handle Promise.all errors or use allSettled"
+      }
+    ]
+  },
+  "security_impact": {
+    "level": "MEDIUM",
+    "notes": "While not directly a security issue, unhandled rejections can cause service disruptions (DoS), hide security-relevant errors, or leave resources in inconsistent states"
+  },
+  "references": [
+    "https://nodejs.org/api/process.html#event-unhandledrejection",
+    "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/catch",
+    "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise/allSettled"
+  ]
+}
+

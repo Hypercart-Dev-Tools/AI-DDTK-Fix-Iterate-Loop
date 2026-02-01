@@ -1,0 +1,133 @@
+{
+  "id": "duplicate-option-names",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.60",
+  "enabled": true,
+  "detection_type": "aggregated",
+  "category": "duplication",
+  "severity": "MEDIUM",
+  "title": "Duplicate option names across files",
+  "description": "Detects get_option(), update_option(), and delete_option() calls with hard-coded option names appearing in multiple files. This indicates a DRY violation where option names should be centralized as constants.",
+  "rationale": "Hard-coded option names scattered across files make refactoring risky, lead to typos/bugs, and make it difficult to track where options are used. Centralizing option names as constants provides a single source of truth and enables IDE autocomplete.",
+
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "(get_option|update_option|delete_option|add_option)\\( *['\"]([a-z0-9_]+)['\"]",
+    "capture_group": 2,
+    "exclude_patterns": [
+      "//.*option",
+      "/\\*.*option.*\\*/",
+      "define\\(",
+      "const [A-Z_]+ =",
+      "siteurl",
+      "home",
+      "blogname",
+      "admin_email"
+    ],
+    "exclude_files": [
+      "*/vendor/*",
+      "*/node_modules/*",
+      "*/tests/*",
+      "*-test.php"
+    ]
+  },
+  
+  "aggregation": {
+    "enabled": true,
+    "group_by": "capture_group",
+    "min_total_matches": 6,
+    "min_distinct_files": 3,
+    "top_k_groups": 15,
+    "report_format": "Option '{match}' appears in {file_count} files ({total_count} times)",
+    "sort_by": "file_count_desc"
+  },
+  
+  "remediation": {
+    "summary": "Extract option names to a constants file or class constants. This creates a single source of truth and makes refactoring safer.",
+    "priority": "MEDIUM",
+    "effort": "LOW",
+    "examples": [
+      {
+        "bad": "// Scattered across 5 files\n$api_key = get_option( 'my_plugin_api_key' );\nupdate_option( 'my_plugin_api_key', $new_key );",
+        "good": "// includes/constants.php\ndefine( 'MY_PLUGIN_OPTION_API_KEY', 'my_plugin_api_key' );\n\n// Usage in any file\n$api_key = get_option( MY_PLUGIN_OPTION_API_KEY );\nupdate_option( MY_PLUGIN_OPTION_API_KEY, $new_key );",
+        "note": "Centralize in includes/constants.php or similar"
+      },
+      {
+        "bad": "// Multiple files\nget_option( 'my_plugin_cache_ttl' );\nget_option( 'my_plugin_cache_ttl' );\nget_option( 'my_plugin_cache_ttl' );",
+        "good": "// includes/class-options.php\nclass My_Plugin_Options {\n    const CACHE_TTL = 'my_plugin_cache_ttl';\n    \n    public static function get_cache_ttl() {\n        return get_option( self::CACHE_TTL, 3600 );\n    }\n}\n\n// Usage\n$ttl = My_Plugin_Options::get_cache_ttl();",
+        "note": "Use class constants + helper methods for type safety and default values"
+      }
+    ],
+    "refactoring_steps": [
+      "1. Create includes/constants.php or includes/class-options.php",
+      "2. Define constants for all duplicated option names",
+      "3. Use find-and-replace to update all references (test thoroughly!)",
+      "4. Add PHPDoc comments documenting each option's purpose",
+      "5. Consider adding helper methods with default values and type hints"
+    ]
+  },
+  
+  "test_fixture": {
+    "path": "dist/tests/fixtures/dry/duplicate-options.php",
+    "expected_violations": 3,
+    "expected_groups": [
+      "my_plugin_api_key",
+      "my_plugin_cache_ttl",
+      "my_plugin_debug_mode"
+    ],
+    "notes": "Fixture simulates option names scattered across multiple functions (representing different files)"
+  },
+  
+  "performance_impact": {
+    "runtime": "None - this is a maintainability issue, not a performance issue",
+    "maintenance": "HIGH - scattered option names make refactoring risky and error-prone"
+  },
+  
+  "security_impact": {
+    "level": "LOW",
+    "notes": "Typos in option names could lead to using wrong settings, but not a direct security vulnerability"
+  },
+  
+  "real_world_examples": [
+    {
+      "scenario": "Plugin with 50+ option names scattered across 20 files",
+      "impact": "Developer spent 3 hours tracking down a typo in an option name that caused settings to not save",
+      "solution": "Centralized all option names to class constants, typo caught by IDE immediately"
+    },
+    {
+      "scenario": "Refactoring option name from 'api_key' to 'external_api_key'",
+      "impact": "Without constants, had to manually search/replace across 15 files, missed 2 occurrences",
+      "solution": "With constants, changed in one place, all references updated automatically"
+    }
+  ],
+  
+  "allowlist": {
+    "description": "Common WordPress core options that appear everywhere and should not be flagged",
+    "patterns": [
+      "siteurl",
+      "home",
+      "blogname",
+      "blogdescription",
+      "admin_email",
+      "users_can_register",
+      "default_role",
+      "timezone_string",
+      "date_format",
+      "time_format",
+      "posts_per_page",
+      "show_on_front",
+      "page_on_front",
+      "page_for_posts"
+    ]
+  },
+  
+  "references": [
+    "https://developer.wordpress.org/reference/functions/get_option/",
+    "https://developer.wordpress.org/reference/functions/update_option/",
+    "https://make.wordpress.org/core/handbook/best-practices/coding-standards/php/#naming-conventions"
+  ],
+  
+  "notes": "This pattern is a proof-of-concept for DRY detection. Start with conservative thresholds (3+ files, 6+ occurrences) to minimize false positives. Adjust based on real-world feedback."
+}
+

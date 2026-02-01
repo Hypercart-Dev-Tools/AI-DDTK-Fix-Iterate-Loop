@@ -1,0 +1,35 @@
+{
+  "id": "like-leading-wildcard",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "MEDIUM",
+  "title": "LIKE queries with leading wildcards",
+  "description": "Detects SQL LIKE queries with leading wildcards (LIKE '%...'), which prevent database index usage and cause full table scans.",
+  "rationale": "LIKE queries with leading wildcards cannot use database indexes, forcing full table scans. This causes severe performance degradation on large tables. Use full-text search or alternative query strategies instead.",
+  "detection": {
+    "type": "direct",
+    "file_patterns": ["*.php"],
+    "search_pattern": "LIKE[[:space:]]+['\"]%"
+  },
+  "remediation": {
+    "summary": "Avoid leading wildcards in LIKE queries. Use trailing wildcards, full-text search, or alternative query strategies.",
+    "examples": [
+      {
+        "bad": "$wpdb->get_results( \"SELECT * FROM {$wpdb->posts} WHERE post_title LIKE '%search%'\" );",
+        "good": "// Option 1: Use WP_Query with search\n$query = new WP_Query( array( 's' => 'search' ) );\n\n// Option 2: Use trailing wildcard only\n$wpdb->get_results( $wpdb->prepare( \"SELECT * FROM {$wpdb->posts} WHERE post_title LIKE %s\", 'search%' ) );",
+        "note": "WordPress search uses full-text indexing which is much faster."
+      }
+    ],
+    "references": [
+      "https://developer.wordpress.org/reference/classes/wp_query/",
+      "https://dev.mysql.com/doc/refman/8.0/en/fulltext-search.html"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "database", "sql", "indexing", "like-query"],
+    "added_in_version": "1.0.0",
+    "last_updated": "1.3.16"
+  }
+}
+

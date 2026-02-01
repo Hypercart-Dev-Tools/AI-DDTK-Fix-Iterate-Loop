@@ -1,0 +1,937 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WP Code Check Performance Report - {{TIMESTAMP}}</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 20px;
+      line-height: 1.6;
+      color: #333;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    .header .meta {
+      opacity: 0.9;
+      font-size: 0.9em;
+    }
+
+    /* Links in header - high contrast for legibility */
+    .header a {
+      color: #fff;
+      text-decoration: none;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .header a:hover {
+      background: rgba(0, 0, 0, 0.4);
+      border-bottom-color: #fff;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .header a:active {
+      transform: translateY(0);
+    }
+    
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      padding: 30px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+    }
+    
+    .stat-card {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    
+    .stat-card .label {
+      font-size: 0.85em;
+      color: #6c757d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    
+    .stat-card .value {
+      font-size: 2em;
+      font-weight: bold;
+    }
+    
+    .stat-card.errors .value { color: #dc3545; }
+    .stat-card.warnings .value { color: #ffc107; }
+    .stat-card.baselined .value { color: #17a2b8; }
+    .stat-card.passed .value { color: #28a745; }
+    
+    .content {
+      padding: 30px;
+    }
+    
+    .section {
+      margin-bottom: 30px;
+    }
+    
+    .section h2 {
+      font-size: 1.5em;
+      margin-bottom: 15px;
+      color: #495057;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+    }
+    
+    .finding {
+      background: #f8f9fa;
+      border-left: 4px solid #6c757d;
+      padding: 15px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+    }
+    
+    .finding.critical { border-left-color: #dc3545; }
+    .finding.high { border-left-color: #fd7e14; }
+    .finding.medium { border-left-color: #ffc107; }
+    .finding.low { border-left-color: #17a2b8; }
+    
+    .finding-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+    
+    .finding-title {
+      font-weight: bold;
+      font-size: 1.1em;
+    }
+    
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75em;
+      font-weight: bold;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .badge.critical { background: #dc3545; color: white; }
+    .badge.high { background: #fd7e14; color: white; }
+    .badge.medium { background: #ffc107; color: #000; }
+    .badge.low { background: #17a2b8; color: white; }
+    
+    .finding-details {
+      font-size: 0.9em;
+      color: #6c757d;
+      margin-top: 8px;
+    }
+    
+    .code-snippet {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85em;
+      margin-top: 10px;
+    }
+    
+    .file-path {
+      color: #667eea;
+      font-family: monospace;
+      font-size: 0.9em;
+    }
+
+    /* File path links in findings (not in header) */
+    .finding .file-path a,
+    .content .file-path a {
+      color: #667eea;
+      text-decoration: none;
+      border-bottom: 1px dotted rgba(102, 126, 234, 0.6);
+      transition: all 0.2s ease;
+      font-weight: 600;
+    }
+
+    .finding .file-path a:hover,
+    .content .file-path a:hover {
+      color: #764ba2;
+      border-bottom: 1px solid #764ba2;
+      background: rgba(102, 126, 234, 0.1);
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+    
+    .footer {
+      background: #f8f9fa;
+      padding: 20px 30px;
+      text-align: center;
+      color: #6c757d;
+      font-size: 0.9em;
+      border-top: 1px solid #dee2e6;
+    }
+
+    .fixture-validation {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .fixture-validation.passed {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .fixture-validation.failed {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .fixture-validation.skipped {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    .copy-btn {
+      display: inline-block;
+      margin-left: 8px;
+      padding: 4px 10px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      border-radius: 4px;
+      color: white;
+      font-size: 0.85em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .copy-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.6);
+      transform: translateY(-1px);
+    }
+
+    .copy-btn:active {
+      transform: translateY(0);
+    }
+
+    .copy-btn.copied {
+      background: rgba(40, 167, 69, 0.8);
+      border-color: rgba(40, 167, 69, 1);
+    }
+
+    .status-banner {
+      padding: 20px;
+      text-align: center;
+      font-size: 1.2em;
+      font-weight: bold;
+    }
+
+    .status-banner.pass { background: #d4edda; color: #155724; }
+    .status-banner.fail { background: #f8d7da; color: #721c24; }
+
+    .search-container {
+      padding: 20px 30px;
+      background: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+    }
+
+    /* IDE Selector Styles */
+    .ide-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .ide-selector-label {
+      font-size: 0.9em;
+      color: #495057;
+      font-weight: 500;
+    }
+
+    .ide-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .ide-btn {
+      padding: 4px 12px;
+      border: 1px solid #dee2e6;
+      border-radius: 4px;
+      background: white;
+      color: #495057;
+      font-size: 0.8em;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .ide-btn:hover {
+      border-color: #667eea;
+      background: #f0f4ff;
+    }
+
+    .ide-btn.active {
+      border-color: #667eea;
+      background: #667eea;
+      color: white;
+    }
+
+    .ide-btn .ide-icon {
+      font-size: 1.1em;
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    .search-box {
+      width: 100%;
+      padding: 12px 45px 12px 20px;
+      font-size: 1em;
+      border: 2px solid #667eea;
+      border-radius: 8px;
+      outline: none;
+      transition: all 0.3s ease;
+    }
+
+    .search-box:focus {
+      border-color: #764ba2;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .search-clear-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: #6c757d;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      padding: 0;
+      font-weight: bold;
+    }
+
+    .search-clear-btn:hover {
+      background: #495057;
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .search-clear-btn:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    .search-clear-btn.visible {
+      display: flex;
+    }
+
+    .search-info {
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #6c757d;
+      text-align: center;
+    }
+
+    .finding.hidden {
+      display: none;
+    }
+
+    /* Phase 2: AI Triage Section Styles */
+    .ai-triage-section {
+      background: #f0f4ff;
+      border-left: 4px solid #4a90e2;
+      padding: 20px;
+      margin: 30px 0;
+      border-radius: 4px;
+    }
+
+    .ai-triage-disclaimer {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      padding: 12px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      font-size: 0.9em;
+      line-height: 1.5;
+    }
+
+    .ai-triage-content[data-status="pending"] {
+      color: #666;
+      font-style: italic;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 4px;
+    }
+
+    .ai-triage-content[data-status="complete"] {
+      color: #155724;
+    }
+
+    .ai-triage-content[data-status="error"] {
+      color: #721c24;
+      background: #f8d7da;
+      padding: 10px;
+      border-radius: 4px;
+    }
+
+    .ai-triage-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin: 15px 0;
+    }
+
+    .ai-triage-stat {
+      background: white;
+      padding: 12px;
+      border-radius: 4px;
+      text-align: center;
+      border: 1px solid #dee2e6;
+    }
+
+    .ai-triage-stat .label {
+      font-size: 0.8em;
+      color: #6c757d;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+
+    .ai-triage-stat .value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #495057;
+    }
+
+    .ai-triage-verdicts {
+      margin-top: 15px;
+    }
+
+    .ai-triage-verdict {
+      background: white;
+      border-left: 3px solid #4a90e2;
+      padding: 12px;
+      margin-bottom: 10px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    .ai-triage-verdict.confirmed {
+      border-left-color: #28a745;
+    }
+
+    .ai-triage-verdict.false-positive {
+      border-left-color: #6c757d;
+    }
+
+    .ai-triage-verdict.needs-review {
+      border-left-color: #ffc107;
+    }
+
+    .ai-triage-verdict-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+
+    .ai-triage-verdict-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 0.75em;
+      font-weight: bold;
+    }
+
+    .ai-triage-verdict-badge.confirmed {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .ai-triage-verdict-badge.false-positive {
+      background: #e2e3e5;
+      color: #383d41;
+    }
+
+    .ai-triage-verdict-badge.needs-review {
+      background: #fff3cd;
+      color: #856404;
+    }
+
+    @media (max-width: 768px) {
+      .summary { grid-template-columns: 1fr; }
+      .finding-header { flex-direction: column; align-items: flex-start; }
+      .badge { margin-top: 8px; }
+      .ai-triage-summary { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🚀 WP Code Check Performance Report</h1>
+      <div class="meta">
+        {{PROJECT_INFO}}
+        <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.2);">
+          <div>Generated (UTC): {{TIMESTAMP}}</div>
+          <div id="local-time">Local Time/Date: <span id="local-timestamp">Loading...</span></div>
+          <div>Script Version: {{VERSION}}</div>
+          <div>
+            Paths Scanned: {{PATHS_SCANNED}}
+            <button class="copy-btn" onclick="copyFolderPath()" title="Copy folder path to clipboard">📋 Copy Path</button>
+          </div>
+          {{JSON_LOG_LINK}}
+          <div>Strict Mode: {{STRICT_MODE}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status Banner -->
+    <div class="status-banner {{STATUS_CLASS}}">
+      {{STATUS_MESSAGE}}
+    </div>
+
+    <!-- Search/Filter Box -->
+    <div class="search-container">
+      <div class="search-input-wrapper">
+        <input
+          type="text"
+          id="search-box"
+          class="search-box"
+          placeholder="🔍 Search findings by keyword (file path, message, code, severity, etc.)..."
+          autocomplete="off"
+        />
+        <button
+          id="search-clear-btn"
+          class="search-clear-btn"
+          title="Clear search"
+          aria-label="Clear search"
+        >×</button>
+      </div>
+      <div class="search-info">
+        <span id="search-results-info"></span>
+      </div>
+    </div>
+
+    <!-- Summary Stats -->
+    <div class="summary">
+      <div class="stat-card errors">
+        <div class="label">Error Types</div>
+        <div class="value">{{TOTAL_ERRORS}}</div>
+      </div>
+      <div class="stat-card warnings">
+        <div class="label">Warning Types</div>
+        <div class="value">{{TOTAL_WARNINGS}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Magic Strings</div>
+        <div class="value" style="color: #ffc107;">{{MAGIC_STRING_COUNT}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Function Clones</div>
+        <div class="value" style="color: #ffc107;">{{FUNCTION_CLONE_COUNT}}</div>
+      </div>
+      <div class="stat-card baselined">
+        <div class="label">Baselined</div>
+        <div class="value">{{BASELINED}}</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">Stale Baseline</div>
+        <div class="value">{{STALE_BASELINE}}</div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="content">
+      <!-- Phase 2: AI-Assisted Triage (TL;DR at Top) -->
+      <div class="section">
+        <div id="ai-triage" class="ai-triage-section" data-ai-inject="triage">
+          <h2>🤖 Phase 2 (TL;DR) - AI Triage Summary</h2>
+
+          <div class="ai-triage-disclaimer">
+            <strong>⚠️ Disclaimer:</strong> This AI-assisted analysis is provided for
+            informational purposes only and represents probabilistic pattern matching,
+            not definitive security assessment. Developers must perform manual code
+            review to verify all findings. We make no guarantees about accuracy or
+            completeness. When in doubt, treat flagged code as requiring human review.
+          </div>
+
+          {{AI_TRIAGE_HTML}}
+        </div>
+      </div>
+
+      <!-- Findings Section -->
+      <div class="section">
+        <h2>📋 Findings ({{FINDINGS_COUNT}})</h2>
+        <!-- IDE Selector -->
+        <div class="ide-selector">
+          <span class="ide-selector-label">Open in:</span>
+          <div class="ide-buttons">
+            <button class="ide-btn" data-ide="vscode" title="Open in VS Code">💻 VS Code</button>
+            <button class="ide-btn" data-ide="cursor" title="Open in Cursor">⚡ Cursor</button>
+            <button class="ide-btn" data-ide="augment" title="Open in Augment">🔮 Augment</button>
+            <button class="ide-btn" data-ide="file" title="Use file:// protocol">📁 File</button>
+          </div>
+        </div>
+        {{FINDINGS_HTML}}
+      </div>
+
+      <!-- Magic Strings Section -->
+      <div class="section">
+        <h2>🔤 Magic Strings ({{MAGIC_STRING_COUNT}})</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">Hardcoded values that should be constants</p>
+        {{MAGIC_STRINGS_HTML}}
+      </div>
+
+      <!-- Function Clones Section -->
+      <div class="section">
+        <h2>🔄 Function Clones ({{FUNCTION_CLONE_COUNT}})</h2>
+        <p style="color: #6c757d; margin-bottom: 20px;">Duplicate functions detected across files</p>
+        {{FUNCTION_CLONES_HTML}}
+      </div>
+
+      <!-- Checks Summary -->
+      <div class="section">
+        <h2>✓ Checks Summary</h2>
+        {{CHECKS_HTML}}
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      Generated by <a href="https://WPCodeCheck.com" target="_blank" style="color: #6366f1; text-decoration: none; font-weight: 600;">WP Code Check</a> by Hypercart v{{VERSION}} |
+      Exit Code: {{EXIT_CODE}} |
+      Strict Mode: {{STRICT_MODE}} |
+      <span class="fixture-validation {{FIXTURE_STATUS_CLASS}}">{{FIXTURE_STATUS_TEXT}}</span>
+    </div>
+  </div>
+
+  <script>
+    // Copy to clipboard functions (must be in global scope for onclick handlers)
+    const folderPath = '{{JS_FOLDER_PATH}}';
+    const logPath = '{{JS_LOG_PATH}}';
+
+    function copyFolderPath() {
+      copyToClipboard(folderPath, 'Folder path copied!', 'Open in Finder/Explorer: ' + folderPath);
+    }
+
+    function copyLogPath() {
+      copyToClipboard(logPath, 'JSON log path copied!', 'Open file: ' + logPath);
+    }
+
+    function copyToClipboard(text, successMessage, detailMessage) {
+      if (!text) {
+        alert('No path available to copy');
+        return;
+      }
+
+      navigator.clipboard.writeText(text).then(() => {
+        // Show success feedback
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.classList.add('copied');
+
+        // Show alert with helpful message
+        alert(successMessage + '\n\n' + detailMessage);
+
+        // Reset button after 2 seconds
+        setTimeout(() => {
+          btn.textContent = originalText;
+          btn.classList.remove('copied');
+        }, 2000);
+      }).catch(err => {
+        alert('Failed to copy to clipboard. Please copy manually:\n\n' + text);
+        console.error('Copy failed:', err);
+      });
+    }
+
+    // IDE Protocol Configuration
+    const ideProtocols = {
+      vscode: { prefix: 'vscode://file', format: (file, line) => line ? `vscode://file${file}:${line}` : `vscode://file${file}` },
+      cursor: { prefix: 'cursor://file', format: (file, line) => line ? `cursor://file${file}:${line}` : `cursor://file${file}` },
+      augment: { prefix: 'augment://file', format: (file, line) => line ? `augment://file${file}:${line}` : `augment://file${file}` },
+      file: { prefix: 'file://', format: (file, line) => `file://${file}` }
+    };
+
+    // IDE Selector functionality
+    function initIdeSelector() {
+      const ideButtons = document.querySelectorAll('.ide-btn');
+      const ideLinks = document.querySelectorAll('.ide-link');
+
+      // Load saved preference or default to 'file'
+      const savedIde = localStorage.getItem('wp-code-check-ide') || 'file';
+
+      // Set initial active state and update links
+      updateIdeSelection(savedIde, ideButtons, ideLinks);
+
+      // Add click handlers to IDE buttons
+      ideButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+          const ide = this.dataset.ide;
+          localStorage.setItem('wp-code-check-ide', ide);
+          updateIdeSelection(ide, ideButtons, ideLinks);
+        });
+      });
+    }
+
+    function updateIdeSelection(ide, buttons, links) {
+      // Update button states
+      buttons.forEach(btn => {
+        if (btn.dataset.ide === ide) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // Update all links
+      const protocol = ideProtocols[ide] || ideProtocols.file;
+      links.forEach(link => {
+        const file = link.dataset.file;
+        const line = link.dataset.line;
+        if (file) {
+          link.href = protocol.format(file, line);
+        }
+      });
+    }
+
+    // Convert UTC timestamp to local time
+    document.addEventListener('DOMContentLoaded', function() {
+      // Initialize IDE selector
+      initIdeSelector();
+      // Get the UTC timestamp from the page
+      const utcTimestamp = '{{TIMESTAMP}}';
+
+      // Parse the UTC timestamp (format: YYYY-MM-DDTHH:MM:SSZ)
+      const utcDate = new Date(utcTimestamp);
+
+      // Format options for local time display
+      const options = {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        timeZoneName: 'short'
+      };
+
+      // Convert to local time string
+      const localTimeString = utcDate.toLocaleString(undefined, options);
+
+      // Update the local timestamp element
+      const localTimestampElement = document.getElementById('local-timestamp');
+      if (localTimestampElement) {
+        localTimestampElement.textContent = localTimeString;
+      }
+
+      // Search/Filter functionality
+      const searchBox = document.getElementById('search-box');
+      const searchInfo = document.getElementById('search-results-info');
+      const findings = document.querySelectorAll('.finding');
+      const sections = document.querySelectorAll('.section');
+      const totalFindings = findings.length;
+
+      function filterFindings() {
+        const searchTerm = searchBox.value.toLowerCase().trim();
+        let visibleCount = 0;
+        const sectionsWithHeaderMatch = new Set();
+
+        // First pass: identify sections with matching headers
+        sections.forEach(section => {
+          const sectionHeader = section.querySelector('h2');
+          const sectionHeaderText = sectionHeader ? sectionHeader.textContent.toLowerCase() : '';
+
+          if (searchTerm !== '' && sectionHeaderText.includes(searchTerm)) {
+            sectionsWithHeaderMatch.add(section);
+          }
+        });
+
+        // Second pass: filter findings
+        findings.forEach(finding => {
+          const parentSection = finding.closest('.section');
+
+          if (searchTerm === '') {
+            // No search term - show everything
+            finding.classList.remove('hidden');
+            visibleCount++;
+          } else if (sectionsWithHeaderMatch.has(parentSection)) {
+            // Parent section header matches - show all findings in that section
+            finding.classList.remove('hidden');
+            visibleCount++;
+          } else {
+            // Check if finding content matches search term
+            const findingText = finding.textContent.toLowerCase();
+
+            if (findingText.includes(searchTerm)) {
+              finding.classList.remove('hidden');
+              visibleCount++;
+            } else {
+              finding.classList.add('hidden');
+            }
+          }
+        });
+
+        // Third pass: show/hide sections based on visible content
+        sections.forEach(section => {
+          const visibleFindingsInSection = section.querySelectorAll('.finding:not(.hidden)').length;
+
+          if (searchTerm === '') {
+            // Show all sections when no search term
+            section.style.display = '';
+          } else if (sectionsWithHeaderMatch.has(section)) {
+            // Show section if header matches search term
+            section.style.display = '';
+          } else if (visibleFindingsInSection > 0) {
+            // Show section if it has visible findings
+            section.style.display = '';
+          } else {
+            // Hide section if no matches
+            section.style.display = 'none';
+          }
+        });
+
+        // Update search info
+        if (searchTerm === '') {
+          searchInfo.textContent = '';
+        } else {
+          const visibleSections = Array.from(sections).filter(s => s.style.display !== 'none').length;
+
+          if (visibleCount === 0 && visibleSections === 0) {
+            searchInfo.textContent = 'No results match your search';
+            searchInfo.style.color = '#dc3545';
+          } else if (visibleCount > 0) {
+            searchInfo.textContent = `Showing ${visibleCount} of ${totalFindings} items`;
+            searchInfo.style.color = '#28a745';
+          } else {
+            searchInfo.textContent = `Showing matching sections`;
+            searchInfo.style.color = '#28a745';
+          }
+        }
+      }
+
+      // Add event listener for search box
+      const searchClearBtn = document.getElementById('search-clear-btn');
+
+      if (searchBox) {
+        // Update clear button visibility on input
+        searchBox.addEventListener('input', function() {
+          filterFindings();
+
+          // Show/hide clear button based on input value
+          if (searchClearBtn) {
+            if (searchBox.value.trim().length > 0) {
+              searchClearBtn.classList.add('visible');
+            } else {
+              searchClearBtn.classList.remove('visible');
+            }
+          }
+        });
+
+        // Clear button click handler
+        if (searchClearBtn) {
+          searchClearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            searchBox.value = '';
+            searchClearBtn.classList.remove('visible');
+            filterFindings();
+            searchBox.focus();
+          });
+        }
+
+        // Add keyboard shortcut (Ctrl/Cmd + F to focus search)
+        document.addEventListener('keydown', function(e) {
+          if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            searchBox.focus();
+          }
+
+          // ESC key to clear search
+          if (e.key === 'Escape' && searchBox.value.trim().length > 0) {
+            searchBox.value = '';
+            if (searchClearBtn) {
+              searchClearBtn.classList.remove('visible');
+            }
+            filterFindings();
+          }
+        });
+      }
+
+      // Add collapsible functionality for findings
+      findings.forEach(finding => {
+        finding.style.cursor = 'pointer';
+        const details = finding.querySelector('.finding-details');
+        const snippet = finding.querySelector('.code-snippet');
+
+        if (details || snippet) {
+          finding.addEventListener('click', function(e) {
+            // Don't collapse if clicking on a link
+            if (e.target.tagName === 'A') return;
+
+            if (details) details.style.display = details.style.display === 'none' ? 'block' : 'none';
+            if (snippet) snippet.style.display = snippet.style.display === 'none' ? 'block' : 'none';
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
+

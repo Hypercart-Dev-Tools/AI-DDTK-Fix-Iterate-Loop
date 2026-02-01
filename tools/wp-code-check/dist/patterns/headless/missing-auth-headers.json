@@ -1,0 +1,113 @@
+{
+  "id": "headless-missing-auth-headers",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.79",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "HIGH",
+  "title": "WordPress REST API calls missing authentication",
+  "description": "Detects fetch/axios calls to WordPress REST API endpoints that modify data (POST, PUT, DELETE) without proper authentication headers or credentials mode.",
+  "rationale": "Write operations to WordPress REST API require authentication. Missing Authorization headers or credentials will result in 401/403 errors or security vulnerabilities if the endpoint incorrectly allows unauthenticated access.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "patterns": [
+      {
+        "id": "fetch-post-no-auth",
+        "pattern": "fetch\\([^)]*wp-json[^)]*method:[[:space:]]*['\"]POST['\"]",
+        "context_check": {
+          "window": 10,
+          "must_not_contain": ["Authorization", "credentials"]
+        },
+        "description": "POST to wp-json without Authorization header"
+      },
+      {
+        "id": "fetch-put-no-auth",
+        "pattern": "fetch\\([^)]*wp-json[^)]*method:[[:space:]]*['\"]PUT['\"]",
+        "context_check": {
+          "window": 10,
+          "must_not_contain": ["Authorization", "credentials"]
+        },
+        "description": "PUT to wp-json without Authorization header"
+      },
+      {
+        "id": "fetch-delete-no-auth",
+        "pattern": "fetch\\([^)]*wp-json[^)]*method:[[:space:]]*['\"]DELETE['\"]",
+        "context_check": {
+          "window": 10,
+          "must_not_contain": ["Authorization", "credentials"]
+        },
+        "description": "DELETE to wp-json without Authorization header"
+      },
+      {
+        "id": "fetch-draft-no-auth",
+        "pattern": "fetch\\([^)]*wp-json[^)]*status=draft",
+        "context_check": {
+          "window": 10,
+          "must_not_contain": ["Authorization", "credentials"]
+        },
+        "description": "Fetching drafts without authentication"
+      }
+    ],
+    "exclude_patterns": [
+      "Authorization",
+      "credentials:[[:space:]]*['\"]include['\"]",
+      "Bearer"
+    ],
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*",
+      "*mock*"
+    ]
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/headless/fetch-antipatterns.js",
+    "expected_violations": 2,
+    "violation_lines": [40, 66],
+    "notes": "Tests missing auth on POST and draft fetches"
+  },
+  "remediation": {
+    "summary": "Always include authentication when making write requests or fetching private content from WordPress REST API.",
+    "authentication_methods": [
+      {
+        "method": "JWT Token",
+        "header": "Authorization: Bearer <token>",
+        "use_case": "Most common for headless WordPress with JWT plugin"
+      },
+      {
+        "method": "Application Password",
+        "header": "Authorization: Basic <base64(username:app_password)>",
+        "use_case": "WordPress 5.6+ built-in feature"
+      },
+      {
+        "method": "Cookie Auth",
+        "config": "credentials: 'include'",
+        "use_case": "Same-origin requests with logged-in user"
+      },
+      {
+        "method": "Nonce",
+        "header": "X-WP-Nonce: <nonce>",
+        "use_case": "Same-origin with WordPress-generated nonce"
+      }
+    ],
+    "examples": [
+      {
+        "bad": "fetch('/wp-json/wp/v2/posts', {\n  method: 'POST',\n  body: JSON.stringify(data),\n});",
+        "good": "fetch('/wp-json/wp/v2/posts', {\n  method: 'POST',\n  headers: {\n    'Content-Type': 'application/json',\n    'Authorization': `Bearer ${token}`,\n  },\n  body: JSON.stringify(data),\n});",
+        "note": "Add Authorization header with JWT token"
+      },
+      {
+        "bad": "fetch('/wp-json/wp/v2/posts?status=draft');",
+        "good": "fetch('/wp-json/wp/v2/posts?status=draft', {\n  credentials: 'include',\n  headers: { 'Authorization': `Bearer ${token}` },\n});",
+        "note": "Private content requires authentication"
+      }
+    ]
+  },
+  "references": [
+    "https://developer.wordpress.org/rest-api/using-the-rest-api/authentication/",
+    "https://developer.wordpress.org/plugins/security/nonces/",
+    "https://make.wordpress.org/core/2020/11/05/application-passwords-integration-guide/"
+  ]
+}
+

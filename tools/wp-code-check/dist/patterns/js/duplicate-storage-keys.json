@@ -1,0 +1,49 @@
+{
+  "id": "duplicate-storage-keys",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.81",
+  "enabled": true,
+  "detection_type": "aggregated",
+  "category": "duplication",
+  "severity": "LOW",
+  "title": "Duplicate localStorage/sessionStorage keys across files",
+  "description": "Detects storage keys that appear in multiple JavaScript files. Duplicate storage keys indicate potential key collisions or inconsistent key management.",
+  "rationale": "Storage keys scattered across files are hard to manage and can lead to key collisions, inconsistent naming, or data corruption when the same key is used for different purposes.",
+
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.js", "*.jsx", "*.ts", "*.tsx"],
+    "search_pattern": "(localStorage|sessionStorage)\\.(getItem|setItem)\\([[:space:]]*['\"]([a-zA-Z0-9_-]+)['\"]",
+    "capture_group": 3,
+    "exclude_files": [
+      "*/node_modules/*",
+      "*test*",
+      "*.min.js"
+    ]
+  },
+  
+  "aggregation": {
+    "enabled": true,
+    "group_by": "captured_string",
+    "min_total_matches": 3,
+    "min_distinct_files": 2,
+    "report_format": "Storage key '{key}' used in {file_count} files ({total_count} occurrences)",
+    "sort_by": "file_count_desc"
+  },
+  
+  "remediation": {
+    "summary": "Centralize storage keys in a constants file. This prevents typos, enables IDE autocomplete, and makes refactoring easier.",
+    "examples": [
+      {
+        "bad": "// file1.js\nlocalStorage.setItem('user_preferences', data);\n\n// file2.js\nlocalStorage.getItem('user_preferences');",
+        "good": "// constants/storage-keys.js\nexport const STORAGE_KEYS = {\n  USER_PREFERENCES: 'user_preferences',\n};\n\n// file1.js\nimport { STORAGE_KEYS } from './constants/storage-keys';\nlocalStorage.setItem(STORAGE_KEYS.USER_PREFERENCES, data);",
+        "note": "Centralize all storage keys in a constants file"
+      }
+    ]
+  },
+  
+  "references": [
+    "https://developer.mozilla.org/en-US/docs/Web/API/Web_Storage_API"
+  ]
+}
+

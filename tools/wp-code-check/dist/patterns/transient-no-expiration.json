@@ -1,0 +1,49 @@
+{
+  "id": "transient-no-expiration",
+  "version": "1.0.0",
+  "enabled": true,
+  "title": "Transients without expiration",
+  "description": "Detects set_transient() calls that may be missing the expiration parameter. Transients without expiration can accumulate in the database and cause performance issues.",
+  "severity": "MEDIUM",
+  "category": "Performance",
+  "detection": {
+    "type": "scripted",
+    "search_pattern": "set_transient[[:space:]]*\\(",
+    "file_patterns": ["*.php"],
+    "validator_script": "validators/transient-expiration-check.sh",
+    "context_lines": 10,
+    "notes": [
+      "Validator counts commas to determine if expiration parameter is present",
+      "set_transient($key, $value, $expiration) requires 2 commas minimum"
+    ]
+  },
+  "remediation": {
+    "recommendation": "Always provide an expiration time for transients to prevent database bloat",
+    "examples": {
+      "bad": [
+        "set_transient('my_key', $data);  // Missing expiration",
+        "set_transient('cache', $result);  // Will never expire"
+      ],
+      "good": [
+        "set_transient('my_key', $data, HOUR_IN_SECONDS);",
+        "set_transient('cache', $result, DAY_IN_SECONDS);",
+        "set_transient('temp', $value, 300);  // 5 minutes"
+      ]
+    },
+    "notes": [
+      "WordPress provides constants: MINUTE_IN_SECONDS, HOUR_IN_SECONDS, DAY_IN_SECONDS, WEEK_IN_SECONDS, MONTH_IN_SECONDS, YEAR_IN_SECONDS",
+      "Transients without expiration will persist until manually deleted",
+      "Database bloat from expired transients can slow down queries",
+      "Use get_transient() and delete_transient() to manage transients properly"
+    ]
+  },
+  "references": [
+    "https://developer.wordpress.org/reference/functions/set_transient/",
+    "https://developer.wordpress.org/apis/handbook/transients/",
+    "https://make.wordpress.org/core/2020/07/24/new-wp_get_environment_type-function-in-wordpress-5-5/"
+  ],
+  "tags": ["transient", "cache", "database", "performance", "expiration"],
+  "priority": "P2",
+  "tier": "T2"
+}
+

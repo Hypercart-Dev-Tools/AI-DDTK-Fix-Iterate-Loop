@@ -1,0 +1,36 @@
+{
+  "id": "file-get-contents-url",
+  "title": "file_get_contents() with external URLs",
+  "description": "Using file_get_contents() for external URLs is insecure and slow. WordPress provides wp_remote_get() which handles timeouts, SSL verification, and error handling properly.",
+  "severity": "HIGH",
+  "category": "Performance",
+  "detection": {
+    "type": "simple",
+    "patterns": [
+      {
+        "search": "file_get_contents[[:space:]]*\\([[:space:]]*['\"]https?://",
+        "message": "file_get_contents() with URL is insecure and slow - use wp_remote_get() instead",
+        "file_patterns": ["*.php"]
+      },
+      {
+        "search": "file_get_contents[[:space:]]*\\([[:space:]]*\\$",
+        "message": "file_get_contents() with variable (potential URL) - use wp_remote_get() for external requests",
+        "file_patterns": ["*.php"],
+        "note": "This pattern catches all variable usage. Manual review recommended to confirm if variable contains URL."
+      }
+    ]
+  },
+  "remediation": {
+    "recommendation": "Replace file_get_contents() with wp_remote_get() for external URLs",
+    "example_before": "$response = file_get_contents('https://api.example.com/data');",
+    "example_after": "$response = wp_remote_get('https://api.example.com/data');\nif (is_wp_error($response)) {\n    // Handle error\n    return false;\n}\n$body = wp_remote_retrieve_body($response);"
+  },
+  "references": [
+    "https://developer.wordpress.org/reference/functions/wp_remote_get/",
+    "https://developer.wordpress.org/plugins/http-api/"
+  ],
+  "tags": ["performance", "security", "http", "wordpress-api"],
+  "priority": "P2",
+  "tier": "T1"
+}
+

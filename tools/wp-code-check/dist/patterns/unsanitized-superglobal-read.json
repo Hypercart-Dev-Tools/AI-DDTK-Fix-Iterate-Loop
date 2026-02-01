@@ -1,0 +1,109 @@
+{
+  "id": "unsanitized-superglobal-read",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.64",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "HIGH",
+  "title": "Unsanitized superglobal read ($_GET/$_POST/$_REQUEST)",
+  "description": "Direct access to $_GET, $_POST, or $_REQUEST without sanitization functions. Unlike the isset-bypass pattern, this catches ANY unsanitized access regardless of isset/empty checks.",
+  "rationale": "All superglobal access must be sanitized to prevent XSS, SQL injection, and parameter tampering attacks. WordPress Coding Standards require sanitization for all user input.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "\\$_(GET|POST|REQUEST)\\[",
+    "exclude_patterns": [
+      "sanitize_",
+      "esc_",
+      "absint",
+      "intval",
+      "wc_clean",
+      "wp_unslash",
+      "//.*\\$_",
+      "isset\\(",
+      "empty\\(",
+      "in_array\\("
+    ],
+    "post_process": {
+      "enabled": false,
+      "description": "No post-processing needed - catches all direct reads without sanitization wrappers"
+    }
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/unsanitized-superglobal-read.php",
+    "expected_violations": 8,
+    "expected_valid": 13,
+    "notes": "Fixture includes direct reads, comparisons, array access, and function calls without sanitization"
+  },
+  "irl_examples": [
+    {
+      "file": "dist/tests/irl/wp-security-audit-log/class-wp-security-audit-log-irl.php",
+      "line": 1261,
+      "original_line": 1196,
+      "plugin": "WP Activity Log v5.5.4",
+      "code": "&& ! ( \\wp_doing_ajax() && isset( $_REQUEST['pagenow'] ) && 'plugins' === $_REQUEST['pagenow'] )",
+      "context": "Plugin visibility control - checking pagenow parameter during AJAX without sanitization",
+      "risk": "Type juggling attack - attacker can send pagenow[]=plugins (array) to bypass string comparison"
+    },
+    {
+      "file": "dist/tests/irl/wp-security-audit-log/class-wp-security-audit-log-irl.php",
+      "line": 343,
+      "original_line": 337,
+      "plugin": "WP Activity Log v5.5.4",
+      "code": "$post_id = (int) $_REQUEST['package'];",
+      "context": "Plugin upload handling - casting to int without sanitization first",
+      "risk": "While (int) cast provides some protection, best practice is to sanitize first"
+    },
+    {
+      "file": "dist/tests/irl/wp-security-audit-log/class-wp-security-audit-log-irl.php",
+      "line": 358,
+      "original_line": 352,
+      "plugin": "WP Activity Log v5.5.4",
+      "code": "$selected_plugins = $_REQUEST['checked'];",
+      "context": "Bulk plugin update - array of plugin paths without sanitization",
+      "risk": "Array elements used in file operations without sanitization (phpcs:ignore present)"
+    }
+  ],
+  "remediation": {
+    "summary": "Always sanitize superglobals before use with appropriate WordPress functions",
+    "examples": [
+      {
+        "bad": "if ( $_GET['tab'] === 'subscriptions' ) {",
+        "good": "if ( isset( $_GET['tab'] ) && sanitize_key( $_GET['tab'] ) === 'subscriptions' ) {",
+        "note": "Use sanitize_key() for alphanumeric identifiers"
+      },
+      {
+        "bad": "$value = $_POST['setting'];",
+        "good": "$value = isset( $_POST['setting'] ) ? sanitize_text_field( wp_unslash( $_POST['setting'] ) ) : '';",
+        "note": "Use sanitize_text_field() for general text input"
+      },
+      {
+        "bad": "$id = (int) $_GET['id'];",
+        "good": "$id = isset( $_GET['id'] ) ? absint( $_GET['id'] ) : 0;",
+        "note": "Use absint() for positive integers (safer than (int) cast)"
+      },
+      {
+        "bad": "$action = $_REQUEST['action'];",
+        "good": "$action = isset( $_REQUEST['action'] ) ? sanitize_text_field( wp_unslash( $_REQUEST['action'] ) ) : '';",
+        "note": "Always combine isset() check with sanitization"
+      }
+    ],
+    "sanitization_functions": {
+      "text": ["sanitize_text_field()", "sanitize_textarea_field()"],
+      "identifiers": ["sanitize_key()", "sanitize_title()"],
+      "integers": ["absint()", "intval()"],
+      "urls": ["esc_url_raw()"],
+      "emails": ["sanitize_email()"],
+      "html": ["wp_kses_post()", "wp_kses()"],
+      "woocommerce": ["wc_clean()"]
+    }
+  },
+  "references": [
+    "https://developer.wordpress.org/apis/security/sanitizing-securing-output/",
+    "https://developer.wordpress.org/plugins/security/data-validation/",
+    "https://developer.wordpress.org/coding-standards/wordpress-coding-standards/php/#sanitizing-validating-and-escaping"
+  ],
+  "notes": "This pattern is broader than unsanitized-superglobal-isset-bypass. It catches ALL unsanitized reads, not just the isset-bypass variant. The two patterns complement each other for comprehensive coverage."
+}
+

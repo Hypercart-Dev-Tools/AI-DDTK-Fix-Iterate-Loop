@@ -1,0 +1,49 @@
+{
+    "id": "kiss-sbi-patterns",
+    "name": "KISS Smart Batch Installer Patterns",
+    "description": "A collection of patterns specific to the KISS Smart Batch Installer plugin.",
+    "patterns": [
+        {
+            "id": "overlapping-actions",
+            "severity": "warning",
+            "description": "Detects multiple AJAX actions for the same behavior",
+            "grep": "(_refresh_|_update_|_get_)[a-zA-Z0-9_]+"
+        },
+        {
+            "id": "mixed-rendering-paths",
+            "severity": "warning",
+            "description": "Detects mixing of server-side and client-side rendering",
+            "grep": "(row_html|rows_html|append\\(html\\)|prepend\\(html\\)|after\\(html\\)|before\\(html\\)|innerHTML =)"
+        },
+        {
+            "id": "inline-script-for-core-actions",
+            "severity": "warning",
+            "description": "Detects inline scripts for core actions",
+            "grep": "(<script>|\\$\\(document\\).on('click', '\\.[a-zA-Z0-9_-]+)"
+        },
+        {
+            "id": "shadow-state-stores-globals",
+            "severity": "warning",
+            "description": "Detects shadow state stores and globals",
+            "grep": "(window\\.[a-zA-Z0-9_]+|var .* = .*; // fallback)"
+        },
+        {
+            "id": "duplicate-diagnostics-panels",
+            "severity": "warning",
+            "description": "Detects duplicate diagnostics panels",
+            "grep": "(debugLog|sbiDebug|debug-panel|sse-diagnostics)"
+        },
+        {
+            "id": "action-buttons-always-rendered",
+            "severity": "warning",
+            "description": "Detects action buttons that are always rendered regardless of state",
+            "grep": "class=\"button button-secondary sbi-refresh-status\""
+        },
+        {
+            "id": "hidden-state-transitions",
+            "severity": "warning",
+            "description": "Detects hidden state transitions in non-FSM paths",
+            "grep": "(refresh_state\\(|transition\\(|window.dispatchEvent)"
+        }
+    ]
+}

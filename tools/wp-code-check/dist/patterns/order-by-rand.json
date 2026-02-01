@@ -1,0 +1,45 @@
+{
+  "id": "order-by-rand",
+  "version": "1.0.0",
+  "enabled": true,
+  "category": "performance",
+  "severity": "HIGH",
+  "title": "Randomized ordering (ORDER BY RAND)",
+  "description": "Detects queries using ORDER BY RAND() or 'orderby' => 'rand', which causes full table scans and is extremely slow on large datasets.",
+  "rationale": "ORDER BY RAND() forces MySQL to create a temporary table with a random value for every row, then sort it. This is O(n log n) complexity and doesn't use indexes, making it prohibitively slow on tables with thousands of rows.",
+  "detection": {
+    "type": "simple",
+    "search_pattern": "orderby[[:space:]]*=>[[:space:]]*['\"]rand['\"]|ORDER[[:space:]]+BY[[:space:]]+RAND\\(",
+    "file_patterns": ["*.php"]
+  },
+  "remediation": {
+    "summary": "Use alternative randomization strategies that don't require full table scans",
+    "steps": [
+      "For small result sets (<100 posts): Fetch all IDs, shuffle in PHP, then query by ID",
+      "For large datasets: Use offset randomization (OFFSET FLOOR(RAND() * total_count) LIMIT 1)",
+      "For repeated random selections: Pre-generate random order and cache it",
+      "Consider using a 'featured' flag instead of true randomization"
+    ],
+    "examples": {
+      "bad": [
+        "$query = new WP_Query(array('orderby' => 'rand'));",
+        "$wpdb->get_results(\"SELECT * FROM $wpdb->posts ORDER BY RAND() LIMIT 10\");"
+      ],
+      "good": [
+        "// Fetch IDs, shuffle, then query\n$ids = $wpdb->get_col(\"SELECT ID FROM $wpdb->posts WHERE post_type='post' LIMIT 100\");\nshuffle($ids);\n$query = new WP_Query(array('post__in' => array_slice($ids, 0, 10), 'orderby' => 'post__in'));",
+        "// Use offset randomization for single random post\n$count = wp_count_posts('post')->publish;\n$offset = rand(0, $count - 1);\n$query = new WP_Query(array('posts_per_page' => 1, 'offset' => $offset));"
+      ]
+    },
+    "references": [
+      "https://jan.kneschke.de/projects/mysql/order-by-rand/",
+      "https://10up.github.io/Engineering-Best-Practices/php/#performance"
+    ]
+  },
+  "metadata": {
+    "tags": ["performance", "database", "query-optimization", "randomization"],
+    "impact": "HIGH",
+    "likelihood": "MEDIUM",
+    "effort": "MEDIUM"
+  }
+}
+

@@ -1,0 +1,105 @@
+{
+  "id": "wpdb-query-no-prepare",
+  "version": "1.0.0",
+  "added_in_scanner_version": "1.0.64",
+  "enabled": true,
+  "detection_type": "direct",
+  "category": "security",
+  "severity": "CRITICAL",
+  "title": "Direct database queries without $wpdb->prepare()",
+  "description": "Detects $wpdb->query(), get_var(), get_row(), get_results(), or get_col() called without $wpdb->prepare() wrapper, creating SQL injection vulnerabilities.",
+  "rationale": "All database queries with dynamic data MUST use $wpdb->prepare() to prevent SQL injection attacks. This is a CRITICAL security requirement in WordPress development.",
+  "detection": {
+    "type": "grep",
+    "file_patterns": ["*.php"],
+    "search_pattern": "\\$wpdb->(query|get_var|get_row|get_results|get_col)\\(",
+    "exclude_patterns": [
+      "\\$wpdb->prepare\\(",
+      "//.*\\$wpdb",
+      "phpcs:ignore"
+    ],
+    "post_process": {
+      "enabled": true,
+      "type": "context_analysis",
+      "description": "Check if $wpdb->prepare() appears on the same or previous line. Skip if prepare() is used."
+    }
+  },
+  "test_fixture": {
+    "path": "dist/tests/fixtures/wpdb-no-prepare.php",
+    "expected_violations": 7,
+    "expected_valid": 7,
+    "notes": "Fixture includes query, get_var, get_row, get_results, get_col with and without prepare()"
+  },
+  "irl_examples": [
+    {
+      "file": "dist/tests/irl/wp-security-audit-log/class-migration-irl.php",
+      "line": 226,
+      "original_line": 151,
+      "plugin": "WP Activity Log v5.5.4",
+      "code": "$plugin_options = $wpdb->get_results( \"SELECT option_name FROM $wpdb->options WHERE option_name LIKE 'wsal_local_files_%'\" );",
+      "context": "Migration function cleaning up old options - uses string interpolation instead of prepare()",
+      "risk": "While $wpdb->options is a constant and 'wsal_local_files_%' is hardcoded (low risk), still violates WordPress Coding Standards",
+      "severity_justification": "Low immediate risk but sets bad precedent and could be exploited if table prefix is compromised"
+    }
+  ],
+  "remediation": {
+    "summary": "Always use $wpdb->prepare() with placeholders (%s, %d, %f) for dynamic data in SQL queries",
+    "examples": [
+      {
+        "bad": "$wpdb->query( \"DELETE FROM {$wpdb->posts} WHERE ID = {$_GET['id']}\" );",
+        "good": "$wpdb->query( $wpdb->prepare( \"DELETE FROM {$wpdb->posts} WHERE ID = %d\", $_GET['id'] ) );",
+        "note": "Use %d placeholder for integers"
+      },
+      {
+        "bad": "$count = $wpdb->get_var( \"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_author = {$user_id}\" );",
+        "good": "$count = $wpdb->get_var( $wpdb->prepare( \"SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_author = %d\", $user_id ) );",
+        "note": "Even with trusted variables, use prepare() for consistency"
+      },
+      {
+        "bad": "$results = $wpdb->get_results( \"SELECT * FROM {$wpdb->postmeta} WHERE post_id = {$id}\" );",
+        "good": "$results = $wpdb->get_results( $wpdb->prepare( \"SELECT * FROM {$wpdb->postmeta} WHERE post_id = %d\", $id ) );",
+        "note": "Use prepare() for all dynamic queries"
+      },
+      {
+        "bad": "$ids = $wpdb->get_col( \"SELECT ID FROM {$wpdb->posts} WHERE post_status = '{$status}'\" );",
+        "good": "$ids = $wpdb->get_col( $wpdb->prepare( \"SELECT ID FROM {$wpdb->posts} WHERE post_status = %s\", $status ) );",
+        "note": "Use %s placeholder for strings"
+      },
+      {
+        "bad": "$wpdb->query( \"UPDATE {$wpdb->options} SET option_value = '{$value}' WHERE option_name = '{$name}'\" );",
+        "good": "$wpdb->query( $wpdb->prepare( \"UPDATE {$wpdb->options} SET option_value = %s WHERE option_name = %s\", $value, $name ) );",
+        "note": "Multiple placeholders for multiple values"
+      }
+    ],
+    "placeholders": {
+      "%d": "Integer (signed)",
+      "%f": "Float",
+      "%s": "String"
+    },
+    "special_cases": {
+      "LIKE_queries": {
+        "bad": "$wpdb->prepare( \"SELECT * FROM {$wpdb->posts} WHERE post_title LIKE '%{$search}%'\" )",
+        "good": "$wpdb->prepare( \"SELECT * FROM {$wpdb->posts} WHERE post_title LIKE %s\", '%' . $wpdb->esc_like( $search ) . '%' )",
+        "note": "Use $wpdb->esc_like() to escape LIKE wildcards"
+      },
+      "IN_clauses": {
+        "note": "For IN clauses with variable number of values, use array_fill() to create placeholders",
+        "example": "$placeholders = implode( ', ', array_fill( 0, count( $ids ), '%d' ) );\n$wpdb->prepare( \"SELECT * FROM {$wpdb->posts} WHERE ID IN ($placeholders)\", ...$ids );"
+      }
+    }
+  },
+  "false_positives": {
+    "static_queries": {
+      "description": "Queries with no dynamic data are technically safe but still flagged",
+      "example": "$wpdb->query( \"DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_%'\" );",
+      "recommendation": "Use prepare() anyway for consistency, or add phpcs:ignore comment with justification"
+    }
+  },
+  "references": [
+    "https://developer.wordpress.org/apis/security/data-validation/#database",
+    "https://developer.wordpress.org/reference/classes/wpdb/prepare/",
+    "https://make.wordpress.org/core/2012/12/12/php-warning-missing-argument-2-for-wpdb-prepare/"
+  ],
+  "notes": "This is a CRITICAL security check. SQL injection is one of the OWASP Top 10 vulnerabilities. Even if the immediate risk is low (e.g., hardcoded values), using prepare() is mandatory per WordPress Coding Standards."
+}
+

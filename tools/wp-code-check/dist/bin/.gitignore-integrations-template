@@ -1,0 +1,99 @@
+# Neochrome WP Toolkit - Integration Credentials Protection
+# 
+# IMPORTANT: This .gitignore protects sensitive integration credentials
+# from being accidentally committed to your repository.
+#
+# Add this to your project's .gitignore file BEFORE setting up integrations.
+
+# ============================================================================
+# CRITICAL: Webhook URLs and API Keys
+# ============================================================================
+
+# Environment files
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+*.env
+
+# Credential files (common naming patterns)
+*-webhook-url.txt
+*-webhook.txt
+*-api-key.txt
+*-api-token.txt
+*-token.txt
+*-secret.txt
+slack-webhook.txt
+discord-webhook.txt
+github-token.txt
+
+# Integration configuration with credentials
+config/integrations.json
+config/webhooks.json
+config/secrets.json
+config/credentials.json
+integrations.local.json
+webhooks.local.json
+
+# ============================================================================
+# Test and Development Files
+# ============================================================================
+
+# Local test results (may contain sensitive data)
+results-*.json
+test-results.json
+local-results.json
+
+# Local test scripts (may contain hardcoded credentials during testing)
+local-test-*.sh
+test-integration-*.sh
+*-local.sh
+
+# Temporary credential storage
+temp-webhook.txt
+tmp-*.txt
+scratch-*.json
+
+# ============================================================================
+# Backup files that might contain credentials
+# ============================================================================
+
+*.bak
+*.backup
+*~
+.DS_Store
+
+# ============================================================================
+# IDE and Editor files (may cache credentials)
+# ============================================================================
+
+.vscode/settings.json
+.idea/workspace.xml
+*.swp
+*.swo
+
+# ============================================================================
+# Neochrome WP Toolkit Specific
+# ============================================================================
+
+# Performance check results with potentially sensitive paths
+dist/performance-results-*.json
+dist/baseline-*.json.backup
+
+# Integration test outputs
+dist/tests/integration-output/
+dist/tests/temp-*.json
+
+# ============================================================================
+# VERIFICATION COMMAND
+# ============================================================================
+#
+# Test that credentials are ignored:
+#   echo "test" > test-webhook-url.txt
+#   git check-ignore -v test-webhook-url.txt
+#   rm test-webhook-url.txt
+#
+# Should output:
+#   .gitignore:X:*-webhook-url.txt	test-webhook-url.txt
+#
