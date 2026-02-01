@@ -41,21 +41,18 @@ NC='\033[0m'
 # FOR LLM AGENTS: WPCC LOCATION
 # ============================================================
 # WPCC is embedded via git subtree at: tools/wp-code-check/
-# 
+#
 # If WPCC structure changes, update these paths:
 #   - WPCC_ENTRY_POINT: Main executable script
 #   - WPCC_PATH: Root directory of WPCC
 #
-# Current expected structure:
+# Current structure (as of v1.3.14):
 #   tools/wp-code-check/
-#   ├── wp-code-check.sh (or similar entry point)
-#   ├── src/
+#   ├── dist/
+#   │   └── bin/
+#   │       └── check-performance.sh  <-- Main entry point
 #   └── ...
 # ============================================================
-
-# Determine the WPCC entry point
-# Adjust this if WPCC's main script has a different name
-WPCC_ENTRY_POINT="$WPCC_PATH/wp-code-check.sh"
 
 # Check if WPCC is installed
 if [ ! -d "$WPCC_PATH" ]; then
@@ -71,26 +68,31 @@ if [ ! -d "$WPCC_PATH" ]; then
     exit 1
 fi
 
-# Check if entry point exists
-if [ ! -f "$WPCC_ENTRY_POINT" ]; then
-    # Try alternative entry points
-    if [ -f "$WPCC_PATH/bin/wpcc" ]; then
-        WPCC_ENTRY_POINT="$WPCC_PATH/bin/wpcc"
-    elif [ -f "$WPCC_PATH/wpcc" ]; then
-        WPCC_ENTRY_POINT="$WPCC_PATH/wpcc"
-    elif [ -f "$WPCC_PATH/index.js" ]; then
-        WPCC_ENTRY_POINT="node $WPCC_PATH/index.js"
-    else
-        echo -e "${RED}Error: Cannot find WPCC entry point${NC}"
-        echo "Looked for:"
-        echo "  - $WPCC_PATH/wp-code-check.sh"
-        echo "  - $WPCC_PATH/bin/wpcc"
-        echo "  - $WPCC_PATH/wpcc"
-        echo "  - $WPCC_PATH/index.js"
-        echo ""
-        echo -e "${YELLOW}FOR LLM AGENTS: Update WPCC_ENTRY_POINT in this script${NC}"
-        exit 1
+# Determine the WPCC entry point (try multiple locations)
+WPCC_ENTRY_POINT=""
+ENTRY_POINTS=(
+    "$WPCC_PATH/dist/bin/check-performance.sh"
+    "$WPCC_PATH/check-performance.sh"
+    "$WPCC_PATH/bin/check-performance.sh"
+    "$WPCC_PATH/wp-code-check.sh"
+)
+
+for entry in "${ENTRY_POINTS[@]}"; do
+    if [ -f "$entry" ] && [ -x "$entry" ]; then
+        WPCC_ENTRY_POINT="$entry"
+        break
     fi
+done
+
+if [ -z "$WPCC_ENTRY_POINT" ]; then
+    echo -e "${RED}Error: Cannot find WPCC entry point${NC}"
+    echo "Looked for:"
+    for entry in "${ENTRY_POINTS[@]}"; do
+        echo "  - $entry"
+    done
+    echo ""
+    echo -e "${YELLOW}FOR LLM AGENTS: Update ENTRY_POINTS array in this script${NC}"
+    exit 1
 fi
 
 # Show help if no arguments
@@ -108,5 +110,5 @@ if [ $# -eq 0 ]; then
 fi
 
 # Pass all arguments to WPCC
-exec $WPCC_ENTRY_POINT "$@"
+exec "$WPCC_ENTRY_POINT" "$@"
 
