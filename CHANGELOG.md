@@ -8,6 +8,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **WP AJAX Test Tool - Phase 1 Implementation** (`tools/wp-ajax-test/`)
+  - Core tool implementation (index.js, 320 lines)
+  - CLI interface with commander.js
+  - WordPress authentication (login, cookie handling)
+  - Nonce extraction from wp-admin pages
+  - AJAX endpoint testing (admin and nopriv)
+  - JSON and human-readable output formats
+  - Error handling with suggestions
+  - Installation script (install.sh)
+  - README.md with usage examples
 - **WP AJAX Test Tool Specification** (`tools/wp-ajax-test/SPEC.md`)
   - Lightweight WordPress AJAX endpoint testing without browser automation
   - Centralized-by-default design (call from AI-DDTK, local wrapper when needed)
