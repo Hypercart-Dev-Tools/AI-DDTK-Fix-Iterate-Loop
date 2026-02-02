@@ -191,3 +191,11 @@ cd ~/bin/ai-ddtk
 source ~/.zshrc
 ```
 
+
+### Fixed
+- **WP AJAX Test Tool - Authentication & SSL Improvements**
+  - Added `--insecure` flag to skip SSL certificate verification (for Local by Flywheel)
+  - Added verbose authentication logging (shows login URL, username, response status, cookies)
+  - Fixed authentication with special characters in passwords (e.g., `#` symbol)
+  - Added success/failure messages in verbose mode
+  - Improved error debugging with detailed HTTP response information

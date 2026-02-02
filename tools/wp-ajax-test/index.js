@@ -25,7 +25,8 @@ let cookies = {};
 // Configure axios client
 const client = axios.create({
   maxRedirects: 5,
-  validateStatus: () => true // Accept all status codes
+  validateStatus: () => true, // Accept all status codes
+  httpsAgent: null // Will be set based on --insecure flag
 });
 
 /**
@@ -45,9 +46,21 @@ program
   .option('-m, --method <method>', 'HTTP method', 'POST')
   .option('-t, --timeout <ms>', 'Request timeout in ms', '30000')
   .option('-v, --verbose', 'Verbose output', false)
+  .option('--insecure', 'Skip SSL certificate verification', false)
   .parse(process.argv);
 
 const options = program.opts();
+
+// Configure SSL if --insecure flag is set
+if (options.insecure) {
+  const https = require('https');
+  client.defaults.httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+  });
+  if (options.verbose) {
+    console.log('⚠️  SSL certificate verification disabled');
+  }
+}
 
 /**
  * Main execution
@@ -161,7 +174,12 @@ async function loadAuth(authFile) {
  */
 async function authenticate(siteUrl, auth) {
   const loginUrl = `${siteUrl}/wp-login.php`;
-
+  
+  if (options.verbose) {
+    console.log(`🔐 Authenticating to: ${loginUrl}`);
+    console.log(`   Username: ${auth.username}`);
+  }
+  
   try {
     const response = await client.post(loginUrl, new URLSearchParams({
       log: auth.username,
@@ -175,6 +193,11 @@ async function authenticate(siteUrl, auth) {
       }
     });
 
+    if (options.verbose) {
+      console.log(`   Response status: ${response.status}`);
+      console.log(`   Cookies received: ${response.headers['set-cookie'] ? response.headers['set-cookie'].length : 0}`);
+    }
+
     // Store cookies from response
     if (response.headers['set-cookie']) {
       response.headers['set-cookie'].forEach(cookie => {
@@ -185,7 +208,14 @@ async function authenticate(siteUrl, auth) {
 
     // Check if login was successful
     if (response.status === 200 && !response.data.includes('login_error')) {
+      if (options.verbose) {
+        console.log('✅ Authentication successful');
+      }
       return true;
+    }
+    
+    if (options.verbose) {
+      console.log('❌ Authentication failed - login_error found in response');
     }
     throw new Error('Authentication failed');
   } catch (e) {
