@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **SOLID Principles Guidance** in AGENTS.md (v2.3.1)
+  - Added to Core Requirements section with full acronym breakdown
+  - Integrated into "Building from the Ground Up" checklist
+  - Mapped SOLID principles to WordPress patterns (hooks, interfaces, FSM)
+- **System Instructions for AI Agents** (`SYSTEM-INSTRUCTIONS.md`)
+  - Copy-paste instructions for Augment/Claude Code settings
+  - AI-DDTK toolkit integration guidance across all projects
+  - Available tools reference (WPCC, Performance Timer)
+  - Workflow triggers (when to use each tool)
+  - Security best practices for sensitive data
+  - Task management and scope control guidelines
+- **Sensitive Data Handling** in AGENTS.md (v2.3.1)
+  - `/temp` folder requirement for all projects
+  - `.gitignore` patterns for credentials, PII, auth files
+  - When user provides credentials workflow (5-step process)
+  - Code examples (wrong vs. correct patterns)
+  - Playwright authentication state file handling
+
+### Changed
+- Updated AGENTS.md version to v2.3.1
+- Enhanced Security section with Sensitive Data Handling subsection
+- Updated README.md version to 1.0.5
+
 ## [1.0.4] - 2026-02-02
 
 ### Added
