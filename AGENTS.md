@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.3.0 — 2026-02-02_
+_Last updated: v2.3.1 — 2026-02-02_
 
 ## Purpose
 
@@ -101,7 +101,7 @@ When updating JSON with triage results, use this structure:
 
 ### Reference Documentation
 
-For complete AI instructions, see:
+For complete WPCC AI instructions, see:
 - **[WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)** - Full 5-phase workflow
 - **[IRL Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md)** - Pattern library contributions
 - **[WPCC AGENTS.md](tools/wp-code-check/AGENTS.md)** - WordPress-specific guidelines
@@ -212,6 +212,45 @@ define('PERF_LOG_ALL', false);          // Verbose logging
 - **Never expose sensitive data** in logs, comments, or commits
 - **Use WordPress native APIs** over custom security logic
 
+### Sensitive Data Handling
+
+**Never commit credentials, PII, or sensitive configuration to git.**
+
+Every project must have a `/temp` folder for sensitive data:
+
+```bash
+# Required .gitignore entries
+/temp/
+temp/
+*.credentials
+*.env.local
+auth.json
+playwright/.auth/
+```
+
+**Store in `/temp` folder**:
+- API keys, passwords, tokens
+- Personally Identifiable Information (PII)
+- Server configuration data
+- Test data with real user information
+- Playwright authentication state files
+- Database dumps with real data
+
+**When user provides credentials**:
+1. ✅ Save to `/temp` folder immediately
+2. ✅ Add to `.gitignore` if not already present
+3. ✅ Load from `/temp` at runtime (never hardcode)
+4. ❌ Never commit credentials (even temporarily)
+5. ❌ Never log credentials in debug output
+
+```javascript
+// ❌ WRONG - hardcoded credentials
+const auth = { username: 'admin', password: 'secret123' };
+
+// ✅ CORRECT - load from /temp
+const auth = JSON.parse(fs.readFileSync('temp/auth.json', 'utf8'));
+```
+
 ---
 
 ## ⚡ Performance
@@ -308,8 +347,10 @@ try {
 - Declare `Requires PHP: 7.0`+ in plugin header
 - Use unique prefixes/namespaces; check `function_exists()` / `class_exists()` before declarations
 - Follow WordPress APIs and hooks (`wp_remote_get()`, `wp_schedule_event()`, etc.)
-- Follow [WordPress Coding Standards](https://developer.wordpress.org/coding-standards/) and DRY principles
+- Follow [WordPress Coding Standards](https://developer.wordpress.org/coding-standards/), DRY, and **SOLID principles**
 - Respect plugin/theme hierarchy; treat as self-contained unless cross-dependencies requested
+
+> **SOLID Reminder**: Single Responsibility (one reason to change), Open/Closed (extend, don't modify), Liskov Substitution (subtypes replaceable), Interface Segregation (small interfaces), Dependency Inversion (depend on abstractions).
 
 ### Error Prevention
 - Use `isset()`, `??`, or `array_key_exists()` to avoid undefined index notices
@@ -379,22 +420,24 @@ $value = $data->items[0]->value ?? 'default_value';
 
 ## 🏗️ Building from the Ground Up
 
-When creating new features (either at start of project or in the middle of a project):
+Always apply **SOLID principles** alongside WordPress patterns. 
+
 1. **Start with DRY helpers** — reusable utilities before feature code
-2. **Design single contract writers** — identify state ownership upfront
-3. **Separate concerns** — data access, business logic, presentation layers
-4. **Add observability from start** — logging for key operations
-5. **Implement defensive error handling** — validate, check errors, provide fallbacks
-6. **Plan for extensibility** — add hooks/filters for customization
-7. **Document as you build** — PHPDoc comments immediately
-8. **Consider FSM early** — if 3+ states, design state machine from start
+2. **Design single contract writers** — identify state ownership upfront (Single Responsibility)
+3. **Separate concerns** — data access, business logic, presentation layers (Interface Segregation)
+4. **Depend on abstractions** — use interfaces/hooks, not concrete implementations (Dependency Inversion)
+5. **Add observability from start** — logging for key operations
+6. **Implement defensive error handling** — validate, check errors, provide fallbacks
+7. **Plan for extensibility** — add hooks/filters for customization (Open/Closed)
+8. **Document as you build** — PHPDoc comments immediately
+9. **Consider FSM early** — if 3+ states, design state machine from start
 
 ---
 
 ## 🔧 Scope & Change Control
 
 - **Stay within task scope** — only perform explicitly requested tasks
-- **No refactoring/renaming/label changes** unless explicitly requested
+- **No refactoring/renaming/label changes** unless explicitly requested but please point out any code that does not follow the SOLID principles and make recommendations for improvement.
 - **No speculative improvements** or architectural changes
 - **Preserve existing data structures** and naming conventions
 - **Prioritize preservation over optimization** when in doubt

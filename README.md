@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.4
+> Version: 1.0.5
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
