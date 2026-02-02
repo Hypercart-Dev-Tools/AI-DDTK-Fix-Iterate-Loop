@@ -88,6 +88,9 @@ Options:
   -m, --method <method>  HTTP method (default: "POST")
   -t, --timeout <ms>     Request timeout in ms (default: "30000")
   -v, --verbose          Verbose output
+  --insecure             Skip SSL certificate verification (for .local sites)
+  --nonce-url <url>      Custom URL to fetch nonce from (relative to site URL)
+  --nonce-field <name>   Nonce field name to look for (default: "_wpnonce")
   -h, --help             display help for command
 ```
 
@@ -102,7 +105,32 @@ wp-ajax-test \
   --url https://site.local \
   --action get_user_data \
   --data '{"user_id": 1}' \
-  --auth temp/auth.json
+  --auth temp/auth.json \
+  --insecure
+```
+
+### Test with Verbose Output (Debugging)
+
+```bash
+wp-ajax-test \
+  --url https://site.local \
+  --action my_ajax_action \
+  --auth temp/auth.json \
+  --verbose \
+  --insecure
+```
+
+### Test with Plugin-Specific Nonce
+
+```bash
+# Fetch nonce from custom plugin admin page
+wp-ajax-test \
+  --url https://site.local \
+  --action my_plugin_action \
+  --auth temp/auth.json \
+  --nonce-url /wp-admin/admin.php?page=my-plugin-settings \
+  --nonce-field my_plugin_nonce \
+  --insecure
 ```
 
 ### Test Frontend (nopriv) Endpoint
@@ -203,6 +231,6 @@ Common errors and solutions:
 
 ---
 
-**Version**: 1.0.0  
+**Version**: 1.1.0
 **License**: MIT
 

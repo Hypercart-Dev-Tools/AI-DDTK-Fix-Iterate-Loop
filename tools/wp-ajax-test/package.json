@@ -1,6 +1,6 @@
 {
   "name": "wp-ajax-test",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Lightweight WordPress AJAX endpoint testing without browser automation",
   "main": "index.js",
   "bin": {

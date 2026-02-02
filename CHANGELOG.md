@@ -8,6 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **WP AJAX Test Tool v1.1.0** - Plugin-specific nonce support
+  - `--nonce-url` flag to fetch nonces from custom admin pages
+  - `--nonce-field` flag to specify custom nonce field names
+  - Enhanced nonce detection with multiple pattern matching
+  - Support for plugin-specific admin pages (e.g., `?page=my-plugin-settings`)
+  - Verbose logging shows nonce source and field name
 - **WP AJAX Test Tool - Phase 1 Implementation** (`tools/wp-ajax-test/`)
   - Core tool implementation (index.js, 320 lines)
   - CLI interface with commander.js
@@ -18,6 +24,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Error handling with suggestions
   - Installation script (install.sh)
   - README.md with usage examples
+
+### Fixed
+- **WP AJAX Test Tool v1.0.1** - Authentication improvements
+  - Fixed authentication failure by fetching initial cookies before login POST
+  - Improved cookie handling across redirects
+  - Enhanced success detection (checks for auth cookies, not just error strings)
+  - Added verbose debugging output (shows cookies, redirects, auth status)
+  - Added `--insecure` flag for SSL certificate verification bypass (.local sites)
+  - Saves login response to `temp/login-debug.html` when verbose mode enabled
+  - Better error messages with specific failure reasons
 - **WP AJAX Test Tool Specification** (`tools/wp-ajax-test/SPEC.md`)
   - Lightweight WordPress AJAX endpoint testing without browser automation
   - Centralized-by-default design (call from AI-DDTK, local wrapper when needed)

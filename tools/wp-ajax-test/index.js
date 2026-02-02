@@ -17,14 +17,14 @@ const fs = require('fs');
 const path = require('path');
 
 // Version
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 // Cookie storage
 let cookies = {};
 
 // Configure axios client
 const client = axios.create({
-  maxRedirects: 5,
+  maxRedirects: 0, // Don't follow redirects - we handle cookies manually
   validateStatus: () => true, // Accept all status codes
   httpsAgent: null // Will be set based on --insecure flag
 });
@@ -47,6 +47,8 @@ program
   .option('-t, --timeout <ms>', 'Request timeout in ms', '30000')
   .option('-v, --verbose', 'Verbose output', false)
   .option('--insecure', 'Skip SSL certificate verification', false)
+  .option('--nonce-url <url>', 'Custom URL to fetch nonce from (relative to site URL)', null)
+  .option('--nonce-field <name>', 'Nonce field name to look for', '_wpnonce')
   .parse(process.argv);
 
 const options = program.opts();
@@ -94,7 +96,7 @@ async function main() {
     // Get nonce if authenticated
     let nonce = null;
     if (auth) {
-      nonce = await getNonce(options.url, auth);
+      nonce = await getNonce(options.url, auth, options.nonceUrl, options.nonceField);
       if (options.verbose && nonce) {
         console.log(`Extracted nonce: ${nonce.substring(0, 10)}...`);
       }
@@ -174,13 +176,23 @@ async function loadAuth(authFile) {
  */
 async function authenticate(siteUrl, auth) {
   const loginUrl = `${siteUrl}/wp-login.php`;
-  
+
   if (options.verbose) {
     console.log(`🔐 Authenticating to: ${loginUrl}`);
     console.log(`   Username: ${auth.username}`);
   }
-  
+
   try {
+    // First, get the login page to get any initial cookies
+    const getResponse = await client.get(loginUrl);
+    if (getResponse.headers['set-cookie']) {
+      getResponse.headers['set-cookie'].forEach(cookie => {
+        const parts = cookie.split(';')[0].split('=');
+        cookies[parts[0]] = parts[1];
+      });
+    }
+
+    // Now POST the login form with cookies
     const response = await client.post(loginUrl, new URLSearchParams({
       log: auth.username,
       pwd: auth.password,
@@ -189,7 +201,8 @@ async function authenticate(siteUrl, auth) {
       testcookie: '1'
     }), {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
       }
     });
 
@@ -204,18 +217,54 @@ async function authenticate(siteUrl, auth) {
         const parts = cookie.split(';')[0].split('=');
         cookies[parts[0]] = parts[1];
       });
+
+      if (options.verbose) {
+        console.log(`   Stored cookies: ${Object.keys(cookies).join(', ')}`);
+      }
     }
 
-    // Check if login was successful
-    if (response.status === 200 && !response.data.includes('login_error')) {
+    // Check if login was successful by looking for auth cookies
+    const hasAuthCookie = cookies['wordpress_logged_in_'] ||
+                          Object.keys(cookies).some(k => k.startsWith('wordpress_logged_in_'));
+
+    // Also check for redirect (302/301) which indicates successful login
+    const isRedirect = response.status === 302 || response.status === 301;
+
+    // Check for login error in response body
+    const hasLoginError = response.data && response.data.includes('login_error');
+
+    if (options.verbose) {
+      console.log(`   Has auth cookie: ${hasAuthCookie}`);
+      console.log(`   Is redirect: ${isRedirect}`);
+      console.log(`   Has login error: ${hasLoginError}`);
+    }
+
+    // Success if we have auth cookie OR got redirected AND no login error
+    if ((hasAuthCookie || isRedirect) && !hasLoginError) {
       if (options.verbose) {
         console.log('✅ Authentication successful');
       }
       return true;
     }
-    
+
     if (options.verbose) {
-      console.log('❌ Authentication failed - login_error found in response');
+      console.log('❌ Authentication failed');
+      if (hasLoginError) {
+        console.log('   Reason: login_error found in response');
+      } else if (!hasAuthCookie && !isRedirect) {
+        console.log('   Reason: No auth cookie or redirect received');
+      }
+      // Save response body for debugging
+      if (response.data && typeof response.data === 'string') {
+        const debugFile = path.join(process.cwd(), 'temp', 'login-debug.html');
+        try {
+          fs.mkdirSync(path.dirname(debugFile), { recursive: true });
+          fs.writeFileSync(debugFile, response.data);
+          console.log(`   Debug: Response saved to ${debugFile}`);
+        } catch (e) {
+          // Ignore write errors
+        }
+      }
     }
     throw new Error('Authentication failed');
   } catch (e) {
@@ -226,40 +275,99 @@ async function authenticate(siteUrl, auth) {
 /**
  * Get nonce from WordPress admin page
  */
-async function getNonce(siteUrl, auth) {
+async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '_wpnonce') {
   try {
-    // Try to get nonce from wp-admin
-    const adminUrl = `${siteUrl}/wp-admin/`;
-    const response = await client.get(adminUrl, {
+    // Determine which URL to fetch nonce from
+    let nonceUrl;
+    if (customNonceUrl) {
+      // Custom URL provided - can be relative or absolute
+      nonceUrl = customNonceUrl.startsWith('http')
+        ? customNonceUrl
+        : `${siteUrl}${customNonceUrl.startsWith('/') ? '' : '/'}${customNonceUrl}`;
+    } else {
+      // Default to wp-admin
+      nonceUrl = `${siteUrl}/wp-admin/`;
+    }
+
+    if (options.verbose) {
+      console.log(`🔑 Fetching nonce from: ${nonceUrl}`);
+      if (customNonceUrl) {
+        console.log(`   Looking for field: ${nonceFieldName}`);
+      }
+    }
+
+    const response = await client.get(nonceUrl, {
       headers: {
         'Cookie': Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
-      }
+      },
+      maxRedirects: 5 // Allow redirects for this request
     });
+
+    // Update cookies from response
+    if (response.headers['set-cookie']) {
+      response.headers['set-cookie'].forEach(cookie => {
+        const parts = cookie.split(';')[0].split('=');
+        cookies[parts[0]] = parts[1];
+      });
+    }
 
     const $ = cheerio.load(response.data);
 
-    // Look for common nonce patterns
-    // 1. Check for _wpnonce in forms
+    // Look for nonce patterns in priority order
+    // 1. Check for custom nonce field name if specified
+    if (customNonceUrl && nonceFieldName) {
+      let nonce = $(`input[name="${nonceFieldName}"]`).val();
+      if (nonce) {
+        if (options.verbose) {
+          console.log(`   Found nonce in field: ${nonceFieldName}`);
+        }
+        return nonce;
+      }
+    }
+
+    // 2. Check for _wpnonce in forms
     let nonce = $('input[name="_wpnonce"]').val();
     if (nonce) return nonce;
 
-    // 2. Check for _ajax_nonce
+    // 3. Check for _ajax_nonce
     nonce = $('input[name="_ajax_nonce"]').val();
     if (nonce) return nonce;
 
-    // 3. Check in inline scripts (wpApiSettings)
+    // 4. Check for custom field name (if different from _wpnonce)
+    if (nonceFieldName !== '_wpnonce') {
+      nonce = $(`input[name="${nonceFieldName}"]`).val();
+      if (nonce) return nonce;
+    }
+
+    // 5. Check in inline scripts (wpApiSettings, custom JS objects)
     const scripts = $('script').toArray();
     for (const script of scripts) {
       const content = $(script).html();
       if (content && content.includes('nonce')) {
-        const match = content.match(/nonce["']?\s*:\s*["']([a-f0-9]+)["']/i);
-        if (match) return match[1];
+        // Try to match nonce in various formats
+        const patterns = [
+          /nonce["']?\s*:\s*["']([a-f0-9]+)["']/i,
+          new RegExp(`${nonceFieldName}["']?\\s*:\\s*["']([a-f0-9]+)["']`, 'i'),
+          /["']nonce["']\s*:\s*["']([a-f0-9]+)["']/i
+        ];
+
+        for (const pattern of patterns) {
+          const match = content.match(pattern);
+          if (match) return match[1];
+        }
       }
+    }
+
+    if (options.verbose) {
+      console.log(`   ⚠️  No nonce found (some endpoints don't require nonce)`);
     }
 
     // If no nonce found, return null (some endpoints don't require nonce)
     return null;
   } catch (e) {
+    if (options.verbose) {
+      console.log(`   ⚠️  Failed to fetch nonce: ${e.message}`);
+    }
     // Non-fatal: some endpoints work without nonce
     return null;
   }
