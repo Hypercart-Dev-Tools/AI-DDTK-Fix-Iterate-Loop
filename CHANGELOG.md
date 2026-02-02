@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-02-01
+
+### Added
+- GitHub Action for automated weekly WPCC sync (`.github/workflows/sync-wpcc.yml`)
+  - Runs every Sunday at 00:00 UTC
+  - Creates PR for review when updates are available
+  - Manual trigger option with auto-merge capability
+- User configuration file (`.ai-ddtk.config`)
+  - `WPCC_UPDATE_MODE`: auto/manual/prompt
+  - `WPCC_REPO`: Source repository for WPCC
+  - `WPCC_BRANCH`: Branch to track
+
+### Changed
+- Updated all repository URLs to `Hypercart-Dev-Tools/AI-DDTK`
+
 ## [1.0.1] - 2026-02-01
 
 ### Added
@@ -59,6 +74,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 1.0.2 | 2026-02-01 | GitHub Action for weekly WPCC auto-sync, user config file |
 | 1.0.1 | 2026-02-01 | WPCC embedded via git subtree, Docker test suite |
 | 1.0.0 | 2025-02-01 | Initial release with install script and WPCC integration |
 
