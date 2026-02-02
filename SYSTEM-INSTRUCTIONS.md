@@ -178,6 +178,22 @@ Mark tasks COMPLETE immediately when done (don't batch).
 
 ---
 
+## Resource Limits & Dependencies
+
+### WP-CLI Memory Issues
+- Default 134MB often insufficient with WooCommerce
+- Increase: `php -d memory_limit=512M ~/bin/local-wp <site> <command>`
+- Or add to wp-cli.yml: `memory_limit: 512M`
+
+### Playwright
+- **Check first**: `npx playwright --version`
+- **Install globally**: `npm install -g playwright` (recommended)
+- **Or use npx**: `npx playwright` (no install needed)
+- **Never** install per-project (`npm install -D`) — adds to git
+- **Always ask** before installing — never auto-install
+
+---
+
 ## Quick Reference
 
 ```bash

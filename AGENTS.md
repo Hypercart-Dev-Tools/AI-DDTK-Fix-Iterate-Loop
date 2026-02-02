@@ -271,6 +271,41 @@ const auth = JSON.parse(fs.readFileSync('temp/auth.json', 'utf8'));
 - **Set reasonable AJAX timeouts** — configure `timeout` in jQuery.ajax() or fetch() (default: 30s for admin)
 - **Use WP-Cron for long operations** — chunk batch processing via scheduled events rather than extending execution time
 
+### WP-CLI Memory Limits
+
+WP-CLI's default 134MB memory limit is often insufficient with WooCommerce and other heavy plugins:
+
+- **Increase memory before running**: `php -d memory_limit=512M ~/bin/local-wp <site> <command>`
+- **Or add to wp-cli.yml** in project root:
+  ```yaml
+  memory_limit: 512M
+  ```
+- **For heavy operations**, skip unnecessary plugins: `--skip-plugins` or `--skip-themes`
+- **Common failures**: `eval`, `eval-file`, database operations with large datasets
+
+### WP-CLI Memory Limits
+
+WP-CLI's default 134MB memory limit is often insufficient with WooCommerce and other heavy plugins:
+
+- **Increase memory before running**: `php -d memory_limit=512M ~/bin/local-wp <site> <command>`
+- **Or add to wp-cli.yml** in project root:
+  ```yaml
+  memory_limit: 512M
+  ```
+- **For heavy operations**, skip unnecessary plugins: `--skip-plugins` or `--skip-themes`
+- **Common failures**: `eval`, `eval-file`, database operations with large datasets
+
+### Playwright Setup
+
+Playwright is not bundled with AI-DDTK (large dependency, project-specific versions):
+
+- **Check if installed**: `npx playwright --version`
+- **Install globally** (recommended): `npm install -g playwright`
+- **Or use npx**: `npx playwright` (downloads to cache, not project)
+- **Avoid per-project install**: `npm install -D playwright` adds to node_modules (tracked by git)
+- **AI agents**: Always ask user before installing — never auto-install without permission
+- **Authentication files**: Store in `/temp/playwright-auth.json` (never commit)
+
 ```php
 // ✅ HTTP request with timeout and retry
 function prefix_fetch_with_retry( $url, $max_retries = 3 ) {

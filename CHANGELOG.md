@@ -25,11 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - When user provides credentials workflow (5-step process)
   - Code examples (wrong vs. correct patterns)
   - Playwright authentication state file handling
+- **Resource Limits & Dependencies** in AGENTS.md (v2.3.1)
+  - WP-CLI memory limit mitigation (134MB → 512M)
+  - Playwright setup guidance (global install, avoid per-project)
+  - Added to SYSTEM-INSTRUCTIONS.md for AI agent awareness
 
 ### Changed
 - Updated AGENTS.md version to v2.3.1
 - Enhanced Security section with Sensitive Data Handling subsection
 - Updated README.md version to 1.0.5
+- Playwright guidance: Recommend global install over per-project to avoid git commits
 
 ## [1.0.4] - 2026-02-02
 
