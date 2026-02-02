@@ -104,22 +104,38 @@ ai-ddtk status --all
 └─────────────────┴──────────┴─────────────┴─────────────────┘
 ```
 
+### 8. **Performance Profiling Integration** ✅ In Progress
+
+Runtime performance analysis to complement WPCC's static analysis:
+
+| Tool | Purpose | AI Orchestration |
+|------|---------|------------------|
+| **WP Performance Timer** | Runtime instrumentation | "Profile this page" workflow |
+| **Query Monitor** | Query analysis | Chain with timer data |
+| **Lighthouse** | Core Web Vitals | Full-stack performance audit |
+
+**Status**: Added to AGENTS.md (v2.3.0) with WPCC → Timer pipeline documentation.
+
+**Recipe**: See `recipes/performance-audit.md` for complete workflow.
+
+**Key Value**: WPCC finds *potential* issues (static), Performance Timer *proves* impact (runtime).
+
 ---
 
 ## Immediate Next Steps (Low Effort, High Value)
 
-1. **Document the vision** — Add a "Vision" or "Roadmap" section to README explaining AI-DDTK as an orchestration layer
+1. ~~**Document the vision**~~ ✅ Added to README (WPCC Advanced Features)
 
 2. **Add `local-wp` to AGENTS.md** — Similar orchestration guidance for WP-CLI operations
 
-3. **Create a `recipes/` folder** — Start collecting multi-tool workflow examples
+3. ~~**Create a `recipes/` folder**~~ ✅ Created with `performance-audit.md`
 
 4. **MCP exploration** — Prototype a simple MCP server that exposes WPCC
 
 ---
 
-Future additions:
-- Draft a vision/roadmap section for the README
-- Add `local-wp` orchestration to AGENTS.md
-- Create a `recipes/` folder with example workflows
-- Something else?
+## Completed
+
+- ✅ WPCC feature discovery (`wpcc --features`)
+- ✅ WPCC orchestration in AGENTS.md
+- ✅ Performance Profiling integration (AGENTS.md + recipe)

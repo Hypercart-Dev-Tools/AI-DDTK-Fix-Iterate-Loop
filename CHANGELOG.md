@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-02-02
+
+### Added
+- **Performance Profiling Integration** (WP Performance Timer)
+  - Added Performance Profiling section to AGENTS.md (v2.3.0)
+  - Workflow decision tree for runtime analysis
+  - WPCC → Performance Timer pipeline documentation
+  - Metrics reference table (time_ms, queries, memory_kb, depth)
+  - Configuration reference (wp-config.php constants)
+- **Workflow Recipes** (`recipes/` folder)
+  - Created `recipes/performance-audit.md` - Complete WPCC → Timer workflow
+  - 5-phase audit process: Scan → Triage → Profile → Measure → Report
+  - Report template for documenting findings
+  - AI agent instructions for performance audits
+- **ROADMAP.md Updates**
+  - Added Performance Profiling as opportunity #8
+  - Marked completed items (feature discovery, orchestration, recipes)
+
+### Changed
+- Updated AGENTS.md version to v2.3.0
+
 ## [1.0.3] - 2026-02-02
 
 ### Added
@@ -101,6 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 1.0.4 | 2026-02-02 | Performance Profiling integration, `recipes/` folder, WPCC→Timer pipeline |
 | 1.0.3 | 2026-02-02 | WPCC feature discovery, AGENTS.md orchestration, README advanced features |
 | 1.0.2 | 2026-02-01 | GitHub Action for weekly WPCC auto-sync, user config file |
 | 1.0.1 | 2026-02-01 | WPCC embedded via git subtree, Docker test suite |

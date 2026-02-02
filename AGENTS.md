@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.2.0 — 2026-02-02_
+_Last updated: v2.3.0 — 2026-02-02_
 
 ## Purpose
 
@@ -105,6 +105,101 @@ For complete AI instructions, see:
 - **[WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)** - Full 5-phase workflow
 - **[IRL Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md)** - Pattern library contributions
 - **[WPCC AGENTS.md](tools/wp-code-check/AGENTS.md)** - WordPress-specific guidelines
+
+---
+
+## 🔍 Performance Profiling (WP Performance Timer)
+
+> **Note**: WP Performance Timer will be renamed to **Hypercart WP Performance Timer** in a future release.
+
+AI-DDTK integrates with WP Performance Timer for runtime performance analysis. This complements WPCC's static analysis with actual execution metrics.
+
+### When to Use
+
+| Scenario | Action |
+|----------|--------|
+| User says "Profile this page" | Insert timers, trigger page, read NeoLog data |
+| User says "Why is this slow?" | Identify target code, add timers, measure |
+| WPCC flags a performance issue | Confirm with runtime data (see recipe below) |
+| Pre-deploy baseline needed | Profile critical paths before deployment |
+| Before/after comparison | Profile → change → profile again |
+
+### Workflow Decision Tree
+
+```
+User Request
+    │
+    ├─ "Profile this page" ────────────► Runtime profiling workflow
+    │
+    ├─ "Why is checkout slow?" ────────► WPCC scan → Performance Timer confirm
+    │
+    ├─ "Find the bottleneck" ──────────► Add hierarchical timers → analyze
+    │
+    ├─ "Compare before/after" ─────────► Baseline → change → re-profile
+    │
+    └─ "Pre-deploy perf check" ────────► Full audit: WPCC + Performance Timer
+```
+
+### Quick Reference
+
+```php
+// Insert timer around suspect code
+if (function_exists('perf_timer_start')) {
+    $timer = perf_timer_start('operation-name', ['context' => 'value']);
+}
+
+// Existing code runs normally
+do_something_expensive();
+
+if (isset($timer) && function_exists('perf_timer_stop')) {
+    $results = perf_timer_stop($timer);
+    // Returns: time_ms, queries, memory_kb
+}
+```
+
+### WPCC → Performance Timer Pipeline
+
+When WPCC flags a potential performance issue, confirm with runtime measurement:
+
+```
+Phase 1: WPCC SCAN
+├── Run: wpcc --paths <path> --format json
+├── Finding: "n-plus-1-pattern in line 234"
+└── Status: Potential issue identified
+
+Phase 2: PERFORMANCE TIMER CONFIRM
+├── Insert timer around flagged code
+├── Trigger the operation (page load, AJAX, etc.)
+├── Read NeoLog data or debug.log
+└── Output: "Loop at line 234: 1,847ms, 156 queries"
+
+Phase 3: REPORT
+├── Confirmed: Loop is actual bottleneck
+├── Impact: 1.8s delay, 156 DB queries
+└── Recommendation: Batch query or cache
+```
+
+### Metrics Captured
+
+| Metric | Description | Threshold |
+|--------|-------------|-----------|
+| `time_ms` | Execution time in milliseconds | >100ms = slow (configurable) |
+| `queries` | Database queries during operation | Watch for high counts in loops |
+| `memory_kb` | Memory delta during operation | Large deltas indicate allocation issues |
+| `depth` | Nesting level in hierarchy | Deep nesting may indicate complexity |
+
+### Configuration (wp-config.php)
+
+```php
+define('PERF_TIMING_ENABLED', true);    // Master switch
+define('PERF_LOG_SLOW_QUERIES', 100);   // Threshold in ms
+define('PERF_LOG_ALL', false);          // Verbose logging
+```
+
+### Reference Documentation
+
+- **[Performance Audit Recipe](recipes/performance-audit.md)** - Complete WPCC → Timer workflow
+- **Plugin Repo**: WP Performance Timer (external)
 
 ---
 
