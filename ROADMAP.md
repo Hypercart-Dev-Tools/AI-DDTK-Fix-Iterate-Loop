@@ -122,6 +122,35 @@ Runtime performance analysis to complement WPCC's static analysis:
 
 ---
 
+### 9. **AJAX Endpoint Testing** 📝 Planned
+
+Lightweight WordPress AJAX testing without browser automation:
+
+| Feature | Purpose | AI Orchestration |
+|---------|---------|------------------|
+| **Direct endpoint testing** | Test wp_ajax_* actions | "Test this AJAX endpoint" workflow |
+| **Auto-authentication** | Handle nonces/cookies | Load from `/temp/auth.json` |
+| **Batch testing** | Multiple endpoints | Regression testing before deploy |
+| **JSON I/O** | Structured output | AI can parse/debug responses |
+
+**Design Principle**: **Centralized by default, local copy when needed**
+- AI agents call `~/bin/ai-ddtk/bin/wp-ajax-test` directly
+- Create project-specific wrapper only if customization required
+- Wrapper calls centralized tool (never duplicate code)
+
+**Status**: Spec drafted in `tools/wp-ajax-test/SPEC.md`
+
+**Key Value**: Fills gap between WPCC (static) and Playwright (heavy E2E). Lightweight integration testing.
+
+**When to use**:
+- ✅ Quick AJAX endpoint verification
+- ✅ Debugging AJAX failures
+- ✅ Regression testing after changes
+- ❌ Full browser flows → Use Playwright
+- ❌ Load testing → Use Apache Bench
+
+---
+
 ## Immediate Next Steps (Low Effort, High Value)
 
 1. ~~**Document the vision**~~ ✅ Added to README (WPCC Advanced Features)

@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **WP AJAX Test Tool Specification** (`tools/wp-ajax-test/SPEC.md`)
+  - Lightweight WordPress AJAX endpoint testing without browser automation
+  - Centralized-by-default design (call from AI-DDTK, local wrapper when needed)
+  - Auto-authentication with nonce/cookie handling
+  - JSON I/O for AI agent parsing
+  - Batch testing support
+  - AI agent instructions for centralized vs. local copy decision tree
+- **ROADMAP.md**: Added AJAX Endpoint Testing as opportunity #9
 - **SOLID Principles Guidance** in AGENTS.md (v2.3.1)
   - Added to Core Requirements section with full acronym breakdown
   - Integrated into "Building from the Ground Up" checklist
