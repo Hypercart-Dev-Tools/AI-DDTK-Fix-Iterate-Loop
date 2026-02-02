@@ -1,16 +1,72 @@
 #!/usr/bin/env bash
+# ============================================================
 # Local WP-CLI Wrapper
-# Provides easy access to WP-CLI for Local by Flywheel sites
+# Part of AI-DDTK - AI Driven Development ToolKit
+# ============================================================
 #
-# Usage: local-wp <site-name> <wp-cli-command> [args...]
+# PURPOSE:
+#   Provides easy access to WP-CLI for Local by Flywheel sites
+#   Auto-detects Local paths and PHP binary
+#
+# USAGE:
+#   local-wp <site-name> <wp-cli-command> [args...]
+#
+# EXAMPLES:
+#   local-wp my-site plugin list
+#   local-wp my-site option get siteurl
+#   local-wp my-site --list
+#
+# CONFIGURATION:
+#   Set these environment variables to override auto-detection:
+#
+#   export LOCAL_SITES_DIR="$HOME/Local Sites"
+#   export LOCAL_RUN_DIR="$HOME/Library/Application Support/Local/run"
+#   export WP_CLI_PHAR="/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar"
+#   export PHP_BIN="/path/to/php"
+#
+# ============================================================
 
 set -e
 
-# Configuration
-LOCAL_SITES_DIR="/Users/noelsaw/Local Sites"
-LOCAL_RUN_DIR="/Users/noelsaw/Library/Application Support/Local/run"
-WP_CLI_PHAR="/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar"
-PHP_BIN="/Users/noelsaw/Library/Application Support/Local/lightning-services/php-8.2.27+1/bin/darwin-arm64/bin/php"
+# Configuration (can be overridden via environment variables)
+LOCAL_SITES_DIR="${LOCAL_SITES_DIR:-$HOME/Local Sites}"
+LOCAL_RUN_DIR="${LOCAL_RUN_DIR:-$HOME/Library/Application Support/Local/run}"
+WP_CLI_PHAR="${WP_CLI_PHAR:-/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar}"
+
+# Auto-detect PHP binary from Local's lightning-services
+detect_php_bin() {
+  local services_dir="$HOME/Library/Application Support/Local/lightning-services"
+
+  if [ ! -d "$services_dir" ]; then
+    return 1
+  fi
+
+  # Find the most recent PHP version
+  local php_dir=$(find "$services_dir" -maxdepth 1 -type d -name "php-*" 2>/dev/null | sort -V | tail -1)
+
+  if [ -z "$php_dir" ]; then
+    return 1
+  fi
+
+  # Detect architecture
+  local arch=""
+  if [[ "$(uname -m)" == "arm64" ]]; then
+    arch="darwin-arm64"
+  else
+    arch="darwin-x64"
+  fi
+
+  local php_binary="$php_dir/bin/$arch/bin/php"
+
+  if [ -f "$php_binary" ]; then
+    echo "$php_binary"
+    return 0
+  fi
+
+  return 1
+}
+
+PHP_BIN="${PHP_BIN:-$(detect_php_bin)}"
 
 # Colors
 RED='\033[0;31m'
@@ -64,12 +120,21 @@ if [ ! -d "$SITE_PATH" ]; then
 fi
 
 if [ ! -f "$WP_CLI_PHAR" ]; then
-  echo -e "${RED}Error: WP-CLI not found${NC}"
+  echo -e "${RED}Error: WP-CLI not found at: $WP_CLI_PHAR${NC}"
+  echo ""
+  echo -e "${YELLOW}To fix, set the WP_CLI_PHAR environment variable:${NC}"
+  echo "  export WP_CLI_PHAR=\"/path/to/wp-cli.phar\""
   exit 1
 fi
 
-if [ ! -f "$PHP_BIN" ]; then
+if [ -z "$PHP_BIN" ] || [ ! -f "$PHP_BIN" ]; then
   echo -e "${RED}Error: PHP binary not found${NC}"
+  echo ""
+  echo -e "${YELLOW}Could not auto-detect PHP from Local's lightning-services.${NC}"
+  echo "To fix, set the PHP_BIN environment variable:"
+  echo "  export PHP_BIN=\"/path/to/php\""
+  echo ""
+  echo "Searched in: $HOME/Library/Application Support/Local/lightning-services"
   exit 1
 fi
 

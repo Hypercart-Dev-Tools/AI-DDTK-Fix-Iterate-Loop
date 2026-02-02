@@ -1,12 +1,12 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.0
+> Version: 1.0.3
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
 ## Overview
 
-A central toolkit for AI-driven WordPress development, designed to be called from any project.
+An early work in progress centralized toolkit for AI-driven WordPress development, designed to be called from any project.
 
 **At the center:**
 - VS Code AI Agents (Claude Code, Augment, Codex, etc.) with tuned system instructions
@@ -80,6 +80,48 @@ See `install.sh` for detailed guidance on:
 - GitHub CLI commands for checking updates
 - Architecture and maintenance notes
 
+## WPCC Advanced Features
+
+Beyond basic scanning, WP Code Check includes powerful AI-assisted workflows:
+
+| Feature | Description | How to Use |
+|---------|-------------|------------|
+| **Project Templates** | Save scan configs for recurring projects | `wpcc --features` or see [Template Guide](tools/wp-code-check/dist/HOWTO-TEMPLATES.md) |
+| **AI-Assisted Triage** | Automated false positive detection | Ask AI: "Triage this scan" or "Run X end to end" |
+| **GitHub Issue Creation** | Convert findings to trackable issues | Ask AI: "Create issue for scan" |
+| **End-to-End Workflow** | Scan → Triage → HTML → Issue in one flow | Ask AI: "Run template X end to end" |
+| **IRL Audit Mode** | Annotate real code for pattern library | See [Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md) |
+| **Multi-Platform Export** | Export issues to Jira, Linear, Asana, Trello | Issues saved to `dist/issues/` for copy/paste |
+
+### Quick Examples
+
+```bash
+# Basic scan
+wpcc --paths ./wp-content/plugins/my-plugin --format json
+
+# Show all available features
+wpcc --features
+
+# Using templates (faster for recurring scans)
+wpcc --features  # Lists templates
+# Ask AI: "Run template my-plugin end to end"
+```
+
+### AI Agent Workflows
+
+For AI agents (Claude, Augment, Codex, etc.), WPCC supports orchestrated multi-phase workflows:
+
+```
+Phase 1: Scan      → Generate JSON findings
+Phase 2: AI Triage → Identify false positives, add recommendations
+Phase 3: HTML      → Generate report with AI summary
+Phase 4: Issue     → Create GitHub issue with checkboxes
+```
+
+**Full AI Instructions:** [WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)
+
 ## Links
 
 - [WP Code Check](https://github.com/Hypercart-Dev-Tools/WP-Code-Check)
+- [WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)
+- [IRL Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md)

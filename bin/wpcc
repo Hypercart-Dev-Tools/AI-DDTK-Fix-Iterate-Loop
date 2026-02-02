@@ -95,6 +95,108 @@ if [ -z "$WPCC_ENTRY_POINT" ]; then
     exit 1
 fi
 
+# ============================================================
+# FEATURE DISCOVERY
+# ============================================================
+# Shows all available WPCC capabilities via --features flag
+# ============================================================
+
+show_features() {
+    echo ""
+    echo -e "${BLUE}╔══════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${BLUE}║${NC}       ${GREEN}AI-DDTK WordPress Code Check - Features${NC}                ${BLUE}║${NC}"
+    echo -e "${BLUE}╚══════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+
+    echo -e "${GREEN}BASIC SCANNING${NC}"
+    echo "  wpcc --paths <path>                  Run security/performance scan"
+    echo "  wpcc --paths <path> --format json    Output as JSON for AI processing"
+    echo "  wpcc --paths <path> --verbose        Show detailed progress"
+    echo ""
+
+    echo -e "${GREEN}PROJECT TEMPLATES${NC} (Recommended for recurring scans)"
+    echo "  Templates let you save scan configuration for plugins/themes you scan often."
+    echo ""
+    # Count templates
+    TEMPLATE_COUNT=$(ls -1 "$WPCC_PATH/dist/TEMPLATES/"*.txt 2>/dev/null | grep -v "_" | wc -l | tr -d ' ')
+    echo -e "  ${YELLOW}Templates saved:${NC} $TEMPLATE_COUNT"
+    echo -e "  ${YELLOW}Location:${NC} $WPCC_PATH/dist/TEMPLATES/"
+    echo -e "  ${YELLOW}Guide:${NC} $WPCC_PATH/dist/HOWTO-TEMPLATES.md"
+    echo ""
+    if [ "$TEMPLATE_COUNT" -gt 0 ]; then
+        echo "  Available templates:"
+        for t in "$WPCC_PATH/dist/TEMPLATES/"*.txt; do
+            if [[ "$(basename "$t")" != _* ]]; then
+                echo "    - $(basename "$t" .txt)"
+            fi
+        done 2>/dev/null
+        echo ""
+    fi
+
+    echo -e "${GREEN}AI-ASSISTED TRIAGE${NC} (Reduces false positives)"
+    echo "  After a scan, AI can analyze findings to identify false positives"
+    echo "  and provide prioritized recommendations."
+    echo ""
+    echo "  Ask your AI agent:"
+    echo "    • \"Triage this scan\""
+    echo "    • \"Analyze the scan results for false positives\""
+    echo "    • \"Run [template] end to end\" (includes triage)"
+    echo ""
+
+    echo -e "${GREEN}GITHUB ISSUE CREATION${NC} (Automated tracking)"
+    echo "  Convert scan findings into GitHub issues with checkboxes."
+    echo "  Also exports to: Jira, Linear, Asana, Trello, Monday.com"
+    echo ""
+    echo "  Ask your AI agent:"
+    echo "    • \"Create GitHub issue for this scan\""
+    echo "    • \"Export findings for Jira\""
+    echo ""
+    echo -e "  ${YELLOW}Script:${NC} $WPCC_PATH/dist/bin/create-github-issue.sh"
+    echo -e "  ${YELLOW}Output:${NC} $WPCC_PATH/dist/issues/"
+    echo ""
+
+    echo -e "${GREEN}END-TO-END WORKFLOW${NC} (Full automation)"
+    echo "  Combine scan → AI triage → HTML report → GitHub issue in one flow."
+    echo ""
+    echo "  Ask your AI agent:"
+    echo "    • \"Run [plugin-name] end to end\""
+    echo "    • \"Execute complete workflow for [template]\""
+    echo ""
+    echo "  Phases:"
+    echo "    Phase 1: Scan → JSON findings"
+    echo "    Phase 2: AI Triage → False positive detection"
+    echo "    Phase 3: HTML Report → With AI summary"
+    echo "    Phase 4: GitHub Issue → With checkboxes"
+    echo ""
+
+    echo -e "${GREEN}IRL AUDIT MODE${NC} (Pattern library contribution)"
+    echo "  Audit real-world code examples and add to the pattern library."
+    echo ""
+    echo "  Ask your AI agent:"
+    echo "    • \"Audit this file for anti-patterns\""
+    echo "    • \"Add this to IRL examples\""
+    echo ""
+    echo -e "  ${YELLOW}Guide:${NC} $WPCC_PATH/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md"
+    echo ""
+
+    echo -e "${GREEN}JSON TO HTML CONVERTER${NC} (Standalone tool)"
+    echo "  Regenerate HTML reports from JSON logs (useful after AI triage)."
+    echo ""
+    echo "  Usage:"
+    echo "    python3 $WPCC_PATH/dist/bin/json-to-html.py [input.json] [output.html]"
+    echo ""
+
+    echo -e "${BLUE}───────────────────────────────────────────────────────────────${NC}"
+    echo ""
+    echo -e "${GREEN}DOCUMENTATION${NC}"
+    echo -e "  ${YELLOW}AI Instructions:${NC} $WPCC_PATH/dist/TEMPLATES/_AI_INSTRUCTIONS.md"
+    echo -e "  ${YELLOW}IRL Audit Guide:${NC} $WPCC_PATH/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md"
+    echo -e "  ${YELLOW}WordPress Guidelines:${NC} $TOOLKIT_ROOT/AGENTS.md"
+    echo ""
+    echo -e "${BLUE}───────────────────────────────────────────────────────────────${NC}"
+    echo ""
+}
+
 # Show help if no arguments
 if [ $# -eq 0 ]; then
     echo -e "${BLUE}WPCC - WP Code Check${NC}"
@@ -102,10 +204,19 @@ if [ $# -eq 0 ]; then
     echo ""
     echo "Usage: wpcc <command> [args...]"
     echo ""
-    echo "Run 'wpcc --help' for full documentation"
+    echo "Quick Start:"
+    echo "  wpcc --paths <path>      Run a scan"
+    echo "  wpcc --features          Show all available features"
+    echo "  wpcc --help              Full CLI documentation"
     echo ""
     echo -e "${GREEN}WPCC Location:${NC} $WPCC_PATH"
     echo -e "${GREEN}Toolkit Root:${NC} $TOOLKIT_ROOT"
+    exit 0
+fi
+
+# Handle --features flag
+if [ "$1" = "--features" ] || [ "$1" = "-f" ] || [ "$1" = "features" ]; then
+    show_features
     exit 0
 fi
 

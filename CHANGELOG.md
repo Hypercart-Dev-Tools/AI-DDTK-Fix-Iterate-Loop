@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-02-02
+
+### Added
+- **WPCC Feature Discovery** (`wpcc --features`)
+  - Lists all available WPCC capabilities with descriptions
+  - Shows saved templates and their locations
+  - Provides usage examples for AI agents
+  - Documents end-to-end workflow phases
+- **WPCC Orchestration in AGENTS.md**
+  - Workflow decision tree for AI agents
+  - End-to-end workflow documentation (Phases 1-4)
+  - AI triage JSON structure reference
+  - Common false positive patterns table
+  - Links to WPCC AI instructions and guides
+- **WPCC Advanced Features in README.md**
+  - Project Templates documentation
+  - AI-Assisted Triage workflow
+  - GitHub Issue Creation (multi-platform)
+  - End-to-End Workflow overview
+  - IRL Audit Mode description
+  - Quick examples and AI agent workflows
+
+### Changed
+- Updated version to 1.0.3 in README.md
+- Updated AGENTS.md version to v2.2.0
+- Enhanced `wpcc` wrapper with feature discovery system
+
 ## [1.0.2] - 2026-02-01
 
 ### Added
@@ -74,6 +101,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 1.0.3 | 2026-02-02 | WPCC feature discovery, AGENTS.md orchestration, README advanced features |
 | 1.0.2 | 2026-02-01 | GitHub Action for weekly WPCC auto-sync, user config file |
 | 1.0.1 | 2026-02-01 | WPCC embedded via git subtree, Docker test suite |
 | 1.0.0 | 2025-02-01 | Initial release with install script and WPCC integration |

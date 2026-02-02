@@ -1,14 +1,110 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.1.0 — 2026-01-28_
+_Last updated: v2.2.0 — 2026-02-02_
 
 ## Purpose
 
-Defines principles, constraints, and best practices for AI agents and Humans  working with WordPress code to ensure safe, consistent, and maintainable contributions.
+Defines principles, constraints, and best practices for AI agents and Humans working with WordPress code to ensure safe, consistent, and maintainable contributions.
 
-## Roadmap
+---
 
-- [ ] Add orchesration pointer here
+## 🛠️ WPCC (WP Code Check) Orchestration
+
+AI-DDTK includes WP Code Check for WordPress code analysis. This section guides AI agents on using WPCC's advanced features.
+
+### Quick Commands
+
+```bash
+wpcc --paths <path>           # Basic scan
+wpcc --features               # Show all available features
+wpcc --help                   # Full CLI help
+```
+
+### Workflow Decision Tree
+
+```
+User Request
+    │
+    ├─ "Scan this plugin" ─────────────► Basic scan: wpcc --paths <path> --format json
+    │
+    ├─ "Run X end to end" ─────────────► Full workflow (Phase 1→2→3→4)
+    │
+    ├─ "Triage the scan results" ──────► Phase 2: AI triage on existing JSON
+    │
+    ├─ "Create issue for this scan" ───► Phase 3: GitHub issue creation
+    │
+    └─ "Set up scanning for X" ────────► Template creation (Phase 1b)
+```
+
+### End-to-End Workflow (Phases 1-4)
+
+When user requests **"Run [plugin] end to end"**, execute this sequence:
+
+```
+Phase 1: SCAN
+├── Run: wpcc --paths <path> --format json
+├── Output: dist/logs/[TIMESTAMP].json
+└── Wait for completion
+
+Phase 2: AI TRIAGE
+├── Read JSON findings
+├── Analyze for false positives (check context, safeguards)
+├── Update JSON with ai_triage section
+└── ⚠️ CRITICAL: Regenerate HTML AFTER triage
+
+Phase 3: HTML REPORT
+├── Run: python3 dist/bin/json-to-html.py [json] [html]
+├── Output: dist/reports/[TIMESTAMP].html
+└── Verify AI summary appears in report
+
+Phase 4: GITHUB ISSUE (optional)
+├── Run: dist/bin/create-github-issue.sh --scan-id [TIMESTAMP]
+├── If no repo: saves to dist/issues/ for manual use
+└── Works with: GitHub, Jira, Linear, Asana, Trello
+```
+
+### AI Triage JSON Structure
+
+When updating JSON with triage results, use this structure:
+
+```json
+{
+  "ai_triage": {
+    "performed": true,
+    "status": "complete",
+    "timestamp": "2026-02-02T12:00:00Z",
+    "version": "1.0",
+    "summary": {
+      "findings_reviewed": 10,
+      "confirmed_issues": 2,
+      "false_positives": 7,
+      "needs_review": 1,
+      "confidence_level": "high"
+    },
+    "recommendations": [
+      "Priority 1: Fix issue X",
+      "Priority 2: Review issue Y"
+    ]
+  }
+}
+```
+
+### Common False Positive Patterns
+
+| Pattern | Why It's Often False Positive | How to Verify |
+|---------|------------------------------|---------------|
+| `spo-002-superglobals` | Has `phpcs:ignore` with nonce elsewhere | Check for `wp_verify_nonce()` in same function |
+| `rest-no-pagination` | Endpoint returns single item | Check if route has `{id}` parameter |
+| `direct-db-query` | Uses `$wpdb->prepare()` on adjacent line | Check 1-3 lines above/below |
+| `n-plus-1-pattern` | Bounded loop or cached | Check for LIMIT or transient cache |
+| `unsafe-regexp` | Pattern is hardcoded, not user input | Verify pattern source |
+
+### Reference Documentation
+
+For complete AI instructions, see:
+- **[WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)** - Full 5-phase workflow
+- **[IRL Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md)** - Pattern library contributions
+- **[WPCC AGENTS.md](tools/wp-code-check/AGENTS.md)** - WordPress-specific guidelines
 
 ---
 
