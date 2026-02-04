@@ -1,0 +1,99 @@
+#
+# PHPStan Configuration Template for WordPress/WooCommerce Projects
+# 
+# Copy this file to your plugin or theme root as `phpstan.neon`
+# Then customize the paths and ignoreErrors patterns.
+#
+# Prerequisites:
+#   composer require --dev phpstan/phpstan phpstan/extension-installer \
+#     szepeviktor/phpstan-wordpress php-stubs/wordpress-stubs \
+#     php-stubs/woocommerce-stubs php-stubs/wp-cli-stubs --no-interaction
+#
+# Run:
+#   phpstan analyse --configuration=phpstan.neon --memory-limit=1G
+#
+# See: ~/bin/ai-ddtk/recipes/phpstan-wordpress-setup.md
+#
+
+parameters:
+    # =========================================================================
+    # ANALYSIS LEVEL
+    # =========================================================================
+    # Level 3: Array access, basic types (recommended starting point)
+    # Level 5: Null safety (catches wc_get_order() issues)
+    # Level 8: Strict typing (for well-typed codebases)
+    level: 3
+
+    # =========================================================================
+    # PATHS TO ANALYZE
+    # =========================================================================
+    # Customize these to match your project structure
+    paths:
+        # --- For Plugins ---
+        - includes
+        - admin
+        # - src
+        # - classes
+        
+        # --- For Themes ---
+        # - functions.php
+        # - inc
+        # - woocommerce          # WC template overrides
+        # - template-parts
+
+    # =========================================================================
+    # PATHS TO EXCLUDE
+    # =========================================================================
+    excludePaths:
+        - vendor
+        - node_modules
+        - tests
+        - build
+
+    # =========================================================================
+    # TEMPORARY DIRECTORY
+    # =========================================================================
+    # PHPStan cache - add build/ to .gitignore
+    tmpDir: build/phpstan
+
+    # =========================================================================
+    # BOOTSTRAP FILES (STUBS)
+    # =========================================================================
+    # These provide type information for WordPress/WooCommerce/WP-CLI
+    # The extension-installer auto-loads szepeviktor/phpstan-wordpress
+    bootstrapFiles:
+        - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php
+        # Note: Don't include wp-cli-commands-stubs.php (has Composer deps)
+
+    # =========================================================================
+    # IGNORED ERRORS
+    # =========================================================================
+    # Suppress known false positives or plugin-specific constants
+    ignoreErrors:
+        # --- Plugin Constants ---
+        # Replace YOUR_PLUGIN with your actual plugin prefix
+        - '#Constant YOUR_PLUGIN_\w+ not found#'
+        
+        # --- Common WordPress Patterns ---
+        # Uncomment if needed:
+        # - '#Function apply_filters invoked with \d+ parameters, \d+ required#'
+        # - '#Function do_action invoked with \d+ parameters, \d+ required#'
+
+    # =========================================================================
+    # PARALLEL PROCESSING
+    # =========================================================================
+    # Adjust based on your CPU cores (default: auto-detect)
+    # parallel:
+    #     maximumNumberOfProcesses: 4
+
+# =============================================================================
+# BASELINE FILE (for legacy codebases)
+# =============================================================================
+# If you have many existing errors, generate a baseline:
+#   phpstan analyse --generate-baseline
+# Then include it here:
+# includes:
+#     - phpstan-baseline.neon
+

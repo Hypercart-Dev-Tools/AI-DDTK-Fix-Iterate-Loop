@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **PHPStan WordPress/WooCommerce Setup** (v2.4.0)
+  - New recipe: `recipes/phpstan-wordpress-setup.md` - Step-by-step guide for plugins and themes
+  - New template: `templates/phpstan.neon.template` - Ready-to-copy configuration with comments
+  - Added PHPStan section to AGENTS.md with workflow decision tree
+  - Covers levels 3/5/8, troubleshooting, legacy baseline strategy
+  - Documents WordPress, WooCommerce, and WP-CLI stubs setup
+  - **Baseline & History Tracking** - Added comprehensive section covering:
+    - Baseline generation workflow (`phpstan analyse --generate-baseline`)
+    - What files to commit vs gitignore
+    - Progress tracking table format for CHANGELOG/PROJECT-AUDIT
+    - GitHub Actions CI workflow for automated PR checks
 - **WP AJAX Test Tool v1.1.0** - Plugin-specific nonce support
   - `--nonce-url` flag to fetch nonces from custom admin pages
   - `--nonce-field` flag to specify custom nonce field names

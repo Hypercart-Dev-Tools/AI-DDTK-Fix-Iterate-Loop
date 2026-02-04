@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.3.1 — 2026-02-02_
+_Last updated: v2.4.0 — 2026-02-04_
 
 ## Purpose
 
@@ -200,6 +200,57 @@ define('PERF_LOG_ALL', false);          // Verbose logging
 
 - **[Performance Audit Recipe](recipes/performance-audit.md)** - Complete WPCC → Timer workflow
 - **Plugin Repo**: WP Performance Timer (external)
+
+---
+
+## 🔬 PHPStan Static Analysis
+
+PHPStan provides type-aware static analysis for WordPress plugins and WooCommerce themes. Unlike WPCC's pattern-based scanning, PHPStan understands PHP types, null safety, and array shapes.
+
+> **Note**: PHPStan requires per-project setup via Composer. It cannot be bundled into AI-DDTK or WPCC.
+
+### When to Use
+
+| Scenario | Action |
+|----------|--------|
+| User says "Set up PHPStan" | Follow recipe, install stubs, create config |
+| User says "Why does checkout crash randomly?" | Likely null safety issue — PHPStan level 5+ catches these |
+| User says "Find type bugs" | Run PHPStan at level 3-5 |
+| Legacy codebase cleanup | Generate baseline first, fix incrementally |
+
+### Quick Setup
+
+```bash
+cd /path/to/plugin-or-theme
+
+# Install dependencies
+composer require --dev phpstan/phpstan phpstan/extension-installer \
+  szepeviktor/phpstan-wordpress php-stubs/wordpress-stubs \
+  php-stubs/woocommerce-stubs php-stubs/wp-cli-stubs --no-interaction
+
+# Copy template config
+cp ~/bin/ai-ddtk/templates/phpstan.neon.template phpstan.neon
+
+# Run analysis
+phpstan analyse --configuration=phpstan.neon --memory-limit=1G
+```
+
+### What PHPStan Catches (vs WPCC)
+
+| Bug Type | WPCC | PHPStan |
+|----------|------|---------|
+| SQL injection patterns | ✅ | ❌ |
+| XSS / unescaped output | ✅ | ❌ |
+| Null object access (`$order->get_total()` when `$order` is `false`) | ❌ | ✅ |
+| Missing array keys | ❌ | ✅ |
+| Wrong WooCommerce product type | ❌ | ✅ |
+| API contract mismatches | ❌ | ✅ |
+
+### Reference Documentation
+
+- **[PHPStan WordPress Setup Recipe](recipes/phpstan-wordpress-setup.md)** - Full setup guide
+- **[Template Config](templates/phpstan.neon.template)** - Ready-to-copy configuration
+- **PHPStan Docs**: https://phpstan.org/user-guide/getting-started
 
 ---
 
