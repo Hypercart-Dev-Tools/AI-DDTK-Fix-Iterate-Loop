@@ -1,0 +1,9 @@
+AI-DDTK - AI Driven Development ToolKit
+Copyright 2025-2026 Hypercart (a DBA of Neochrome, Inc.)
+
+This product includes software developed by Hypercart.
+
+Licensing:
+- Software and scripts: Apache License 2.0 (see LICENSE)
+- Fix-Iterate Loop methodology (fix-iterate-loop.md): CC BY 4.0
+- WP Code Check (tools/wp-code-check/): Dual-licensed, see tools/wp-code-check/LICENSE
