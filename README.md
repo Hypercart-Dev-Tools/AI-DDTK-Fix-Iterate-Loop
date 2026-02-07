@@ -38,6 +38,9 @@ cd ~/bin/ai-ddtk
 
 # Activate in current shell
 source ~/.zshrc  # or ~/.bashrc
+
+# Verify installation
+wpcc --help
 ```
 
 ## Usage from Any Project
@@ -55,6 +58,7 @@ local-wp my-site plugin list
 | Tool | Description |
 |------|-------------|
 | **WP Code Check** | Code review + AI triage with MCP server |
+| **WP AJAX Test** | AJAX endpoint testing and validation |
 | **local-wp** | WP-CLI wrapper for Local by Flywheel |
 | **Playwright** | Headless browser automation |
 | **PixelMatch** | Visual regression testing |
@@ -65,13 +69,17 @@ local-wp my-site plugin list
 AI-DDTK/
 ├── install.sh           # Install & maintenance script
 ├── bin/                  # Executable wrappers (added to PATH)
-│   └── wpcc              # WP Code Check wrapper
-├── tools/                # Embedded dependencies (git subtree)
-│   └── wp-code-check/    # WPCC source
-├── agents/               # AI agent instructions
-├── mcp/                  # MCP server configurations
-├── local-wp              # Local WP-CLI wrapper
-└── AGENTS.md             # AI agent guidelines
+│   ├── wpcc             # WP Code Check wrapper
+│   └── wp-ajax-test     # AJAX endpoint tester
+├── tools/               # Embedded dependencies (git subtree)
+│   ├── wp-code-check/   # WPCC source
+│   └── wp-ajax-test/    # AJAX test tool source
+├── recipes/             # Workflow guides (PHPStan, audits, etc.)
+├── templates/           # Configuration templates
+├── local-wp             # Local WP-CLI wrapper
+├── AGENTS.md            # AI agent guidelines
+├── CHANGELOG.md         # Version history
+└── SYSTEM-INSTRUCTIONS.md # AI agent setup
 ```
 
 ## Maintenance Commands
@@ -131,8 +139,23 @@ Phase 4: Issue     → Create GitHub issue with checkboxes
 
 **Full AI Instructions:** [WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)
 
+## Troubleshooting
+
+**`wpcc: command not found`** — Reload your shell config, then retry:
+```bash
+source ~/.zshrc  # or ~/.bashrc
+```
+If that doesn't work, verify the install:
+```bash
+~/bin/ai-ddtk/install.sh status
+```
+
+**`WPCC not found` or `setup-wpcc` needed** — Run setup again:
+```bash
+cd ~/bin/ai-ddtk && ./install.sh setup-wpcc
+```
+
 ## Links
 
 - [WP Code Check](https://github.com/Hypercart-Dev-Tools/WP-Code-Check)
-- [WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)
 - [IRL Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md)
