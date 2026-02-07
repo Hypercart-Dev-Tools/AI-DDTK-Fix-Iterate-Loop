@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **OPINIONATED Section in AGENTS.md** (v2.5.0)
+  - Restructured architecture guidance into clearly marked "OPINIONATED: Architecture & Best Practices" section
+  - Added "Why these opinions?" explanations for SOLID, DRY, FSM, scope control, documentation, and testing patterns
+  - Added "When to customize" guidance for different team types (startup, enterprise, open source, agency, maintenance)
+  - New Customization Guide with team-specific examples and common customization points
+  - Philosophy statement: "Works great by default, customizable for experts"
+  - Beginners get WordPress community best practices out-of-the-box
+  - Senior developers can fork AGENTS.md and adjust to team standards
+  - AI Agent Note: Follow custom AGENTS file if user references team standards
 - **Apache 2.0 License** - Added root `LICENSE` and `NOTICE` files
   - NOTICE clarifies licensing split: Apache 2.0 (software), CC BY 4.0 (Fix-Iterate Loop), Dual (WPCC)
   - License section added to README.md
@@ -25,6 +34,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **WP AJAX Test** added to README.md Tools table and repo structure
 
 ### Changed
+- **WordPress Development Guidelines section** added to README.md
+  - New section highlighting AGENTS.md opinionated architecture guidance
+  - Philosophy statement: "Works great by default, customizable for experts"
+  - Table showing Required vs. Opinionated sections
+  - Team-specific customization examples (startup, enterprise, open source, agency, maintenance)
+  - Links to full AGENTS.md guide
 - **README.md documentation audit improvements** addressing 6 concerns from prior review:
   1. Installation steps now appear before tools (Quick Start section)
   2. All docs consolidated in repo (no longer in external theme folder)
@@ -37,7 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Repository structure** in README.md updated to match actual layout (removed nonexistent
   `agents/`, `mcp/` dirs; added `wp-ajax-test`, `recipes/`, `templates/`, `fix-iterate-loop.md`)
 - Removed duplicate "WPCC AI Instructions" link from README.md Links section
-- Updated AGENTS.md version to v2.4.0
+- Updated AGENTS.md version to v2.5.0 (OPINIONATED section restructure)
 - **PHPStan WordPress/WooCommerce Setup** (v2.4.0)
   - New recipe: `recipes/phpstan-wordpress-setup.md` - Step-by-step guide for plugins and themes
   - New template: `templates/phpstan.neon.template` - Ready-to-copy configuration with comments

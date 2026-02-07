@@ -147,6 +147,40 @@ wpcc --features
 
 **Full AI Instructions:** [WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)
 
+## WordPress Development Guidelines
+
+AI-DDTK includes comprehensive WordPress development guidelines in [`AGENTS.md`](AGENTS.md) for AI coding assistants.
+
+### 🎯 Philosophy: Works Great by Default, Customizable for Experts
+
+**For beginners**: Follow the patterns in AGENTS.md — they represent WordPress community best practices and will keep your code maintainable from day one.
+
+**For senior developers**: The guidelines are Hypercart's opinionated defaults. Fork `AGENTS.md` and customize to match your team's standards.
+
+### What's Covered
+
+| Section | Type | Description |
+|---------|------|-------------|
+| **Security** | Required | Nonces, sanitization, escaping, sensitive data handling |
+| **Performance** | Required | Caching, query optimization, resource limits |
+| **WordPress APIs** | Required | Hooks, filters, database access, WP-CLI |
+| **SOLID Principles** | Opinionated | Architecture patterns with rationale and customization guidance |
+| **DRY & State Management** | Opinionated | Helper patterns, single contract writers, FSM guidance |
+| **Scope Control** | Opinionated | When to refactor, preservation vs. optimization trade-offs |
+| **Documentation** | Opinionated | PHPDoc standards, versioning, CHANGELOG requirements |
+| **Testing** | Opinionated | Backward compatibility, Fix-Iterate Loop pattern |
+
+### Customization Examples
+
+The guide includes team-specific customization examples for:
+- **Startups** - Move fast, relax DRY requirements
+- **Enterprise** - Strict documentation, lower FSM thresholds
+- **Open Source** - Package tags, unit test requirements
+- **Agencies** - Strict scope control, detailed changelogs
+- **Maintenance** - Zero scope creep, preservation-first
+
+**See the full guide**: [`AGENTS.md`](AGENTS.md)
+
 ## Troubleshooting
 
 **`wpcc: command not found`** — Reload your shell config, then retry:
