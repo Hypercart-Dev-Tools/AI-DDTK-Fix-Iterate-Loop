@@ -101,42 +101,48 @@ See `install.sh` for detailed guidance on:
 - GitHub CLI commands for checking updates
 - Architecture and maintenance notes
 
-## WPCC Advanced Features
+## WPCC: Project Templates
 
-Beyond basic scanning, WP Code Check includes powerful AI-assisted workflows:
+Set up once, reuse forever. Templates save plugin/theme paths and scan settings so you can re-run audits with a single command.
+
+```bash
+# First time: auto-detects plugin name, version, and GitHub repo
+wpcc run gravityforms
+# → Template not found. Create from current directory? [y/N] y
+# ✓ Created! Detected: Gravity Forms v2.7.1
+
+# Every time after: one command runs the full workflow
+# Ask AI: "Run gravityforms end to end"
+```
+
+That single command triggers the complete pipeline:
+
+```
+Scan → AI Triage → HTML Report → GitHub Issue
+       (filters       (with AI        (with checkboxes,
+       false           summary         ready for Jira/
+       positives)      at top)         Linear/Asana too)
+```
+
+Templates handle flexible naming — `Gravity Forms`, `gravity-forms`, and `gravityforms` all resolve to the same config. See the [Template Guide](tools/wp-code-check/dist/HOWTO-TEMPLATES.md) for details.
+
+### More WPCC Features
 
 | Feature | Description | How to Use |
 |---------|-------------|------------|
-| **Project Templates** | Save scan configs for recurring projects | `wpcc --features` or see [Template Guide](tools/wp-code-check/dist/HOWTO-TEMPLATES.md) |
 | **AI-Assisted Triage** | Automated false positive detection | Ask AI: "Triage this scan" or "Run X end to end" |
 | **GitHub Issue Creation** | Convert findings to trackable issues | Ask AI: "Create issue for scan" |
-| **End-to-End Workflow** | Scan → Triage → HTML → Issue in one flow | Ask AI: "Run template X end to end" |
 | **IRL Audit Mode** | Annotate real code for pattern library | See [Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md) |
 | **Multi-Platform Export** | Export issues to Jira, Linear, Asana, Trello | Issues saved to `dist/issues/` for copy/paste |
 
 ### Quick Examples
 
 ```bash
-# Basic scan
+# Basic scan (no template needed)
 wpcc --paths ./wp-content/plugins/my-plugin --format json
 
-# Show all available features
+# Show all available features and templates
 wpcc --features
-
-# Using templates (faster for recurring scans)
-wpcc --features  # Lists templates
-# Ask AI: "Run template my-plugin end to end"
-```
-
-### AI Agent Workflows
-
-For AI agents (Claude, Augment, Codex, etc.), WPCC supports orchestrated multi-phase workflows:
-
-```
-Phase 1: Scan      → Generate JSON findings
-Phase 2: AI Triage → Identify false positives, add recommendations
-Phase 3: HTML      → Generate report with AI summary
-Phase 4: Issue     → Create GitHub issue with checkboxes
 ```
 
 **Full AI Instructions:** [WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)

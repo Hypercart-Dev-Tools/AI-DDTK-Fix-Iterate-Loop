@@ -8,6 +8,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Apache 2.0 License** - Added root `LICENSE` and `NOTICE` files
+  - NOTICE clarifies licensing split: Apache 2.0 (software), CC BY 4.0 (Fix-Iterate Loop), Dual (WPCC)
+  - License section added to README.md
+- **Fix-Iterate Loop — refined and wired into all docs**
+  - Rewrote `fix-iterate-loop.md`: 541 → 226 lines, removed wrapping code fence, added flow diagram
+  - Added "Why This Exists" intro, Meta-Reflection section (promoted from roadmap), Guardrails
+  - Trimmed CSS-in-JSON example (125 → 12 lines), collapsed roadmap into Extensions table
+  - Removed ecosystem-specific references (Neochrome, Beaver Builder) for portability
+  - Added CC BY 4.0 license and Hypercart/Neochrome attribution footer
+  - Referenced in: README.md (Tools table + repo structure), AGENTS.md (Testing & Validation),
+    SYSTEM-INSTRUCTIONS.md (Available Tools + Workflow Triggers), `recipes/fix-iterate-loop.md` (pointer)
+  - Fixed hardcoded absolute path in Tools.md (`/Users/.../bin/` → `~/bin/ai-ddtk/`)
+- **Prerequisites section** in README.md — consolidated table of all dependencies (Git, Node.js, Python 3, Composer, GitHub CLI, Playwright) with install commands
+- **Troubleshooting section** in README.md — `wpcc: command not found` and `WPCC not found` fixes
+- **WP AJAX Test** added to README.md Tools table and repo structure
+
+### Changed
+- **README.md documentation audit improvements** addressing 6 concerns from prior review:
+  1. Installation steps now appear before tools (Quick Start section)
+  2. All docs consolidated in repo (no longer in external theme folder)
+  3. Correct paths (`wpcc` command, not raw script paths)
+  4. Logical section ordering (install → usage → tools → advanced)
+  5. Version numbers clarified (toolkit v1.0.5, AGENTS.md guide v2.4.0)
+  6. Prerequisites documented
+- **WPCC Project Templates** elevated from table row to dedicated showcase section with
+  before/after example and inline pipeline visualization
+- **Repository structure** in README.md updated to match actual layout (removed nonexistent
+  `agents/`, `mcp/` dirs; added `wp-ajax-test`, `recipes/`, `templates/`, `fix-iterate-loop.md`)
+- Removed duplicate "WPCC AI Instructions" link from README.md Links section
+- Updated AGENTS.md version to v2.4.0
 - **PHPStan WordPress/WooCommerce Setup** (v2.4.0)
   - New recipe: `recipes/phpstan-wordpress-setup.md` - Step-by-step guide for plugins and themes
   - New template: `templates/phpstan.neon.template` - Ready-to-copy configuration with comments
