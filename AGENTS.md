@@ -557,6 +557,19 @@ Always apply **SOLID principles** alongside WordPress patterns.
 - Validate security implementations (nonces, capabilities, sanitization)
 - Ensure backward compatibility unless breaking changes explicitly requested
 
+### Fix-Iterate Loop
+
+For tasks that require verification (bug fixes, data imports, API integrations, migrations), use the **Fix-Iterate Loop** pattern — a closed-loop workflow where you make a change, verify it programmatically, and iterate until it passes.
+
+**Core cycle**: Generate test data → Execute → Verify → Analyze & adjust → Repeat
+
+**Guardrails**:
+- Stop after 5 failed iterations and report to user
+- Stop after 10 total iterations regardless of status
+- Always confirm before destructive operations
+
+**Full pattern with examples and templates**: [`fix-iterate-loop.md`](fix-iterate-loop.md)
+
 ---
 
 ## 🔄 Finite State Machine (FSM) Guidance
