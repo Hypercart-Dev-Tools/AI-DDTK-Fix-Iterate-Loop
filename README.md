@@ -12,6 +12,17 @@ An early work in progress centralized toolkit for AI-driven WordPress developmen
 - VS Code AI Agents (Claude Code, Augment, Codex, etc.) with tuned system instructions
 - MCP server integration for tool orchestration
 
+## Prerequisites
+
+| Requirement | Used By | Install |
+|-------------|---------|---------|
+| **Git** | Cloning AI-DDTK & WPCC updates | `brew install git` |
+| **Node.js** | WP Code Check scanner | `brew install node` |
+| **Python 3** | AI triage, HTML reports | `brew install python3` |
+| **Composer** | PHPStan (optional) | `brew install composer` |
+| **GitHub CLI** | Issue creation (optional) | `brew install gh` |
+| **Playwright** | Browser automation (optional) | `npm install -g playwright` |
+
 ## Quick Start
 
 ```bash
