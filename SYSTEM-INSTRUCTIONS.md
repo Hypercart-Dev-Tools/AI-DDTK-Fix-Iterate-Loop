@@ -41,9 +41,14 @@ This workspace has access to **AI-DDTK** (AI Driven Development ToolKit) install
 - **Usage**: Insert timers with `perf_timer_start()` / `perf_timer_stop()`
 - **Documentation**: `~/bin/ai-ddtk/AGENTS.md` (Performance Profiling section)
 
+### Fix-Iterate Loop
+- **Purpose**: Autonomous test-verify-fix workflow with built-in guardrails
+- **When to use**: Bug fixes, data imports, API integrations, migrations — any task that needs verification
+- **Documentation**: `~/bin/ai-ddtk/fix-iterate-loop.md`
+
 ### Workflow Recipes
 - **Location**: `~/bin/ai-ddtk/recipes/`
-- **Available**: `performance-audit.md` (WPCC → Performance Timer pipeline)
+- **Available**: `performance-audit.md`, `fix-iterate-loop.md`
 
 ---
 
@@ -148,6 +153,13 @@ const auth = JSON.parse(fs.readFileSync('temp/auth.json', 'utf8'));
 - After WPCC flags performance warnings (confirm with runtime data)
 - Before/after optimization comparisons
 - Pre-deploy performance baselines
+
+### When to Use Fix-Iterate Loop
+
+- Task requires verification (bug fix, migration, import, API integration)
+- User mentions: "fix", "test", "verify", "iterate", "debug"
+- Any change where you can programmatically confirm success
+- Read: `~/bin/ai-ddtk/fix-iterate-loop.md`
 
 ### When to Use Recipes
 

@@ -469,7 +469,7 @@ local-wp $SITE plugin status my-plugin
 A systematic approach for AI agents to test, verify, and iterate on changes with minimal human intervention.
 
 ### **Location**
-- Guide: `/Users/noelsaw/bin/fix-iterate-loop.md`
+- Guide: `~/bin/ai-ddtk/fix-iterate-loop.md`
 - **READ THIS BEFORE** starting any automated testing workflow
 
 ### **When to Use This Pattern**

@@ -59,6 +59,7 @@ local-wp my-site plugin list
 |------|-------------|
 | **WP Code Check** | Code review + AI triage with MCP server |
 | **WP AJAX Test** | AJAX endpoint testing and validation |
+| **[Fix-Iterate Loop](fix-iterate-loop.md)** | Autonomous test-verify-fix workflow for AI agents |
 | **local-wp** | WP-CLI wrapper for Local by Flywheel |
 | **Playwright** | Headless browser automation |
 | **PixelMatch** | Visual regression testing |
@@ -77,6 +78,7 @@ AI-DDTK/
 ├── recipes/             # Workflow guides (PHPStan, audits, etc.)
 ├── templates/           # Configuration templates
 ├── local-wp             # Local WP-CLI wrapper
+├── fix-iterate-loop.md  # Autonomous test-verify-fix pattern
 ├── AGENTS.md            # AI agent guidelines
 ├── CHANGELOG.md         # Version history
 └── SYSTEM-INSTRUCTIONS.md # AI agent setup
