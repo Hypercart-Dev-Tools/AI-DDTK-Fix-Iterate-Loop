@@ -157,6 +157,12 @@ If that doesn't work, verify the install:
 cd ~/bin/ai-ddtk && ./install.sh setup-wpcc
 ```
 
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
+
+The [Fix-Iterate Loop](fix-iterate-loop.md) methodology is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## Links
 
 - [WP Code Check](https://github.com/Hypercart-Dev-Tools/WP-Code-Check)
