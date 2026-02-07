@@ -8,6 +8,46 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Root `.gitignore` file** for repository-wide exclusions
+  - Excludes `/temp` folder contents (preserves structure with `.gitkeep`)
+  - Excludes credentials, environment files, authentication data
+  - Excludes IDE files, logs, OS files, build artifacts
+  - Allows `temp/README.md` and `.gitkeep` files to be tracked
+- **`/temp` folder structure** for sensitive data and temporary files
+  - `temp/credentials/` - API keys, passwords, tokens
+  - `temp/reports/` - WPCC, PHPStan, performance reports
+  - `temp/data/` - Exports, imports, backups
+  - `temp/playwright/` - Playwright authentication state
+  - `temp/logs/` - Debug logs
+  - `temp/analysis/` - AI agent working files (notes, drafts)
+  - Complete folder structure created with `.gitkeep` files
+- **`temp/README.md`** - Comprehensive guide for `/temp` folder usage
+  - Recommended folder structure with examples
+  - "What Goes Where" guide for each subfolder
+  - AI agent guidelines with path recommendations
+  - Security best practices
+  - Quick commands for setup and maintenance
+  - Links to AGENTS.md for complete security guidelines
+- **README.md updates** for `/temp` folder
+  - Added note in Quick Start about temp folder availability
+  - Added `/temp` structure to Repository Structure section
+  - Link to `temp/README.md` for complete usage guidelines
+- **.wpcignore file** for WPCC scan exclusions
+  - Excludes embedded tools (`tools/wp-code-check/`, `tools/wp-ajax-test/`)
+  - Excludes version control (`.git/`), dependencies (`node_modules/`, `vendor/`)
+  - Excludes build artifacts, WPCC output, temporary files
+  - Prevents recursive scanning when WPCC scans AI-DDTK itself
+  - Template for future WPCC `.wpcignore` support (planned feature)
+- **WPCC scanning workaround** in README.md Troubleshooting
+  - Documents how to exclude embedded tools when scanning AI-DDTK
+  - Provides alternative: scan only specific directories
+  - Notes `.wpcignore` file for future WPCC versions
+- **BACKLOG.md item #2**: WPCC Performance improvements
+  - `.wpcignore` support implementation plan
+  - Progress indicators and timeout handling
+  - Performance optimization strategies
+  - Success criteria and workarounds
+  - GitHub issues created: AI-DDTK [#5](https://github.com/Hypercart-Dev-Tools/AI-DDTK-Fix-Iterate-Loop/issues/5), WPCC [#112](https://github.com/Hypercart-Dev-Tools/WP-Code-Check/issues/112)
 - **OPINIONATED Section in AGENTS.md** (v2.5.0)
   - Restructured architecture guidance into clearly marked "OPINIONATED: Architecture & Best Practices" section
   - Added "Why these opinions?" explanations for SOLID, DRY, FSM, scope control, documentation, and testing patterns

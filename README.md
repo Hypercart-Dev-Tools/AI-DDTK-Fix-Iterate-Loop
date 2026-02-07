@@ -41,7 +41,13 @@ source ~/.zshrc  # or ~/.bashrc
 
 # Verify installation
 wpcc --help
+
+# (Optional) Set up temp folder structure for credentials, reports, etc.
+# The folder structure is already created; this just shows what's available
+ls temp/
 ```
+
+**Note**: The `/temp` folder is for storing sensitive data (credentials, API keys, reports) that should never be committed to git. See [`temp/README.md`](temp/README.md) for complete usage guidelines.
 
 ## Usage from Any Project
 
@@ -77,6 +83,13 @@ AI-DDTK/
 │   └── wp-ajax-test/    # AJAX test tool source
 ├── recipes/             # Workflow guides (PHPStan, audits, etc.)
 ├── templates/           # Configuration templates
+├── temp/                # Sensitive data storage (credentials, reports, logs)
+│   ├── credentials/     # API keys, passwords, tokens
+│   ├── reports/         # WPCC, PHPStan, performance reports
+│   ├── data/            # Exports, imports, backups
+│   ├── playwright/      # Playwright auth state
+│   ├── logs/            # Debug logs
+│   └── analysis/        # AI agent working files
 ├── local-wp             # Local WP-CLI wrapper
 ├── fix-iterate-loop.md  # Autonomous test-verify-fix pattern
 ├── AGENTS.md            # AI agent guidelines
@@ -196,6 +209,17 @@ If that doesn't work, verify the install:
 ```bash
 cd ~/bin/ai-ddtk && ./install.sh setup-wpcc
 ```
+
+**WPCC stalls when scanning AI-DDTK itself** — The repository includes embedded WPCC via git subtree. Use exclusions:
+```bash
+# Exclude embedded tools (recommended)
+wpcc --paths . --exclude "tools/,.git/,node_modules/" --format json
+
+# Or scan only specific directories
+wpcc --paths "bin/ recipes/ templates/" --format json
+```
+
+> **Note**: A `.wpcignore` file is included in the repository for future WPCC versions that support automatic exclusions.
 
 ## License
 
