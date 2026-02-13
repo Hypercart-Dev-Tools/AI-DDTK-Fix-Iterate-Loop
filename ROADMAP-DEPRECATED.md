@@ -138,7 +138,7 @@ Lightweight WordPress AJAX testing without browser automation:
 - Create project-specific wrapper only if customization required
 - Wrapper calls centralized tool (never duplicate code)
 
-**Status**: Spec drafted in `tools/wp-ajax-test/SPEC.md`
+**Status**: Phase 1 complete (v1.1.0). See `tools/wp-ajax-test/ROADMAP.md`
 
 **Key Value**: Fills gap between WPCC (static) and Playwright (heavy E2E). Lightweight integration testing.
 
