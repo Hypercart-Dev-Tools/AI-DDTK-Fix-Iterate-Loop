@@ -261,5 +261,5 @@ wpcc --paths plugin/ --format json | grep "ajax"
 
 ---
 
-**See**: `tools/wp-ajax-test/SPEC.md` for complete specification
+**See**: `tools/wp-ajax-test/ROADMAP.md` for roadmap & technical reference
 

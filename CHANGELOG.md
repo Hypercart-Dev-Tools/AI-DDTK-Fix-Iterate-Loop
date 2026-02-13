@@ -8,6 +8,99 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [1.0.5] - 2026-02-07
+
+### Added
+- **Root `.gitignore` file** for repository-wide exclusions
+  - Excludes `/temp` folder contents (preserves structure with `.gitkeep`)
+  - Excludes credentials, environment files, authentication data
+  - Excludes IDE files, logs, OS files, build artifacts
+  - Allows `temp/README.md` and `.gitkeep` files to be tracked
+- **`/temp` folder structure** for sensitive data and temporary files
+  - `temp/credentials/` - API keys, passwords, tokens
+  - `temp/reports/` - WPCC, PHPStan, performance reports
+  - `temp/data/` - Exports, imports, backups
+  - `temp/playwright/` - Playwright authentication state
+  - `temp/logs/` - Debug logs
+  - `temp/analysis/` - AI agent working files (notes, drafts)
+  - Complete folder structure created with `.gitkeep` files
+- **`temp/README.md`** - Comprehensive guide for `/temp` folder usage
+  - Recommended folder structure with examples
+  - "What Goes Where" guide for each subfolder
+  - AI agent guidelines with path recommendations
+  - Security best practices
+  - Quick commands for setup and maintenance
+  - Links to AGENTS.md for complete security guidelines
+- **README.md updates** for `/temp` folder
+  - Added note in Quick Start about temp folder availability
+  - Added `/temp` structure to Repository Structure section
+  - Link to `temp/README.md` for complete usage guidelines
+- **.wpcignore file** for WPCC scan exclusions
+  - Excludes embedded tools (`tools/wp-code-check/`, `tools/wp-ajax-test/`)
+  - Excludes version control (`.git/`), dependencies (`node_modules/`, `vendor/`)
+  - Excludes build artifacts, WPCC output, temporary files
+  - Prevents recursive scanning when WPCC scans AI-DDTK itself
+  - Template for future WPCC `.wpcignore` support (planned feature)
+- **WPCC scanning workaround** in README.md Troubleshooting
+  - Documents how to exclude embedded tools when scanning AI-DDTK
+  - Provides alternative: scan only specific directories
+  - Notes `.wpcignore` file for future WPCC versions
+- **BACKLOG.md item #2**: WPCC Performance improvements
+  - `.wpcignore` support implementation plan
+  - Progress indicators and timeout handling
+  - Performance optimization strategies
+  - Success criteria and workarounds
+  - GitHub issues created: AI-DDTK [#5](https://github.com/Hypercart-Dev-Tools/AI-DDTK-Fix-Iterate-Loop/issues/5), WPCC [#112](https://github.com/Hypercart-Dev-Tools/WP-Code-Check/issues/112)
+- **OPINIONATED Section in AGENTS.md** (v2.5.0)
+  - Restructured architecture guidance into clearly marked "OPINIONATED: Architecture & Best Practices" section
+  - Added "Why these opinions?" explanations for SOLID, DRY, FSM, scope control, documentation, and testing patterns
+  - Added "When to customize" guidance for different team types (startup, enterprise, open source, agency, maintenance)
+  - New Customization Guide with team-specific examples and common customization points
+  - Philosophy statement: "Works great by default, customizable for experts"
+  - Beginners get WordPress community best practices out-of-the-box
+  - Senior developers can fork AGENTS.md and adjust to team standards
+  - AI Agent Note: Follow custom AGENTS file if user references team standards
+- **Apache 2.0 License** - Added root `LICENSE` and `NOTICE` files
+  - NOTICE clarifies licensing split: Apache 2.0 (software), CC BY 4.0 (Fix-Iterate Loop), Dual (WPCC)
+  - License section added to README.md
+- **Fix-Iterate Loop — refined and wired into all docs**
+  - Rewrote `fix-iterate-loop.md`: 541 → 226 lines, removed wrapping code fence, added flow diagram
+  - Added "Why This Exists" intro, Meta-Reflection section (promoted from roadmap), Guardrails
+  - Trimmed CSS-in-JSON example (125 → 12 lines), collapsed roadmap into Extensions table
+  - Removed ecosystem-specific references (Neochrome, Beaver Builder) for portability
+  - Added CC BY 4.0 license and Hypercart/Neochrome attribution footer
+  - Referenced in: README.md (Tools table + repo structure), AGENTS.md (Testing & Validation),
+    AGENTS.md (Available Tools + Workflow Triggers), `recipes/fix-iterate-loop.md` (pointer)
+  - Fixed hardcoded absolute path in Tools.md (`/Users/.../bin/` → `~/bin/ai-ddtk/`)
+- **Prerequisites section** in README.md — consolidated table of all dependencies (Git, Node.js, Python 3, Composer, GitHub CLI, Playwright) with install commands
+- **Troubleshooting section** in README.md — `wpcc: command not found` and `WPCC not found` fixes
+- **WP AJAX Test** added to README.md Tools table and repo structure
+
+### Changed
+- **WordPress Development Guidelines section** added to README.md
+  - New section highlighting AGENTS.md opinionated architecture guidance
+  - Philosophy statement: "Works great by default, customizable for experts"
+  - Table showing Required vs. Opinionated sections
+  - Team-specific customization examples (startup, enterprise, open source, agency, maintenance)
+  - Links to full AGENTS.md guide
+- **README.md documentation audit improvements** addressing 6 concerns from prior review:
+  1. Installation steps now appear before tools (Quick Start section)
+  2. All docs consolidated in repo (no longer in external theme folder)
+  3. Correct paths (`wpcc` command, not raw script paths)
+  4. Logical section ordering (install → usage → tools → advanced)
+  5. Version numbers clarified (toolkit v1.0.5, AGENTS.md guide v2.4.0)
+  6. Prerequisites documented
+- **WPCC Project Templates** elevated from table row to dedicated showcase section with
+  before/after example and inline pipeline visualization
+- **Repository structure** in README.md updated to match actual layout (removed nonexistent
+  `agents/`, `mcp/` dirs; added `wp-ajax-test`, `recipes/`, `templates/`, `fix-iterate-loop.md`)
+- Removed duplicate "WPCC AI Instructions" link from README.md Links section
+- Updated AGENTS.md version to v2.5.0 (OPINIONATED section restructure)
 - **PHPStan WordPress/WooCommerce Setup** (v2.4.0)
   - New recipe: `recipes/phpstan-wordpress-setup.md` - Step-by-step guide for plugins and themes
   - New template: `templates/phpstan.neon.template` - Ready-to-copy configuration with comments
@@ -35,6 +128,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Error handling with suggestions
   - Installation script (install.sh)
   - README.md with usage examples
+- Updated AGENTS.md version to v2.3.1
+- Enhanced Security section with Sensitive Data Handling subsection
+- Updated README.md version to 1.0.5
+- Playwright guidance: Recommend global install over per-project to avoid git commits
 
 ### Fixed
 - **WP AJAX Test Tool v1.0.1** - Authentication improvements
@@ -43,9 +140,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced success detection (checks for auth cookies, not just error strings)
   - Added verbose debugging output (shows cookies, redirects, auth status)
   - Added `--insecure` flag for SSL certificate verification bypass (.local sites)
+  - Fixed authentication with special characters in passwords (e.g., `#` symbol)
+  - Added success/failure messages in verbose mode
   - Saves login response to `temp/login-debug.html` when verbose mode enabled
   - Better error messages with specific failure reasons
-- **WP AJAX Test Tool Specification** (`tools/wp-ajax-test/SPEC.md`)
+  - Improved error debugging with detailed HTTP response information
+- **WP AJAX Test Tool** (`tools/wp-ajax-test/ROADMAP.md`)
   - Lightweight WordPress AJAX endpoint testing without browser automation
   - Centralized-by-default design (call from AI-DDTK, local wrapper when needed)
   - Auto-authentication with nonce/cookie handling
@@ -57,8 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added to Core Requirements section with full acronym breakdown
   - Integrated into "Building from the Ground Up" checklist
   - Mapped SOLID principles to WordPress patterns (hooks, interfaces, FSM)
-- **System Instructions for AI Agents** (`SYSTEM-INSTRUCTIONS.md`)
-  - Copy-paste instructions for Augment/Claude Code settings
+- **System Instructions for AI Agents** (merged into `AGENTS.md`)
   - AI-DDTK toolkit integration guidance across all projects
   - Available tools reference (WPCC, Performance Timer)
   - Workflow triggers (when to use each tool)
@@ -73,13 +172,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Resource Limits & Dependencies** in AGENTS.md (v2.3.1)
   - WP-CLI memory limit mitigation (134MB → 512M)
   - Playwright setup guidance (global install, avoid per-project)
-  - Added to SYSTEM-INSTRUCTIONS.md for AI agent awareness
-
-### Changed
-- Updated AGENTS.md version to v2.3.1
-- Enhanced Security section with Sensitive Data Handling subsection
-- Updated README.md version to 1.0.5
-- Playwright guidance: Recommend global install over per-project to avoid git commits
+  - Added to AGENTS.md for AI agent awareness
 
 ## [1.0.4] - 2026-02-02
 
@@ -196,6 +289,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 1.0.5 | 2026-02-07 | Docs consolidation, `/temp` structure, licensing, Fix-Iterate Loop refinements |
 | 1.0.4 | 2026-02-02 | Performance Profiling integration, `recipes/` folder, WPCC→Timer pipeline |
 | 1.0.3 | 2026-02-02 | WPCC feature discovery, AGENTS.md orchestration, README advanced features |
 | 1.0.2 | 2026-02-01 | GitHub Action for weekly WPCC auto-sync, user config file |
@@ -217,12 +311,3 @@ cd ~/bin/ai-ddtk
 ./install.sh setup-wpcc
 source ~/.zshrc
 ```
-
-
-### Fixed
-- **WP AJAX Test Tool - Authentication & SSL Improvements**
-  - Added `--insecure` flag to skip SSL certificate verification (for Local by Flywheel)
-  - Added verbose authentication logging (shows login URL, username, response status, cookies)
-  - Fixed authentication with special characters in passwords (e.g., `#` symbol)
-  - Added success/failure messages in verbose mode
-  - Improved error debugging with detailed HTTP response information

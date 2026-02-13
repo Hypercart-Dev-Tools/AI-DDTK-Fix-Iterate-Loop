@@ -1,10 +1,65 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.4.0 — 2026-02-04_
+_Last updated: v2.6.0 — 2026-02-13_
 
 ## Purpose
 
 Defines principles, constraints, and best practices for AI agents and Humans working with WordPress code to ensure safe, consistent, and maintainable contributions.
+
+---
+
+## 🚀 Getting Started
+
+This workspace has access to **AI-DDTK** (AI Driven Development ToolKit) installed at `~/bin/ai-ddtk`.
+
+### Before Starting Any Task
+
+1. **Check for AI-DDTK availability**:
+   ```bash
+   ls ~/bin/ai-ddtk/AGENTS.md
+   ```
+
+2. **For WordPress projects**, read these guidelines:
+   ```bash
+   cat ~/bin/ai-ddtk/AGENTS.md
+   ```
+
+3. **Check available tools**:
+   ```bash
+   which wpcc
+   wpcc --features
+   ```
+
+### Available Tools
+
+| Tool | Purpose | Quick Usage |
+|------|---------|-------------|
+| **WPCC** | Security & performance static analysis | `wpcc --paths <path> --format json` |
+| **WP Performance Timer** | Runtime performance profiling | `perf_timer_start()` / `perf_timer_stop()` |
+| **PHPStan** | Type-aware static analysis | `phpstan analyse --configuration=phpstan.neon` |
+| **WP AJAX Test** | Lightweight AJAX endpoint testing | `wp-ajax-test --url <url> --action <action>` |
+| **Fix-Iterate Loop** | Autonomous test-verify-fix workflow | See `~/bin/ai-ddtk/fix-iterate-loop.md` |
+| **Workflow Recipes** | Multi-tool workflows | See `~/bin/ai-ddtk/recipes/` |
+
+### Workflow Triggers
+
+| When user mentions... | Use this tool |
+|-----------------------|---------------|
+| "scan", "audit", "security check", "performance check" | WPCC |
+| "slow", "performance", "bottleneck", "profile" | WP Performance Timer |
+| "fix", "test", "verify", "iterate", "debug" | Fix-Iterate Loop |
+| "test this AJAX endpoint", "debug AJAX" | WP AJAX Test |
+| "performance audit", complex multi-tool workflows | Recipes (`~/bin/ai-ddtk/recipes/`) |
+
+### Task Management
+
+Use task management tools frequently for:
+- Complex sequences of work
+- Breaking down large tasks
+- Tracking progress
+- Giving user visibility
+
+Mark tasks COMPLETE immediately when done (don't batch).
 
 ---
 
@@ -287,12 +342,30 @@ playwright/.auth/
 - Playwright authentication state files
 - Database dumps with real data
 
+**Required setup for every project**:
+
+1. **Create `/temp` folder**:
+   ```bash
+   mkdir -p temp
+   ```
+
+2. **Add to `.gitignore`** (entries listed above)
+
+3. **Store credentials in `/temp`**:
+   ```bash
+   temp/playwright-auth.json   # Playwright auth
+   temp/api-credentials.json   # API credentials
+   temp/db-config.local.php    # Database config
+   ```
+
 **When user provides credentials**:
 1. ✅ Save to `/temp` folder immediately
 2. ✅ Add to `.gitignore` if not already present
-3. ✅ Load from `/temp` at runtime (never hardcode)
-4. ❌ Never commit credentials (even temporarily)
-5. ❌ Never log credentials in debug output
+3. ✅ Use environment variables when possible
+4. ✅ Document in `/temp/README.md` what files are needed
+5. ✅ Load from `/temp` at runtime (never hardcode)
+6. ❌ Never commit credentials (even temporarily)
+7. ❌ Never log credentials in debug output
 
 ```javascript
 // ❌ WRONG - hardcoded credentials
@@ -334,18 +407,6 @@ WP-CLI's default 134MB memory limit is often insufficient with WooCommerce and o
 - **For heavy operations**, skip unnecessary plugins: `--skip-plugins` or `--skip-themes`
 - **Common failures**: `eval`, `eval-file`, database operations with large datasets
 
-### WP-CLI Memory Limits
-
-WP-CLI's default 134MB memory limit is often insufficient with WooCommerce and other heavy plugins:
-
-- **Increase memory before running**: `php -d memory_limit=512M ~/bin/local-wp <site> <command>`
-- **Or add to wp-cli.yml** in project root:
-  ```yaml
-  memory_limit: 512M
-  ```
-- **For heavy operations**, skip unnecessary plugins: `--skip-plugins` or `--skip-themes`
-- **Common failures**: `eval`, `eval-file`, database operations with large datasets
-
 ### Playwright Setup
 
 Playwright is not bundled with AI-DDTK (large dependency, project-specific versions):
@@ -353,7 +414,7 @@ Playwright is not bundled with AI-DDTK (large dependency, project-specific versi
 - **Check if installed**: `npx playwright --version`
 - **Install globally** (recommended): `npm install -g playwright`
 - **Or use npx**: `npx playwright` (downloads to cache, not project)
-- **Avoid per-project install**: `npm install -D playwright` adds to node_modules (tracked by git)
+- **Never install per-project**: `npm install -D playwright` adds to node_modules (tracked by git)
 - **AI agents**: Always ask user before installing — never auto-install without permission
 - **Authentication files**: Store in `/temp/playwright-auth.json` (never commit)
 
@@ -361,7 +422,7 @@ Playwright is not bundled with AI-DDTK (large dependency, project-specific versi
 // ✅ HTTP request with timeout and retry
 function prefix_fetch_with_retry( $url, $max_retries = 3 ) {
     $attempt = 0;
-    
+
     while ( $attempt < $max_retries ) {
         $response = wp_remote_get( $url, [
             'timeout' => 10,
@@ -373,9 +434,9 @@ function prefix_fetch_with_retry( $url, $max_retries = 3 ) {
         }
 
         $error_message = $response->get_error_message();
-        
+
         // Best-effort timeout detection (message varies by transport)
-        $is_timeout = strpos( $error_message, 'timed out' ) !== false 
+        $is_timeout = strpos( $error_message, 'timed out' ) !== false
                    || strpos( $error_message, 'timeout' ) !== false;
 
         if ( ! $is_timeout ) {
@@ -504,9 +565,19 @@ $value = $data->items[0]->value ?? 'default_value';
 
 ---
 
-## 🏗️ Building from the Ground Up
+## 💡 OPINIONATED: Architecture & Best Practices
 
-Always apply **SOLID principles** alongside WordPress patterns. 
+> **🎯 Philosophy**: Works great by default, customizable for experts.
+>
+> **For beginners**: Follow these patterns — they represent WordPress community best practices and will keep your code maintainable.
+>
+> **For senior developers**: These are Hypercart's defaults. Fork `AGENTS.md` and adjust to match your team's standards. See [Customization Guide](#customization-guide) below.
+
+---
+
+### 🏗️ Building from the Ground Up
+
+Always apply **SOLID principles** alongside WordPress patterns.
 
 1. **Start with DRY helpers** — reusable utilities before feature code
 2. **Design single contract writers** — identify state ownership upfront (Single Responsibility)
@@ -518,19 +589,36 @@ Always apply **SOLID principles** alongside WordPress patterns.
 8. **Document as you build** — PHPDoc comments immediately
 9. **Consider FSM early** — if 3+ states, design state machine from start
 
+**Why these opinions?**
+- **SOLID** prevents technical debt that's expensive to fix later
+- **DRY helpers** reduce bugs by centralizing logic (one fix updates everywhere)
+- **Single contract writers** eliminate race conditions and state conflicts
+- **Observability** makes debugging production issues 10x faster
+
 ---
 
-## 🔧 Scope & Change Control
+### 🔧 Scope & Change Control
 
 - **Stay within task scope** — only perform explicitly requested tasks
 - **No refactoring/renaming/label changes** unless explicitly requested but please point out any code that does not follow the SOLID principles and make recommendations for improvement.
 - **No speculative improvements** or architectural changes
 - **Preserve existing data structures** and naming conventions
 - **Prioritize preservation over optimization** when in doubt
+- **Ask before**: committing, pushing, installing dependencies, deploying
+
+**Why these opinions?**
+- **Scope discipline** prevents AI agents from making unreviewed changes
+- **Preservation-first** reduces risk of breaking existing functionality
+- **Explicit permission** ensures developers stay in control
+
+**When to customize**:
+- **Startup teams**: Allow opportunistic refactoring to move faster
+- **Maintenance mode**: Strict preservation, zero scope creep
+- **Greenfield projects**: Relax preservation rules, focus on architecture
 
 ---
 
-## 📝 Documentation & Versioning
+### 📝 Documentation & Versioning
 
 - Use **PHPDoc/JSDoc standards** for all functions/classes
 - Add inline docs for complex logic
@@ -548,16 +636,34 @@ Always apply **SOLID principles** alongside WordPress patterns.
  */
 ```
 
+**Why these opinions?**
+- **PHPDoc** enables IDE autocomplete and static analysis
+- **CHANGELOG** prevents "what changed?" questions in production
+- **Version increments** enable rollback and debugging
+
+**When to customize**:
+- **Internal tools**: Relax PHPDoc requirements
+- **Open source**: Add `@package`, `@author`, `@license` tags
+- **Enterprise**: Require Jira ticket references in CHANGELOG
+
 ---
 
-## 🧪 Testing & Validation
+### 🧪 Testing & Validation
 
 - Preserve existing functionality; avoid breaking changes
 - Test all changes before completing
 - Validate security implementations (nonces, capabilities, sanitization)
 - Ensure backward compatibility unless breaking changes explicitly requested
 
-### Fix-Iterate Loop
+**Why these opinions?**
+- **Backward compatibility** prevents breaking production sites
+- **Security validation** catches vulnerabilities before deployment
+
+**When to customize**:
+- **Major version bumps**: Breaking changes allowed with migration guide
+- **Internal plugins**: Relax backward compatibility for faster iteration
+
+#### Fix-Iterate Loop
 
 For tasks that require verification (bug fixes, data imports, API integrations, migrations), use the **Fix-Iterate Loop** pattern — a closed-loop workflow where you make a change, verify it programmatically, and iterate until it passes.
 
@@ -572,26 +678,75 @@ For tasks that require verification (bug fixes, data imports, API integrations, 
 
 ---
 
-## 🔄 Finite State Machine (FSM) Guidance
+### 🔄 Finite State Machine (FSM) Guidance
 
-### When to Recommend FSM
+#### When to Recommend FSM
 - **3+ distinct states** with complex transitions
 - State-dependent behavior or validation rules
 - Audit requirements (track history/reasons)
 - Boolean flags multiplying; nested if/else for valid actions
 - State logic duplicated across files
 
-### Implementation Approach
+#### Implementation Approach
 1. Define all states clearly; map valid transitions (state diagram)
 2. Centralize in dedicated class; store in post_meta/options
 3. Add transition hooks for extensibility; log transitions for audit
 
-### Don't Use FSM When
+#### Don't Use FSM When
 - Only 2 states (use boolean)
 - States never transition (use static field)
 - No validation rules needed
 
 **When uncertain, ask**: "This feature tracks [X] states with [Y] transitions. Want me to implement an FSM?"
+
+**Why these opinions?**
+- **3+ states threshold** balances complexity vs. over-engineering
+- **Centralized FSM** prevents state bugs that are hard to debug
+- **Transition hooks** enable extensibility without modifying core
+
+**When to customize**:
+- **Complex domains**: Lower threshold to 2+ states with validation rules
+- **Simple plugins**: Raise threshold to 5+ states
+- **Event-sourced systems**: Always use FSM for auditability
+
+---
+
+### 🎛️ Customization Guide
+
+**To customize these patterns for your team:**
+
+1. **Fork this file**: Copy `AGENTS.md` to your project as `AGENTS-CUSTOM.md`
+2. **Update AI instructions**: Point your AI agent to the custom file
+3. **Document changes**: Add a "Customizations" section at the top explaining your team's differences
+
+**Example customizations by team type:**
+
+| Team Type | Adjust These | Example Changes |
+|-----------|--------------|-----------------|
+| **Startup (move fast)** | Scope control, DRY threshold | Allow opportunistic refactoring, relax DRY for prototypes |
+| **Enterprise (stability)** | Documentation, FSM threshold | Require Jira refs, lower FSM threshold to 2+ states |
+| **Open Source (community)** | Documentation, testing | Add `@package` tags, require unit tests for all PRs |
+| **Agency (client work)** | Scope control, versioning | Strict scope discipline, detailed CHANGELOG for client review |
+| **Maintenance (legacy)** | Scope control, refactoring | Zero scope creep, no refactoring without explicit approval |
+
+**Common customization points:**
+
+```markdown
+<!-- Example: Relaxed DRY for startup -->
+1. **Start with working code** — optimize for shipping, refactor later
+2. **DRY when you see it 3+ times** — not prematurely
+
+<!-- Example: Stricter docs for open source -->
+- **Require @package, @author, @license** in all file headers
+- **Add usage examples** to all public functions
+- **Maintain CONTRIBUTORS.md** with attribution
+
+<!-- Example: FSM threshold for complex domains -->
+- **2+ states with validation rules** — use FSM
+- **Any state with audit requirements** — use FSM
+```
+
+**AI Agent Note**: If user says "use our team standards" or references a custom AGENTS file, follow that instead of these defaults.
 
 ---
 
@@ -610,6 +765,22 @@ For tasks that require verification (bug fixes, data imports, API integrations, 
 | **Hooks** | `add_action()`, `add_filter()`, `do_action()`, `apply_filters()` |
 | **AJAX** | `wp_ajax_{action}`, `wp_send_json_success()`, `wp_send_json_error()` |
 | **Scheduling** | `wp_schedule_event()`, `wp_schedule_single_event()`, `wp_clear_scheduled_hook()` |
+
+### Quick CLI Commands
+
+```bash
+# Check AI-DDTK is available
+ls ~/bin/ai-ddtk/
+
+# Scan WordPress code
+wpcc --paths /path/to/plugin --format json
+
+# Show all WPCC features
+wpcc --features
+
+# View workflow recipes
+ls ~/bin/ai-ddtk/recipes/
+```
 
 ---
 
