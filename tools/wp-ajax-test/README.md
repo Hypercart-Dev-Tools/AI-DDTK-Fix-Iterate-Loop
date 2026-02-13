@@ -225,7 +225,7 @@ Common errors and solutions:
 
 ## See Also
 
-- [SPEC.md](SPEC.md) - Complete tool specification
+- [ROADMAP.md](ROADMAP.md) - Roadmap & technical reference
 - [AI-INSTRUCTIONS.md](AI-INSTRUCTIONS.md) - AI agent guidance
 - [../../AGENTS.md](../../AGENTS.md) - WordPress development guidelines
 

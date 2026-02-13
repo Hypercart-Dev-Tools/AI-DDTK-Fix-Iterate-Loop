@@ -1,11 +1,11 @@
 # BACKLOG
 
 ## TOC
-1. Discovery Problem
-2. TBD
-3. TBD
+- Discovery Problem
+- WPCC Performance: .wpcignore Support & Timeout Handling
+-VS Code Extension
 
-1. Discovery Problem
+## 1. Discovery Problem
 Status: Not Started
 
 Yes, that makes perfect sense. You want AI agents to **automatically know** about AI-DDTK tools without you having to remind them every time. This is a **context discovery** problem.
@@ -235,3 +235,140 @@ Would you like me to:
 2. **Add a "Project Integration" section to AGENTS.md** explaining this?
 3. **Draft system instructions** you can paste into Augment/Claude settings?
 4. **All of the above**?
+
+---
+
+## 2. WPCC Performance: .wpcignore Support & Timeout Handling
+
+**Status**: Planned
+**Priority**: High
+**Effort**: Medium (2-3 hours)
+**GitHub Issues**:
+- AI-DDTK: [#5](https://github.com/Hypercart-Dev-Tools/AI-DDTK-Fix-Iterate-Loop/issues/5)
+- WP-Code-Check: [#112](https://github.com/Hypercart-Dev-Tools/WP-Code-Check/issues/112)
+
+### Problem
+
+When scanning large directories (especially AI-DDTK itself which contains embedded WPCC via git subtree), the scanner stalls during the "Magic String Detector" phase due to:
+
+1. **Recursive scanning** - WPCC scans itself when run from AI-DDTK root
+2. **No exclusion mechanism** - Can't easily exclude `tools/`, `.git/`, `node_modules/`
+3. **No progress indicators** - Users don't know if it's working or hung
+4. **No timeout handling** - Scans can run indefinitely
+
+**Example failure:**
+```bash
+wpcc --paths . --format json
+# Stalls at: [Magic String Detector] Aggregating patterns...
+```
+
+### Root Cause
+
+Scanning `.` from AI-DDTK root includes:
+- `tools/wp-code-check/` - **100+ files** (WPCC scanning itself)
+- `.git/` - **Thousands of objects**
+- Embedded dependencies
+- **Total: 10K+ files** → Magic String Detector timeout
+
+### Proposed Solution
+
+**Phase 1: .wpcignore Support** (1 hour)
+- Add `.wpcignore` file support (like `.gitignore`)
+- Default exclusions: `.git/`, `node_modules/`, `vendor/`, `tools/`, `dist/logs/`, `dist/reports/`
+- Create template `.wpcignore` for AI-DDTK repository
+- Update WPCC to read and respect `.wpcignore` patterns
+
+**Phase 2: Progress Indicators** (30 min)
+- Add file count progress: `[Magic String Detector] Processing 1234/5678 files...`
+- Add time elapsed indicator
+- Add estimated time remaining (based on avg file processing speed)
+
+**Phase 3: Timeout Handling** (30 min)
+- Add configurable timeout for each scan phase
+- Default: 60s per phase, 300s total
+- Graceful degradation: Skip slow phases, continue with partial results
+- Add `--timeout` CLI flag
+
+**Phase 4: Performance Optimization** (1 hour)
+- Cache Magic String Detector results per file hash
+- Skip unchanged files on subsequent scans
+- Parallelize file processing where possible
+
+### Implementation Plan
+
+```bash
+# 1. Create .wpcignore template
+cat > tools/wp-code-check/.wpcignore.template << 'EOF'
+# Version control
+.git/
+.svn/
+
+# Dependencies
+node_modules/
+vendor/
+bower_components/
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css
+
+# WPCC output
+dist/logs/
+dist/reports/
+dist/issues/
+
+# Temporary files
+temp/
+tmp/
+*.log
+*.cache
+
+# Embedded tools (for meta-repos like AI-DDTK)
+tools/
+EOF
+
+# 2. Add to AI-DDTK root
+cp tools/wp-code-check/.wpcignore.template .wpcignore
+
+# 3. Update WPCC scanner to read .wpcignore
+# (Implementation in WPCC codebase)
+
+# 4. Test with AI-DDTK
+wpcc --paths . --format json  # Should now exclude tools/
+```
+
+### Success Criteria
+
+- [ ] `.wpcignore` file support implemented in WPCC
+- [ ] Template `.wpcignore` created and documented
+- [ ] AI-DDTK includes `.wpcignore` in root
+- [ ] Progress indicators show during long scans
+- [ ] Timeout handling prevents indefinite hangs
+- [ ] Scanning AI-DDTK root completes in <30s
+- [ ] Documentation updated in WPCC README and AI-DDTK AGENTS.md
+
+### Workaround (Until Fixed)
+
+```bash
+# When scanning AI-DDTK itself, exclude embedded tools
+wpcc --paths . --exclude "tools/,.git/,node_modules/" --format json
+
+# Or scan only specific directories
+wpcc --paths "bin/ recipes/ templates/" --format json
+```
+
+### Related Issues
+
+- WPCC Magic String Detector performance on large codebases
+- Need for better scan progress visibility
+- AI-DDTK self-scanning creates recursive problem
+
+### Next Steps
+
+1. Create issue in WP-Code-Check repository
+2. Implement `.wpcignore` support in WPCC
+3. Add progress indicators and timeout handling
+4. Update AI-DDTK with `.wpcignore` file
+5. Document in both WPCC and AI-DDTK READMEs

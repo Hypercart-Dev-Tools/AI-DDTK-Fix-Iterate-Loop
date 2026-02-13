@@ -1,0 +1,66 @@
+# WP Code Check Exclusions Template
+# Copy this file to your project root as `.wpcignore`
+# WPCC will respect these exclusions when scanning (future feature)
+
+# Version control
+.git/
+.svn/
+.hg/
+
+# Dependencies
+node_modules/
+vendor/
+bower_components/
+composer.lock
+package-lock.json
+
+# Build artifacts
+dist/
+build/
+*.min.js
+*.min.css
+*.map
+
+# WordPress core (if scanning a full WP install)
+# wp-admin/
+# wp-includes/
+# wp-content/uploads/
+
+# WPCC output (don't scan scan results)
+wpcc-logs/
+wpcc-reports/
+*.wpcc.json
+*.wpcc.html
+
+# Temporary files
+temp/
+tmp/
+*.log
+*.cache
+*.bak
+*.swp
+*~
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-*
+.DS_Store
+
+# Test files (optional - remove if you want to scan tests)
+tests/
+test/
+*.test.php
+*.spec.js
+__tests__/
+
+# Third-party libraries (if vendored)
+lib/
+libs/
+vendor/
+
+# Minified/compiled assets
+assets/dist/
+assets/build/
+public/build/
+

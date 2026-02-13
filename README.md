@@ -41,7 +41,13 @@ source ~/.zshrc  # or ~/.bashrc
 
 # Verify installation
 wpcc --help
+
+# (Optional) Set up temp folder structure for credentials, reports, etc.
+# The folder structure is already created; this just shows what's available
+ls temp/
 ```
+
+**Note**: The `/temp` folder is for storing sensitive data (credentials, API keys, reports) that should never be committed to git. See [`temp/README.md`](temp/README.md) for complete usage guidelines.
 
 ## Usage from Any Project
 
@@ -77,11 +83,17 @@ AI-DDTK/
 │   └── wp-ajax-test/    # AJAX test tool source
 ├── recipes/             # Workflow guides (PHPStan, audits, etc.)
 ├── templates/           # Configuration templates
+├── temp/                # Sensitive data storage (credentials, reports, logs)
+│   ├── credentials/     # API keys, passwords, tokens
+│   ├── reports/         # WPCC, PHPStan, performance reports
+│   ├── data/            # Exports, imports, backups
+│   ├── playwright/      # Playwright auth state
+│   ├── logs/            # Debug logs
+│   └── analysis/        # AI agent working files
 ├── local-wp             # Local WP-CLI wrapper
 ├── fix-iterate-loop.md  # Autonomous test-verify-fix pattern
 ├── AGENTS.md            # AI agent guidelines
-├── CHANGELOG.md         # Version history
-└── SYSTEM-INSTRUCTIONS.md # AI agent setup
+└── CHANGELOG.md         # Version history
 ```
 
 ## Maintenance Commands
@@ -101,45 +113,85 @@ See `install.sh` for detailed guidance on:
 - GitHub CLI commands for checking updates
 - Architecture and maintenance notes
 
-## WPCC Advanced Features
+## WPCC: Project Templates
 
-Beyond basic scanning, WP Code Check includes powerful AI-assisted workflows:
+Set up once, reuse forever. Templates save plugin/theme paths and scan settings so you can re-run audits with a single command.
+
+```bash
+# First time: auto-detects plugin name, version, and GitHub repo
+wpcc run gravityforms
+# → Template not found. Create from current directory? [y/N] y
+# ✓ Created! Detected: Gravity Forms v2.7.1
+
+# Every time after: one command runs the full workflow
+# Ask AI: "Run gravityforms end to end"
+```
+
+That single command triggers the complete pipeline:
+
+```
+Scan → AI Triage → HTML Report → GitHub Issue
+       (filters       (with AI        (with checkboxes,
+       false           summary         ready for Jira/
+       positives)      at top)         Linear/Asana too)
+```
+
+Templates handle flexible naming — `Gravity Forms`, `gravity-forms`, and `gravityforms` all resolve to the same config. See the [Template Guide](tools/wp-code-check/dist/HOWTO-TEMPLATES.md) for details.
+
+### More WPCC Features
 
 | Feature | Description | How to Use |
 |---------|-------------|------------|
-| **Project Templates** | Save scan configs for recurring projects | `wpcc --features` or see [Template Guide](tools/wp-code-check/dist/HOWTO-TEMPLATES.md) |
 | **AI-Assisted Triage** | Automated false positive detection | Ask AI: "Triage this scan" or "Run X end to end" |
 | **GitHub Issue Creation** | Convert findings to trackable issues | Ask AI: "Create issue for scan" |
-| **End-to-End Workflow** | Scan → Triage → HTML → Issue in one flow | Ask AI: "Run template X end to end" |
 | **IRL Audit Mode** | Annotate real code for pattern library | See [Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md) |
 | **Multi-Platform Export** | Export issues to Jira, Linear, Asana, Trello | Issues saved to `dist/issues/` for copy/paste |
 
 ### Quick Examples
 
 ```bash
-# Basic scan
+# Basic scan (no template needed)
 wpcc --paths ./wp-content/plugins/my-plugin --format json
 
-# Show all available features
+# Show all available features and templates
 wpcc --features
-
-# Using templates (faster for recurring scans)
-wpcc --features  # Lists templates
-# Ask AI: "Run template my-plugin end to end"
-```
-
-### AI Agent Workflows
-
-For AI agents (Claude, Augment, Codex, etc.), WPCC supports orchestrated multi-phase workflows:
-
-```
-Phase 1: Scan      → Generate JSON findings
-Phase 2: AI Triage → Identify false positives, add recommendations
-Phase 3: HTML      → Generate report with AI summary
-Phase 4: Issue     → Create GitHub issue with checkboxes
 ```
 
 **Full AI Instructions:** [WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)
+
+## WordPress Development Guidelines
+
+AI-DDTK includes comprehensive WordPress development guidelines in [`AGENTS.md`](AGENTS.md) for AI coding assistants.
+
+### 🎯 Philosophy: Works Great by Default, Customizable for Experts
+
+**For beginners**: Follow the patterns in AGENTS.md — they represent WordPress community best practices and will keep your code maintainable from day one.
+
+**For senior developers**: The guidelines are Hypercart's opinionated defaults. Fork `AGENTS.md` and customize to match your team's standards.
+
+### What's Covered
+
+| Section | Type | Description |
+|---------|------|-------------|
+| **Security** | Required | Nonces, sanitization, escaping, sensitive data handling |
+| **Performance** | Required | Caching, query optimization, resource limits |
+| **WordPress APIs** | Required | Hooks, filters, database access, WP-CLI |
+| **SOLID Principles** | Opinionated | Architecture patterns with rationale and customization guidance |
+| **DRY & State Management** | Opinionated | Helper patterns, single contract writers, FSM guidance |
+| **Scope Control** | Opinionated | When to refactor, preservation vs. optimization trade-offs |
+| **Documentation** | Opinionated | PHPDoc standards, versioning, CHANGELOG requirements |
+| **Testing** | Opinionated | Backward compatibility, Fix-Iterate Loop pattern |
+
+### Customization Examples
+
+The guide includes team-specific customization examples for:
+- **Startups** - Move fast, relax DRY requirements
+- **Enterprise** - Strict documentation, lower FSM thresholds
+- **Open Source** - Package tags, unit test requirements
+- **Agencies** - Strict scope control, detailed changelogs
+- **Maintenance** - Zero scope creep, preservation-first
+
+**See the full guide**: [`AGENTS.md`](AGENTS.md)
 
 ## Troubleshooting
 
@@ -156,6 +208,17 @@ If that doesn't work, verify the install:
 ```bash
 cd ~/bin/ai-ddtk && ./install.sh setup-wpcc
 ```
+
+**WPCC stalls when scanning AI-DDTK itself** — The repository includes embedded WPCC via git subtree. Use exclusions:
+```bash
+# Exclude embedded tools (recommended)
+wpcc --paths . --exclude "tools/,.git/,node_modules/" --format json
+
+# Or scan only specific directories
+wpcc --paths "bin/ recipes/ templates/" --format json
+```
+
+> **Note**: A `.wpcignore` file is included in the repository for future WPCC versions that support automatic exclusions.
 
 ## License
 
