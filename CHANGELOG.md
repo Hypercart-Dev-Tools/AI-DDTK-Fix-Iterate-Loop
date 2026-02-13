@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## [1.0.5] - 2026-02-07
+
+### Added
 - **Root `.gitignore` file** for repository-wide exclusions
   - Excludes `/temp` folder contents (preserves structure with `.gitkeep`)
   - Excludes credentials, environment files, authentication data
@@ -67,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed ecosystem-specific references (Neochrome, Beaver Builder) for portability
   - Added CC BY 4.0 license and Hypercart/Neochrome attribution footer
   - Referenced in: README.md (Tools table + repo structure), AGENTS.md (Testing & Validation),
-    SYSTEM-INSTRUCTIONS.md (Available Tools + Workflow Triggers), `recipes/fix-iterate-loop.md` (pointer)
+    AGENTS.md (Available Tools + Workflow Triggers), `recipes/fix-iterate-loop.md` (pointer)
   - Fixed hardcoded absolute path in Tools.md (`/Users/.../bin/` → `~/bin/ai-ddtk/`)
 - **Prerequisites section** in README.md — consolidated table of all dependencies (Git, Node.js, Python 3, Composer, GitHub CLI, Playwright) with install commands
 - **Troubleshooting section** in README.md — `wpcc: command not found` and `WPCC not found` fixes
@@ -120,6 +128,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Error handling with suggestions
   - Installation script (install.sh)
   - README.md with usage examples
+- Updated AGENTS.md version to v2.3.1
+- Enhanced Security section with Sensitive Data Handling subsection
+- Updated README.md version to 1.0.5
+- Playwright guidance: Recommend global install over per-project to avoid git commits
 
 ### Fixed
 - **WP AJAX Test Tool v1.0.1** - Authentication improvements
@@ -128,9 +140,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enhanced success detection (checks for auth cookies, not just error strings)
   - Added verbose debugging output (shows cookies, redirects, auth status)
   - Added `--insecure` flag for SSL certificate verification bypass (.local sites)
+  - Fixed authentication with special characters in passwords (e.g., `#` symbol)
+  - Added success/failure messages in verbose mode
   - Saves login response to `temp/login-debug.html` when verbose mode enabled
   - Better error messages with specific failure reasons
-- **WP AJAX Test Tool Specification** (`tools/wp-ajax-test/SPEC.md`)
+  - Improved error debugging with detailed HTTP response information
+- **WP AJAX Test Tool** (`tools/wp-ajax-test/ROADMAP.md`)
   - Lightweight WordPress AJAX endpoint testing without browser automation
   - Centralized-by-default design (call from AI-DDTK, local wrapper when needed)
   - Auto-authentication with nonce/cookie handling
@@ -142,8 +157,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Added to Core Requirements section with full acronym breakdown
   - Integrated into "Building from the Ground Up" checklist
   - Mapped SOLID principles to WordPress patterns (hooks, interfaces, FSM)
-- **System Instructions for AI Agents** (`SYSTEM-INSTRUCTIONS.md`)
-  - Copy-paste instructions for Augment/Claude Code settings
+- **System Instructions for AI Agents** (merged into `AGENTS.md`)
   - AI-DDTK toolkit integration guidance across all projects
   - Available tools reference (WPCC, Performance Timer)
   - Workflow triggers (when to use each tool)
@@ -158,13 +172,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Resource Limits & Dependencies** in AGENTS.md (v2.3.1)
   - WP-CLI memory limit mitigation (134MB → 512M)
   - Playwright setup guidance (global install, avoid per-project)
-  - Added to SYSTEM-INSTRUCTIONS.md for AI agent awareness
-
-### Changed
-- Updated AGENTS.md version to v2.3.1
-- Enhanced Security section with Sensitive Data Handling subsection
-- Updated README.md version to 1.0.5
-- Playwright guidance: Recommend global install over per-project to avoid git commits
+  - Added to AGENTS.md for AI agent awareness
 
 ## [1.0.4] - 2026-02-02
 
@@ -281,6 +289,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 1.0.5 | 2026-02-07 | Docs consolidation, `/temp` structure, licensing, Fix-Iterate Loop refinements |
 | 1.0.4 | 2026-02-02 | Performance Profiling integration, `recipes/` folder, WPCC→Timer pipeline |
 | 1.0.3 | 2026-02-02 | WPCC feature discovery, AGENTS.md orchestration, README advanced features |
 | 1.0.2 | 2026-02-01 | GitHub Action for weekly WPCC auto-sync, user config file |
@@ -302,12 +311,3 @@ cd ~/bin/ai-ddtk
 ./install.sh setup-wpcc
 source ~/.zshrc
 ```
-
-
-### Fixed
-- **WP AJAX Test Tool - Authentication & SSL Improvements**
-  - Added `--insecure` flag to skip SSL certificate verification (for Local by Flywheel)
-  - Added verbose authentication logging (shows login URL, username, response status, cookies)
-  - Fixed authentication with special characters in passwords (e.g., `#` symbol)
-  - Added success/failure messages in verbose mode
-  - Improved error debugging with detailed HTTP response information

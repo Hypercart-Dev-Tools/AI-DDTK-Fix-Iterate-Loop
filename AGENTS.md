@@ -1,10 +1,65 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.5.0 — 2026-02-07_
+_Last updated: v2.6.0 — 2026-02-13_
 
 ## Purpose
 
 Defines principles, constraints, and best practices for AI agents and Humans working with WordPress code to ensure safe, consistent, and maintainable contributions.
+
+---
+
+## 🚀 Getting Started
+
+This workspace has access to **AI-DDTK** (AI Driven Development ToolKit) installed at `~/bin/ai-ddtk`.
+
+### Before Starting Any Task
+
+1. **Check for AI-DDTK availability**:
+   ```bash
+   ls ~/bin/ai-ddtk/AGENTS.md
+   ```
+
+2. **For WordPress projects**, read these guidelines:
+   ```bash
+   cat ~/bin/ai-ddtk/AGENTS.md
+   ```
+
+3. **Check available tools**:
+   ```bash
+   which wpcc
+   wpcc --features
+   ```
+
+### Available Tools
+
+| Tool | Purpose | Quick Usage |
+|------|---------|-------------|
+| **WPCC** | Security & performance static analysis | `wpcc --paths <path> --format json` |
+| **WP Performance Timer** | Runtime performance profiling | `perf_timer_start()` / `perf_timer_stop()` |
+| **PHPStan** | Type-aware static analysis | `phpstan analyse --configuration=phpstan.neon` |
+| **WP AJAX Test** | Lightweight AJAX endpoint testing | `wp-ajax-test --url <url> --action <action>` |
+| **Fix-Iterate Loop** | Autonomous test-verify-fix workflow | See `~/bin/ai-ddtk/fix-iterate-loop.md` |
+| **Workflow Recipes** | Multi-tool workflows | See `~/bin/ai-ddtk/recipes/` |
+
+### Workflow Triggers
+
+| When user mentions... | Use this tool |
+|-----------------------|---------------|
+| "scan", "audit", "security check", "performance check" | WPCC |
+| "slow", "performance", "bottleneck", "profile" | WP Performance Timer |
+| "fix", "test", "verify", "iterate", "debug" | Fix-Iterate Loop |
+| "test this AJAX endpoint", "debug AJAX" | WP AJAX Test |
+| "performance audit", complex multi-tool workflows | Recipes (`~/bin/ai-ddtk/recipes/`) |
+
+### Task Management
+
+Use task management tools frequently for:
+- Complex sequences of work
+- Breaking down large tasks
+- Tracking progress
+- Giving user visibility
+
+Mark tasks COMPLETE immediately when done (don't batch).
 
 ---
 
@@ -287,12 +342,30 @@ playwright/.auth/
 - Playwright authentication state files
 - Database dumps with real data
 
+**Required setup for every project**:
+
+1. **Create `/temp` folder**:
+   ```bash
+   mkdir -p temp
+   ```
+
+2. **Add to `.gitignore`** (entries listed above)
+
+3. **Store credentials in `/temp`**:
+   ```bash
+   temp/playwright-auth.json   # Playwright auth
+   temp/api-credentials.json   # API credentials
+   temp/db-config.local.php    # Database config
+   ```
+
 **When user provides credentials**:
 1. ✅ Save to `/temp` folder immediately
 2. ✅ Add to `.gitignore` if not already present
-3. ✅ Load from `/temp` at runtime (never hardcode)
-4. ❌ Never commit credentials (even temporarily)
-5. ❌ Never log credentials in debug output
+3. ✅ Use environment variables when possible
+4. ✅ Document in `/temp/README.md` what files are needed
+5. ✅ Load from `/temp` at runtime (never hardcode)
+6. ❌ Never commit credentials (even temporarily)
+7. ❌ Never log credentials in debug output
 
 ```javascript
 // ❌ WRONG - hardcoded credentials
@@ -334,18 +407,6 @@ WP-CLI's default 134MB memory limit is often insufficient with WooCommerce and o
 - **For heavy operations**, skip unnecessary plugins: `--skip-plugins` or `--skip-themes`
 - **Common failures**: `eval`, `eval-file`, database operations with large datasets
 
-### WP-CLI Memory Limits
-
-WP-CLI's default 134MB memory limit is often insufficient with WooCommerce and other heavy plugins:
-
-- **Increase memory before running**: `php -d memory_limit=512M ~/bin/local-wp <site> <command>`
-- **Or add to wp-cli.yml** in project root:
-  ```yaml
-  memory_limit: 512M
-  ```
-- **For heavy operations**, skip unnecessary plugins: `--skip-plugins` or `--skip-themes`
-- **Common failures**: `eval`, `eval-file`, database operations with large datasets
-
 ### Playwright Setup
 
 Playwright is not bundled with AI-DDTK (large dependency, project-specific versions):
@@ -353,7 +414,7 @@ Playwright is not bundled with AI-DDTK (large dependency, project-specific versi
 - **Check if installed**: `npx playwright --version`
 - **Install globally** (recommended): `npm install -g playwright`
 - **Or use npx**: `npx playwright` (downloads to cache, not project)
-- **Avoid per-project install**: `npm install -D playwright` adds to node_modules (tracked by git)
+- **Never install per-project**: `npm install -D playwright` adds to node_modules (tracked by git)
 - **AI agents**: Always ask user before installing — never auto-install without permission
 - **Authentication files**: Store in `/temp/playwright-auth.json` (never commit)
 
@@ -361,7 +422,7 @@ Playwright is not bundled with AI-DDTK (large dependency, project-specific versi
 // ✅ HTTP request with timeout and retry
 function prefix_fetch_with_retry( $url, $max_retries = 3 ) {
     $attempt = 0;
-    
+
     while ( $attempt < $max_retries ) {
         $response = wp_remote_get( $url, [
             'timeout' => 10,
@@ -373,9 +434,9 @@ function prefix_fetch_with_retry( $url, $max_retries = 3 ) {
         }
 
         $error_message = $response->get_error_message();
-        
+
         // Best-effort timeout detection (message varies by transport)
-        $is_timeout = strpos( $error_message, 'timed out' ) !== false 
+        $is_timeout = strpos( $error_message, 'timed out' ) !== false
                    || strpos( $error_message, 'timeout' ) !== false;
 
         if ( ! $is_timeout ) {
@@ -543,6 +604,7 @@ Always apply **SOLID principles** alongside WordPress patterns.
 - **No speculative improvements** or architectural changes
 - **Preserve existing data structures** and naming conventions
 - **Prioritize preservation over optimization** when in doubt
+- **Ask before**: committing, pushing, installing dependencies, deploying
 
 **Why these opinions?**
 - **Scope discipline** prevents AI agents from making unreviewed changes
@@ -703,6 +765,22 @@ For tasks that require verification (bug fixes, data imports, API integrations, 
 | **Hooks** | `add_action()`, `add_filter()`, `do_action()`, `apply_filters()` |
 | **AJAX** | `wp_ajax_{action}`, `wp_send_json_success()`, `wp_send_json_error()` |
 | **Scheduling** | `wp_schedule_event()`, `wp_schedule_single_event()`, `wp_clear_scheduled_hook()` |
+
+### Quick CLI Commands
+
+```bash
+# Check AI-DDTK is available
+ls ~/bin/ai-ddtk/
+
+# Scan WordPress code
+wpcc --paths /path/to/plugin --format json
+
+# Show all WPCC features
+wpcc --features
+
+# View workflow recipes
+ls ~/bin/ai-ddtk/recipes/
+```
 
 ---
 

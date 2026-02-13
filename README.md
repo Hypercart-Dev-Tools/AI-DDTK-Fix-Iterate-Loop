@@ -93,8 +93,7 @@ AI-DDTK/
 ├── local-wp             # Local WP-CLI wrapper
 ├── fix-iterate-loop.md  # Autonomous test-verify-fix pattern
 ├── AGENTS.md            # AI agent guidelines
-├── CHANGELOG.md         # Version history
-└── SYSTEM-INSTRUCTIONS.md # AI agent setup
+└── CHANGELOG.md         # Version history
 ```
 
 ## Maintenance Commands
