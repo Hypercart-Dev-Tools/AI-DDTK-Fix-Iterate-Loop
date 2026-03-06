@@ -72,19 +72,6 @@ local-wp my-site plugin list
 | **Playwright** | Headless browser automation |
 | **PixelMatch** | Visual regression testing |
 
-## Experimental Workflows
-
-Promising but not-yet-core helpers live in `experimental/`. The first one is `experimental/theme-crash-loop.sh`, which runs a Local/WordPress crash repro loop, stores artifacts under the target project's `temp/theme-crash-loop/`, and can hand the run off to `aiddtk-tmux` for unattended execution.
-
-```bash
-~/bin/ai-ddtk/experimental/theme-crash-loop.sh \
-  --site-name my-local-site \
-  --project-root "$(pwd)" \
-  --target-stylesheet my-child-theme \
-  --target-template astra \
-  --tmux
-```
-
 ## Repository Structure
 
 ```
@@ -249,6 +236,12 @@ wpcc --paths "bin/ recipes/ templates/" --format json
 ```
 
 > **Note**: A `.wpcignore` file is included in the repository for future WPCC versions that support automatic exclusions.
+
+## Experimental Workflows
+
+Promising but not-yet-core helpers live in `experimental/`. Requires [Local by Flywheel](https://localwp.com/).
+
+- **`theme-crash-loop.sh`** — Toggles between a fallback and target theme on a Local site, probes key URLs, and captures log deltas. Useful for reproducing theme activation crashes. The same pattern works for plugin debugging (activate/deactivate instead of theme switch). Run `experimental/theme-crash-loop.sh --help` for usage.
 
 ## License
 
