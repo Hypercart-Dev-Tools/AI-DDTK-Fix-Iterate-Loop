@@ -13,6 +13,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [1.0.6] - 2026-03-06
+
+### Added
+- **Optional `aiddtk-tmux` wrapper** for resilient AI-agent terminal sessions
+  - New `bin/aiddtk-tmux` helper with `start`, `status`, `list`, `send`, `capture`, `attach`, and `stop`
+  - Deterministic AI-DDTK session naming based on workspace folders
+  - Session output logging to `temp/logs/tmux/`
+  - Friendly fallback messaging when `tmux` is not installed
+- **Tmux proxy documentation across the toolkit**
+  - README quick-start, usage, dedicated tmux section, and troubleshooting updates
+  - AGENTS.md guidance for when agents should switch to tmux-backed workflows
+  - `temp/README.md` updates for tmux log storage and commands
+
+### Changed
+- **`install.sh` updated to v1.0.6**
+  - Status output now reports optional `tmux` availability
+  - Usage and first-run next steps now advertise `aiddtk-tmux`
+  - Internal repository structure comments updated to reflect current toolkit layout
+- **Version updates**
+  - README.md updated to `1.0.6`
+  - AGENTS.md updated to `v2.7.0`
+
+### Fixed
+- **Agent terminal recovery guidance** now points to a persistent tmux-backed workflow instead of relying solely on IDE terminal state
+
 ## [1.0.5] - 2026-02-07
 
 ### Added
@@ -289,6 +314,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 | Version | Date | Summary |
 |---------|------|---------|
+| 1.0.6 | 2026-03-06 | Optional tmux proxy wrapper, install/status detection, resilient agent-session documentation |
 | 1.0.5 | 2026-02-07 | Docs consolidation, `/temp` structure, licensing, Fix-Iterate Loop refinements |
 | 1.0.4 | 2026-02-02 | Performance Profiling integration, `recipes/` folder, WPCC→Timer pipeline |
 | 1.0.3 | 2026-02-02 | WPCC feature discovery, AGENTS.md orchestration, README advanced features |
