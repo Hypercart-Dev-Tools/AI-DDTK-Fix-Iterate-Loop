@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.6.0 — 2026-02-13_
+_Last updated: v2.7.0 — 2026-03-06_
 
 ## Purpose
 
@@ -27,6 +27,7 @@ This workspace has access to **AI-DDTK** (AI Driven Development ToolKit) install
 3. **Check available tools**:
    ```bash
    which wpcc
+   command -v aiddtk-tmux >/dev/null && echo "aiddtk-tmux available"
    wpcc --features
    ```
 
@@ -35,6 +36,7 @@ This workspace has access to **AI-DDTK** (AI Driven Development ToolKit) install
 | Tool | Purpose | Quick Usage |
 |------|---------|-------------|
 | **WPCC** | Security & performance static analysis | `wpcc --paths <path> --format json` |
+| **AI-DDTK Tmux Proxy** | Persistent terminal sessions for flaky IDE/agent workflows | `aiddtk-tmux start --cwd <path>` |
 | **WP Performance Timer** | Runtime performance profiling | `perf_timer_start()` / `perf_timer_stop()` |
 | **PHPStan** | Type-aware static analysis | `phpstan analyse --configuration=phpstan.neon` |
 | **WP AJAX Test** | Lightweight AJAX endpoint testing | `wp-ajax-test --url <url> --action <action>` |
@@ -46,6 +48,7 @@ This workspace has access to **AI-DDTK** (AI Driven Development ToolKit) install
 | When user mentions... | Use this tool |
 |-----------------------|---------------|
 | "scan", "audit", "security check", "performance check" | WPCC |
+| "terminal hung", "VS Code terminal froze", "keep this running" | AI-DDTK Tmux Proxy |
 | "slow", "performance", "bottleneck", "profile" | WP Performance Timer |
 | "fix", "test", "verify", "iterate", "debug" | Fix-Iterate Loop |
 | "test this AJAX endpoint", "debug AJAX" | WP AJAX Test |
@@ -60,6 +63,38 @@ Use task management tools frequently for:
 - Giving user visibility
 
 Mark tasks COMPLETE immediately when done (don't batch).
+
+---
+
+## 🧱 Tmux Proxy for Flaky Agent Terminals
+
+Use the optional `aiddtk-tmux` wrapper when VS Code or another AI-agent terminal is unreliable, non-responsive, or likely to disconnect during long-running work.
+
+### When to Use
+
+| Scenario | Action |
+|----------|--------|
+| Terminal hangs mid-task | Start a tmux session and continue there |
+| Long-running WPCC or PHPStan job | Run it via `aiddtk-tmux send` |
+| Need recoverable output after disconnect | Use `aiddtk-tmux capture` instead of relying on IDE scrollback |
+| Human needs to inspect live shell | Use `aiddtk-tmux attach` |
+
+### Quick Commands
+
+```bash
+aiddtk-tmux start --cwd /path/to/project
+aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --format json --verbose"
+aiddtk-tmux capture --tail 200
+aiddtk-tmux stop
+```
+
+### Guidance
+
+- Prefer direct terminal usage for short/simple commands; use tmux as a resilience layer, not the default for everything.
+- Prefer `capture` over `attach` when an AI agent only needs output text.
+- Use explicit binary paths inside tmux commands (`~/bin/ai-ddtk/bin/wpcc`, project-local `vendor/bin/phpstan`) to avoid shell-init/PATH mismatches.
+- Session logs belong in `~/bin/ai-ddtk/temp/logs/tmux/`.
+- If `tmux` is missing, ask the user before installing it with `brew install tmux`.
 
 ---
 
@@ -777,6 +812,12 @@ wpcc --paths /path/to/plugin --format json
 
 # Show all WPCC features
 wpcc --features
+
+# Start a resilient tmux-backed session for long-running agent work
+aiddtk-tmux start --cwd /path/to/project
+
+# Capture recent output from that session
+aiddtk-tmux capture --tail 100
 
 # View workflow recipes
 ls ~/bin/ai-ddtk/recipes/

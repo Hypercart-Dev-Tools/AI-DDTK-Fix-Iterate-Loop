@@ -29,7 +29,8 @@ temp/
 │   └── .auth/         # Authentication state files
 │
 ├── logs/              # Temporary log files
-│   └── debug.log      # Debug output
+│   ├── debug.log      # Debug output
+│   └── tmux/          # AI-DDTK tmux session captures
 │
 └── analysis/          # AI agent analysis files
     ├── notes/         # Temporary notes and findings
@@ -115,11 +116,16 @@ const context = await browser.newContext({
 - Verbose logging
 - Error traces
 - Performance logs
+- `aiddtk-tmux` session captures
 
 **Example**:
 ```bash
 # Redirect verbose output
 wpcc --paths . --verbose > temp/logs/wpcc-debug.log 2>&1
+
+# AI-DDTK tmux proxy output
+aiddtk-tmux start --cwd .
+aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --verbose"
 ```
 
 ### `/temp/analysis/` - AI Agent Working Files
@@ -148,6 +154,7 @@ wpcc --paths . --verbose > temp/logs/wpcc-debug.log 2>&1
 | Database export | `temp/data/backups/` | `temp/data/backups/db-backup.sql` |
 | Playwright auth | `temp/playwright/.auth/` | `temp/playwright/.auth/admin.json` |
 | Debug logging | `temp/logs/` | `temp/logs/debug.log` |
+| Tmux session log | `temp/logs/tmux/` | `temp/logs/tmux/aiddtk-my-plugin.log` |
 | Temporary notes | `temp/analysis/notes/` | `temp/analysis/notes/findings.md` |
 | Draft documents | `temp/analysis/drafts/` | `temp/analysis/drafts/feature-spec.md` |
 
@@ -183,7 +190,7 @@ fs.writeFileSync('scan-results.json', JSON.stringify(results));
 
 ```bash
 # Create recommended folder structure
-mkdir -p temp/{credentials,reports/{wpcc,phpstan,performance},data/{exports,imports,backups},playwright/.auth,logs,analysis/{notes,drafts}}
+mkdir -p temp/{credentials,reports/{wpcc,phpstan,performance},data/{exports,imports,backups},playwright/.auth,logs/tmux,analysis/{notes,drafts}}
 
 # Check what's in temp (without showing contents)
 find temp -type f | head -20
@@ -200,6 +207,7 @@ rm -rf temp/*
 ## 📚 Related Documentation
 
 - **[AGENTS.md - Sensitive Data Handling](../AGENTS.md#sensitive-data-handling)** - Complete security guidelines
+- **[AGENTS.md - Tmux Proxy for Flaky Agent Terminals](../AGENTS.md#-tmux-proxy-for-flaky-agent-terminals)** - Resilient session workflow
 - **[AGENTS.md - WPCC Orchestration](../AGENTS.md#wpcc-orchestration)** - Where to store WPCC reports
 - **[README.md](../README.md)** - Project overview and setup
 

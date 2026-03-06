@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.5
+> Version: 1.0.6
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -21,6 +21,7 @@ An early work in progress centralized toolkit for AI-driven WordPress developmen
 | **Python 3** | AI triage, HTML reports | `brew install python3` |
 | **Composer** | PHPStan (optional) | `brew install composer` |
 | **GitHub CLI** | Issue creation (optional) | `brew install gh` |
+| **tmux** | Resilient agent terminal sessions (optional) | `brew install tmux` |
 | **Playwright** | Browser automation (optional) | `npm install -g playwright` |
 
 ## Quick Start
@@ -41,6 +42,7 @@ source ~/.zshrc  # or ~/.bashrc
 
 # Verify installation
 wpcc --help
+aiddtk-tmux --help
 
 # (Optional) Set up temp folder structure for credentials, reports, etc.
 # The folder structure is already created; this just shows what's available
@@ -48,6 +50,8 @@ ls temp/
 ```
 
 **Note**: The `/temp` folder is for storing sensitive data (credentials, API keys, reports) that should never be committed to git. See [`temp/README.md`](temp/README.md) for complete usage guidelines.
+
+**VS Code Agent Tip**: If the integrated terminal becomes flaky or non-responsive, switch long-running work to `aiddtk-tmux` so the session survives outside the editor terminal.
 
 ## Usage from Any Project
 
@@ -57,6 +61,11 @@ wpcc analyze ./wp-content/plugins/my-plugin
 
 # Run WP-CLI via Local
 local-wp my-site plugin list
+
+# Start a resilient agent session for long-running work
+aiddtk-tmux start --cwd ./wp-content/plugins/my-plugin
+aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --format json --verbose"
+aiddtk-tmux capture --tail 100
 ```
 
 ## Tools
@@ -65,6 +74,7 @@ local-wp my-site plugin list
 |------|-------------|
 | **WP Code Check** | Code review + AI triage with MCP server |
 | **WP AJAX Test** | AJAX endpoint testing and validation |
+| **AI-DDTK Tmux Proxy** | Persistent tmux-backed sessions for flaky IDE terminals |
 | **[Fix-Iterate Loop](fix-iterate-loop.md)** | Autonomous test-verify-fix workflow for AI agents |
 | **local-wp** | WP-CLI wrapper for Local by Flywheel |
 | **Playwright** | Headless browser automation |
@@ -76,6 +86,7 @@ local-wp my-site plugin list
 AI-DDTK/
 ├── install.sh           # Install & maintenance script
 ├── bin/                  # Executable wrappers (added to PATH)
+│   ├── aiddtk-tmux      # Optional resilient tmux wrapper
 │   ├── wpcc             # WP Code Check wrapper
 │   └── wp-ajax-test     # AJAX endpoint tester
 ├── tools/               # Embedded dependencies (git subtree)
@@ -88,7 +99,7 @@ AI-DDTK/
 │   ├── reports/         # WPCC, PHPStan, performance reports
 │   ├── data/            # Exports, imports, backups
 │   ├── playwright/      # Playwright auth state
-│   ├── logs/            # Debug logs
+│   ├── logs/            # Debug logs and tmux session captures
 │   └── analysis/        # AI agent working files
 ├── local-wp             # Local WP-CLI wrapper
 ├── fix-iterate-loop.md  # Autonomous test-verify-fix pattern
@@ -112,6 +123,45 @@ See `install.sh` for detailed guidance on:
 - Git subtree operations for updating WPCC
 - GitHub CLI commands for checking updates
 - Architecture and maintenance notes
+
+For resilient long-running jobs in flaky IDE terminals, use `aiddtk-tmux` with explicit toolkit paths such as `~/bin/ai-ddtk/bin/wpcc`.
+
+## Tmux Proxy for VS Code Agents
+
+Use `aiddtk-tmux` when an AI agent needs a shell that survives a stuck or disconnected VS Code terminal.
+
+### Best Uses
+
+- Long-running `wpcc` scans
+- `phpstan analyse` runs
+- `wp` / `local-wp` commands that may outlive the editor session
+- `curl` / debugging flows where you want reliable output capture
+
+### Core Commands
+
+```bash
+# Start a detached session for the current project
+aiddtk-tmux start --cwd /path/to/project
+
+# Send a command into that session
+aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --exclude 'tools/,.git/' --format json --verbose"
+
+# Read recent output without attaching interactively
+aiddtk-tmux capture --tail 200
+
+# Human-only: attach to the live terminal
+aiddtk-tmux attach
+
+# Stop the session when done
+aiddtk-tmux stop
+```
+
+### Notes
+
+- Session names default to `aiddtk-<current-folder>`
+- Output is logged under `temp/logs/tmux/`
+- Prefer explicit paths like `~/bin/ai-ddtk/bin/wpcc` inside tmux commands to avoid bash/zsh PATH mismatches
+- If `tmux` is not installed, the wrapper will show the optional install command
 
 ## WPCC: Project Templates
 
@@ -207,6 +257,18 @@ If that doesn't work, verify the install:
 **`WPCC not found` or `setup-wpcc` needed** — Run setup again:
 ```bash
 cd ~/bin/ai-ddtk && ./install.sh setup-wpcc
+```
+
+**VS Code AI terminal is non-responsive** — Move the work into a tmux-backed session:
+```bash
+aiddtk-tmux start --cwd /path/to/project
+aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --format json --verbose"
+aiddtk-tmux capture --tail 200
+```
+
+If `tmux` is missing, install it first:
+```bash
+brew install tmux
 ```
 
 **WPCC stalls when scanning AI-DDTK itself** — The repository includes embedded WPCC via git subtree. Use exclusions:

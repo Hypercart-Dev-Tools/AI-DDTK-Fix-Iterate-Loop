@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.0.0
+# Version: 1.0.6
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -36,12 +36,13 @@
 #   ├── install.sh           # This file - install & maintenance
 #   ├── bin/                  # Executable wrappers (added to PATH)
 #   │   ├── wpcc              # WP Code Check wrapper
-#   │   └── local-wp          # (future) Local WP-CLI wrapper
+#   │   ├── wp-ajax-test      # AJAX endpoint tester
+#   │   └── aiddtk-tmux       # Optional resilient tmux wrapper
 #   ├── tools/                # Embedded dependencies via git subtree
 #   │   └── wp-code-check/    # WPCC subtree
-#   ├── agents/               # AI agent instructions
-#   ├── mcp/                  # MCP server configurations
-#   └── docs/                 # Documentation
+#   ├── temp/                 # Sensitive data, logs, analysis files
+#   ├── recipes/              # Workflow recipes
+#   └── AGENTS.md             # AI agent guidelines
 #
 # ============================================================
 # LLM AGENT GUIDANCE: GIT SUBTREE OPERATIONS
@@ -162,6 +163,18 @@ show_usage() {
     echo "  status        Show versions and status"
     echo "  uninstall     Remove PATH entries"
     echo ""
+    echo "Optional tools after install:"
+    echo "  aiddtk-tmux --help   Resilient tmux-backed sessions for AI agents"
+    echo ""
+}
+
+show_tmux_status() {
+    if command -v tmux >/dev/null 2>&1; then
+        TMUX_VERSION="$(tmux -V 2>/dev/null || echo installed)"
+        echo -e "  tmux: ${GREEN}✓ Available${NC} ($TMUX_VERSION)"
+    else
+        echo -e "  tmux: ${YELLOW}○ Optional / not installed${NC} (brew install tmux)"
+    fi
 }
 
 install_path() {
@@ -245,6 +258,8 @@ show_status() {
         echo -e "  WPCC: ${YELLOW}✗ Not installed${NC} (run './install.sh setup-wpcc')"
     fi
 
+    show_tmux_status
+
     echo ""
     echo -e "${CYAN}Available Tools:${NC}"
     for tool in "$BIN_DIR"/*; do
@@ -287,6 +302,7 @@ case "${1:-}" in
         echo "  1. Run: source $SHELL_CONFIG"
         echo "  2. Run: ./install.sh setup-wpcc"
         echo "  3. Test: wpcc --help"
+        echo "  4. Optional: aiddtk-tmux --help"
         ;;
     update)
         update_toolkit
