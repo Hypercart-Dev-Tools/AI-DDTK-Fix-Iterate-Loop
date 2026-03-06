@@ -42,7 +42,6 @@ source ~/.zshrc  # or ~/.bashrc
 
 # Verify installation
 wpcc --help
-aiddtk-tmux --help
 
 # (Optional) Set up temp folder structure for credentials, reports, etc.
 # The folder structure is already created; this just shows what's available
@@ -50,8 +49,6 @@ ls temp/
 ```
 
 **Note**: The `/temp` folder is for storing sensitive data (credentials, API keys, reports) that should never be committed to git. See [`temp/README.md`](temp/README.md) for complete usage guidelines.
-
-**VS Code Agent Tip**: If the integrated terminal becomes flaky or non-responsive, switch long-running work to `aiddtk-tmux` so the session survives outside the editor terminal.
 
 ## Usage from Any Project
 
@@ -61,11 +58,6 @@ wpcc analyze ./wp-content/plugins/my-plugin
 
 # Run WP-CLI via Local
 local-wp my-site plugin list
-
-# Start a resilient agent session for long-running work
-aiddtk-tmux start --cwd ./wp-content/plugins/my-plugin
-aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --format json --verbose"
-aiddtk-tmux capture --tail 100
 ```
 
 ## Tools
@@ -123,45 +115,6 @@ See `install.sh` for detailed guidance on:
 - Git subtree operations for updating WPCC
 - GitHub CLI commands for checking updates
 - Architecture and maintenance notes
-
-For resilient long-running jobs in flaky IDE terminals, use `aiddtk-tmux` with explicit toolkit paths such as `~/bin/ai-ddtk/bin/wpcc`.
-
-## Tmux Proxy for VS Code Agents
-
-Use `aiddtk-tmux` when an AI agent needs a shell that survives a stuck or disconnected VS Code terminal.
-
-### Best Uses
-
-- Long-running `wpcc` scans
-- `phpstan analyse` runs
-- `wp` / `local-wp` commands that may outlive the editor session
-- `curl` / debugging flows where you want reliable output capture
-
-### Core Commands
-
-```bash
-# Start a detached session for the current project
-aiddtk-tmux start --cwd /path/to/project
-
-# Send a command into that session
-aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --exclude 'tools/,.git/' --format json --verbose"
-
-# Read recent output without attaching interactively
-aiddtk-tmux capture --tail 200
-
-# Human-only: attach to the live terminal
-aiddtk-tmux attach
-
-# Stop the session when done
-aiddtk-tmux stop
-```
-
-### Notes
-
-- Session names default to `aiddtk-<current-folder>`
-- Output is logged under `temp/logs/tmux/`
-- Prefer explicit paths like `~/bin/ai-ddtk/bin/wpcc` inside tmux commands to avoid bash/zsh PATH mismatches
-- If `tmux` is not installed, the wrapper will show the optional install command
 
 ## WPCC: Project Templates
 
