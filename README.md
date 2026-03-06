@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.6
+> Version: 1.0.7
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -72,6 +72,19 @@ local-wp my-site plugin list
 | **Playwright** | Headless browser automation |
 | **PixelMatch** | Visual regression testing |
 
+## Experimental Workflows
+
+Promising but not-yet-core helpers live in `experimental/`. The first one is `experimental/theme-crash-loop.sh`, which runs a Local/WordPress crash repro loop, stores artifacts under the target project's `temp/theme-crash-loop/`, and can hand the run off to `aiddtk-tmux` for unattended execution.
+
+```bash
+~/bin/ai-ddtk/experimental/theme-crash-loop.sh \
+  --site-name my-local-site \
+  --project-root "$(pwd)" \
+  --target-stylesheet my-child-theme \
+  --target-template astra \
+  --tmux
+```
+
 ## Repository Structure
 
 ```
@@ -85,6 +98,8 @@ AI-DDTK/
 │   ├── wp-code-check/   # WPCC source
 │   └── wp-ajax-test/    # AJAX test tool source
 ├── recipes/             # Workflow guides (PHPStan, audits, etc.)
+├── experimental/        # Promising workflows that are not yet stable core tools
+│   └── theme-crash-loop.sh
 ├── templates/           # Configuration templates
 ├── temp/                # Sensitive data storage (credentials, reports, logs)
 │   ├── credentials/     # API keys, passwords, tokens

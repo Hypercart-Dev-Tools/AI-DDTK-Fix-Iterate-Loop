@@ -13,6 +13,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [1.0.7] - 2026-03-06
+
+### Added
+- **Experimental `theme-crash-loop.sh` workflow** under `experimental/`
+  - Moves the proven crash-loop prototype out of the repo root and into an explicit incubation area
+  - Accepts reusable parameters for Local site name, target project root, fallback/target theme slugs, and log overrides
+  - Stores run artifacts under the target project's `temp/theme-crash-loop/<run-id>/`
+  - Can launch itself via `aiddtk-tmux` for unattended repro/debug loops
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.7`
+  - install.sh updated to `1.0.7`
+- **README.md** now documents the new `experimental/` folder and the initial crash-loop helper
+- **4X4.md** trimmed completed tmux-only checklist items and added an experimental crash-loop promotion backlog item
+- **Tmux validation status** recorded for release hygiene; the previously-open dashboard item is now complete
+
+### Fixed
+- **Crash-loop workflow portability** no longer depends on the script living inside a specific theme repository or on one hardcoded Local site/theme combination
+- **Experimental crash-loop verification fixes**
+  - `experimental/theme-crash-loop.sh` now supports `--dry-run` even when the inferred Local site path does not exist yet
+  - The experimental helper was marked executable so it can be invoked directly as documented
+
 ## [1.0.6] - 2026-03-06
 
 ### Added
