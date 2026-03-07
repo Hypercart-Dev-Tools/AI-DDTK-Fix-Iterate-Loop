@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.7.1 — 2026-03-07_
+_Last updated: v2.7.2 — 2026-03-07_
 
 ## Purpose
 
@@ -173,6 +173,7 @@ await page.goto('http://my-site.local/wp-admin/');
 - `--site-url` is **required** and validated against the URL returned by WP-CLI to catch origin mismatches early.
 - The mu-plugin refuses to run on `production` environments and restricts to `localhost`, `127.0.0.1`, `::1`, `*.local`, and `*.test` hosts.
 - Tokens are **one-time** (deleted after use) and expire after **5 minutes** if unused.
+- Run `pw-auth login --site-url <url> [--wp-cli "local-wp <site>"]` immediately before Playwright automation to mint or reuse auth state; if the one-time URL expired or auth is stale, rerun `pw-auth login --force ...` to generate a fresh login URL.
 - Auth verification checks: `wordpress_logged_in_` cookie present, `/wp-admin/` accessible without redirect to login, no WordPress error page.
 - If `pw-auth login` fails, verify: (1) the mu-plugin is in `wp-content/mu-plugins/`, (2) the site's environment is not `production`, (3) WP-CLI can reach the site, (4) the requested WP user exists, (5) if Playwright still isn't resolvable after auto-detection, export `NODE_PATH="$(npm root -g)"` manually.
 - For Local by Flywheel sites, always pass `--wp-cli "local-wp <site-name>"`.

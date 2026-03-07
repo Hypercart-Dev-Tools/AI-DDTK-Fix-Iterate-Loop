@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.9
+> Version: 1.0.10
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -303,7 +303,7 @@ await page.goto('http://my-site.local/wp-admin/');
 // Already authenticated — no login form needed
 ```
 
-Auth state is cached for 12 hours by default (configurable with `--max-age`). `pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright before failing. The tool verifies login by checking for `wordpress_logged_in_` cookies, confirming `/wp-admin/` is accessible, and detecting real WordPress error pages without falsely flagging normal admin markup. See `pw-auth --help` for all options.
+Auth state is cached for 12 hours by default (configurable with `--max-age`). Run `pw-auth login --site-url <url> [--wp-cli "local-wp <site>"]` immediately before Playwright automation to mint or reuse auth state; if the one-time URL expired or auth is stale, rerun `pw-auth login --force ...` to generate a fresh login URL. `pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright before failing. The tool verifies login by checking for `wordpress_logged_in_` cookies, confirming `/wp-admin/` is accessible, and detecting real WordPress error pages without falsely flagging normal admin markup. See `pw-auth --help` for all options.
 
 ### Troubleshooting
 
