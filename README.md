@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.7
+> Version: 1.0.8
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -253,7 +253,7 @@ Auth state is stored in the **current working directory** at `./temp/playwright/
   npm install -g playwright
   npx playwright install chromium
   ```
-  If `node -e "require('playwright')"` fails, set `NODE_PATH`:
+  `pw-auth` first tries the current Node environment, then auto-attempts `npm root -g` / `NODE_PATH` recovery for global installs. If Node still cannot resolve Playwright, set `NODE_PATH` manually:
   ```bash
   export NODE_PATH="$(npm root -g)"
   ```
@@ -303,14 +303,14 @@ await page.goto('http://my-site.local/wp-admin/');
 // Already authenticated — no login form needed
 ```
 
-Auth state is cached for 12 hours by default (configurable with `--max-age`). The tool verifies login by checking for `wordpress_logged_in_` cookies and confirming `/wp-admin/` is accessible. See `pw-auth --help` for all options.
+Auth state is cached for 12 hours by default (configurable with `--max-age`). `pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright before failing. The tool verifies login by checking for `wordpress_logged_in_` cookies and confirming `/wp-admin/` is accessible. See `pw-auth --help` for all options.
 
 ### Troubleshooting
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
-| `Playwright is not resolvable` | Global install not in NODE_PATH | `export NODE_PATH="$(npm root -g)"` |
-| `WP-CLI command failed` | mu-plugin not installed | `cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site>/wp-content/mu-plugins/` |
+| `Playwright is not resolvable` | Global install still isn't visible after `pw-auth` auto-tried `npm root -g` | `export NODE_PATH="$(npm root -g)"`, then retry |
+| `WP-CLI command failed` | mu-plugin missing, site blocked, or requested user doesn't exist | Install `templates/dev-login-cli.php`, confirm `WP_ENVIRONMENT_TYPE` is not `production`, and verify the `--user` exists |
 | `Login URL origin mismatch` | `--site-url` doesn't match WP `home_url()` | Check site URL in WP Settings or pass the correct URL |
 | `No wordpress_logged_in_ cookie` | Token expired or environment blocked | Re-run with `--force`, check `WP_ENVIRONMENT_TYPE` |
 

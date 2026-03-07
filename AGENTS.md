@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.7.0 — 2026-03-06_
+_Last updated: v2.7.1 — 2026-03-07_
 
 ## Purpose
 
@@ -120,7 +120,7 @@ Auth state is stored in the **current working directory** at `./temp/playwright/
    ```bash
    npm install -g playwright && npx playwright install chromium
    ```
-   If `node -e "require('playwright')"` fails, set `NODE_PATH`:
+   `pw-auth` first tries the current Node environment, then auto-attempts `npm root -g` / `NODE_PATH` recovery for global installs. If Node still can't resolve Playwright, set `NODE_PATH` manually:
    ```bash
    export NODE_PATH="$(npm root -g)"
    ```
@@ -174,7 +174,7 @@ await page.goto('http://my-site.local/wp-admin/');
 - The mu-plugin refuses to run on `production` environments and restricts to `localhost`, `127.0.0.1`, `::1`, and `*.local` hosts.
 - Tokens are **one-time** (deleted after use) and expire after **5 minutes** if unused.
 - Auth verification checks: `wordpress_logged_in_` cookie present, `/wp-admin/` accessible without redirect to login, no WordPress error page.
-- If `pw-auth login` fails, verify: (1) the mu-plugin is in `wp-content/mu-plugins/`, (2) the site's environment is not `production`, (3) WP-CLI can reach the site, (4) `node -e "require('playwright')"` works.
+- If `pw-auth login` fails, verify: (1) the mu-plugin is in `wp-content/mu-plugins/`, (2) the site's environment is not `production`, (3) WP-CLI can reach the site, (4) the requested WP user exists, (5) if Playwright still isn't resolvable after auto-detection, export `NODE_PATH="$(npm root -g)"` manually.
 - For Local by Flywheel sites, always pass `--wp-cli "local-wp <site-name>"`.
 
 ---
@@ -527,9 +527,9 @@ WP-CLI's default 134MB memory limit is often insufficient with WooCommerce and o
 
 Playwright is not bundled with AI-DDTK (large dependency, project-specific versions):
 
-- **Check if installed**: `node -e "require('playwright')"` (must succeed for `pw-auth`)
+- **Check CLI install**: `npx playwright --version`
 - **Install globally** (recommended): `npm install -g playwright && npx playwright install chromium`
-- **If node can't resolve global install**: `export NODE_PATH="$(npm root -g)"`
+- **Resolution behavior**: `pw-auth` auto-attempts `npm root -g` / `NODE_PATH` recovery for global installs; if that still fails, export `NODE_PATH="$(npm root -g)"` manually
 - **Never install per-project**: `npm install -D playwright` adds to node_modules (tracked by git)
 - **AI agents**: Always ask user before installing — never auto-install without permission
 - **Authentication**: Use `pw-auth login --site-url <url>` to generate and cache WP admin auth state. See [Playwright Auth](#-playwright-auth-wp-admin-login) section.

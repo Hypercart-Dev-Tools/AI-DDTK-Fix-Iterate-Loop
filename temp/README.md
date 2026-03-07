@@ -103,6 +103,8 @@ wp user list --format=csv > temp/data/exports/users.csv
 
 `pw-auth` stores auth state in the **current working directory's** `temp/playwright/.auth/` folder, so each project gets its own cache. Run `pw-auth` from your project root.
 
+If Playwright was installed globally but Node cannot resolve it in the current shell, `pw-auth` now auto-attempts `NODE_PATH="$(npm root -g)"` before failing. Manual `NODE_PATH` export is only the fallback.
+
 ```bash
 # Authenticate and cache storageState automatically
 pw-auth login --site-url http://my-site.local

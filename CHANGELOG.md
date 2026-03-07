@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-03-07
+
 ### Added
 - **Playwright Auth helper (`pw-auth`)** for passwordless WP admin login in Playwright sessions
   - New `bin/pw-auth` CLI with `login`, `status`, and `clear` commands
@@ -16,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Per-user auth files (e.g., `admin.json`, `editor.json`)
   - `--site-url` validated against WP-CLI login URL origin to catch mismatches
   - Auth verification: checks `wordpress_logged_in_` cookie, `/wp-admin/` accessibility, error page detection
-  - Playwright module resolution: pre-check with fallback to `playwright-core`, temp script file (avoids `node -e` resolution issues), clear error messaging with `NODE_PATH` guidance
+  - Playwright module resolution: pre-check with fallback to `playwright-core`, temp script file (avoids `node -e` resolution issues), and automatic `npm root -g` / `NODE_PATH` recovery before failing
 - **Dev Login CLI mu-plugin template** (`templates/dev-login-cli.php`)
   - One-time, short-lived login tokens via WP-CLI (`wp dev login`)
   - Host allowlist (localhost, 127.0.0.1, ::1, *.local) with `dev_login_allowed_hosts` filter
@@ -26,9 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Playwright Auth documentation across the toolkit**
   - AGENTS.md: Dedicated Playwright Auth section, Available Tools table, Workflow Triggers, Quick CLI Commands
   - README.md: Playwright Auth section with setup, usage, prerequisites, and troubleshooting table
-  - `temp/README.md`: Updated Playwright section with `pw-auth` workflow and CWD storage note
+  - `temp/README.md`: Updated Playwright section with `pw-auth` workflow, CWD storage note, and Playwright auto-resolution guidance
 
 ### Changed
+- **Version updates**
+  - README.md updated to `1.0.8`
+  - install.sh updated to `1.0.8`
+  - AGENTS.md updated to `v2.7.1`
+- **Playwright Auth guidance** now explains that `pw-auth` auto-attempts global npm-root / `NODE_PATH` recovery before falling back to manual export instructions
+- **4X4.md** trimmed completed Playwright-auth sprint checklist items after they were captured in this changelog
 
 ### Fixed
 - **`pw-auth` command injection** — replaced `eval` with bash array invocation for WP-CLI command execution; `--wp-cli`, `--user`, and `--redirect` values no longer pass through a shell parser
@@ -39,7 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Auth file stored in toolkit root** — default path changed from AI-DDTK's `temp/` to CWD `./temp/playwright/.auth/` so each project gets its own cache
 - **`--site-url` was unused** — now validated against the login URL origin returned by WP-CLI; mismatches fail immediately with a clear error
 - **Weak auth verification** — Playwright script now checks 4 conditions: not on `wp-login.php`, no WP error page, `wordpress_logged_in_` cookie present, `/wp-admin/` accessible without redirect
-- **Playwright module resolution** — pre-check `require('playwright')` with fallback to `playwright-core`; actionable `NODE_PATH` error messaging when global install isn't resolvable
+- **Global Playwright installs not resolvable by Node** — `pw-auth` now auto-discovers `npm root -g`, appends it to `NODE_PATH` without duplication, re-checks `playwright` / `playwright-core`, and logs the auto-configured path before failing
 
 ## [1.0.7] - 2026-03-06
 

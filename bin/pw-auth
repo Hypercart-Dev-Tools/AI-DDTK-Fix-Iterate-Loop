@@ -86,6 +86,59 @@ log_error() {
     echo "[pw-auth] ERROR: $*" >&2
 }
 
+node_can_resolve_playwright() {
+    node -e "require('playwright')" >/dev/null 2>&1 || \
+    node -e "require('playwright-core')" >/dev/null 2>&1
+}
+
+append_node_path() {
+    local extra_path="$1"
+    local current_node_path="${NODE_PATH:-}"
+
+    if [ -z "$current_node_path" ]; then
+        echo "$extra_path"
+        return
+    fi
+
+    case ":$current_node_path:" in
+        *":$extra_path:"*)
+            echo "$current_node_path"
+            ;;
+        *)
+            echo "$current_node_path:$extra_path"
+            ;;
+    esac
+}
+
+ensure_playwright_resolvable() {
+    if node_can_resolve_playwright; then
+        return 0
+    fi
+
+    if ! command -v npm >/dev/null 2>&1; then
+        return 1
+    fi
+
+    local npm_root
+    npm_root="$(npm root -g 2>/dev/null || true)"
+
+    if [ -z "$npm_root" ] || [ ! -d "$npm_root" ]; then
+        return 1
+    fi
+
+    local candidate_node_path
+    candidate_node_path="$(append_node_path "$npm_root")"
+
+    if NODE_PATH="$candidate_node_path" node -e "require('playwright')" >/dev/null 2>&1 || \
+       NODE_PATH="$candidate_node_path" node -e "require('playwright-core')" >/dev/null 2>&1; then
+        export NODE_PATH="$candidate_node_path"
+        log_info "Auto-configured NODE_PATH for Playwright: $npm_root"
+        return 0
+    fi
+
+    return 1
+}
+
 # Check if a file is older than N hours
 file_age_hours() {
     local file="$1"
@@ -169,14 +222,14 @@ do_login() {
     fi
 
     # Verify Playwright is resolvable by Node
-    if ! node -e "require('playwright')" 2>/dev/null && \
-       ! node -e "require('playwright-core')" 2>/dev/null; then
+    if ! ensure_playwright_resolvable; then
         log_error "Playwright is not resolvable by Node.js."
         log_error ""
         log_error "Install globally:  npm install -g playwright"
         log_error "Then install browsers:  npx playwright install chromium"
         log_error ""
-        log_error "If already installed globally but node can't find it, set NODE_PATH:"
+        log_error "pw-auth already tried the global npm root from: npm root -g"
+        log_error "If Node still can't find Playwright, set NODE_PATH manually:"
         log_error "  export NODE_PATH=\"\$(npm root -g)\""
         exit 1
     fi
