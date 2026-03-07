@@ -113,7 +113,7 @@ pw-auth login --site-url http://my-site.local
 pw-auth status
 
 # Auth state saved to: ./temp/playwright/.auth/<user>.json
-# Cached for 12 hours, auto-refreshes on next pw-auth login
+# Cached for up to 12 hours; fresh auth is live-validated on next pw-auth login
 ```
 
 **Using cached auth in Playwright scripts**:

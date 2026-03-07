@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.10
+> Version: 1.0.12
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -287,7 +287,7 @@ pw-auth login --site-url http://my-site.local --user=editor --redirect=/wp-admin
 # Force re-auth (skip cache)
 pw-auth login --site-url http://my-site.local --force
 
-# Check auth status / clear cached auth
+# Check cached auth freshness / clear cached auth
 pw-auth status
 pw-auth clear
 ```
@@ -303,16 +303,27 @@ await page.goto('http://my-site.local/wp-admin/');
 // Already authenticated — no login form needed
 ```
 
-Auth state is cached for 12 hours by default (configurable with `--max-age`). Run `pw-auth login --site-url <url> [--wp-cli "local-wp <site>"]` immediately before Playwright automation to mint or reuse auth state; if the one-time URL expired or auth is stale, rerun `pw-auth login --force ...` to generate a fresh login URL. `pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright before failing. The tool verifies login by checking for `wordpress_logged_in_` cookies, confirming `/wp-admin/` is accessible, and detecting real WordPress error pages without falsely flagging normal admin markup. See `pw-auth --help` for all options.
+Auth state is cached for 12 hours by default (configurable with `--max-age`). Run `pw-auth login --site-url <url> [--wp-cli "local-wp <site>"]` immediately before Playwright automation to mint or reuse auth state; if the one-time URL expired or auth is stale, rerun `pw-auth login --force ...` to generate a fresh login URL. Fresh cached auth files are now **live-validated before reuse**; if the saved session no longer reaches `/wp-admin/`, `pw-auth` re-authenticates instead of returning a false success. `pw-auth status` shows cache freshness/metadata only. `pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright before failing. For HTTPS local-development origins (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`), the Playwright browser context now tolerates self-signed certificates so Local-style sites can authenticate cleanly. The tool verifies login by checking for `wordpress_logged_in_` cookies, confirming `/wp-admin/` is accessible, and detecting real WordPress error pages without falsely flagging normal admin markup. See `pw-auth --help` for all options.
 
 ### Troubleshooting
 
 | Problem | Cause | Fix |
 |---------|-------|-----|
 | `Playwright is not resolvable` | Global install still isn't visible after `pw-auth` auto-tried `npm root -g` | `export NODE_PATH="$(npm root -g)"`, then retry |
-| `WP-CLI command failed` | mu-plugin missing, host blocked, or requested user doesn't exist | Install `templates/dev-login-cli.php`, confirm `WP_ENVIRONMENT_TYPE` is not `production`, verify the `--user` exists, and ensure the site host is localhost/127.0.0.1/::1 or `*.local` / `*.test` |
+| `ERR_CERT_AUTHORITY_INVALID` on a Local/dev HTTPS site | Chromium does not trust the local certificate | Re-run on the latest `pw-auth`; it now ignores certificate errors for `localhost`, `127.0.0.1`, `::1`, `*.local`, and `*.test` HTTPS origins |
+| `WP-CLI command failed` | mu-plugin missing, host blocked, or requested user doesn't exist | Run the exact diagnostics below, then install `templates/dev-login-cli.php`, confirm `WP_ENVIRONMENT_TYPE` is not `production`, verify the `--user` exists, and ensure the site host is localhost/127.0.0.1/::1 or `*.local` / `*.test` |
 | `Login URL origin mismatch` | `--site-url` doesn't match WP `home_url()` | Check site URL in WP Settings or pass the correct URL |
 | `No wordpress_logged_in_ cookie` | Token expired or environment blocked | Re-run with `--force`, check `WP_ENVIRONMENT_TYPE` |
+
+Fastest WP-CLI diagnostics (swap `wp` for `local-wp <site>` if needed):
+
+```bash
+wp option get home
+wp eval 'echo wp_get_environment_type(), PHP_EOL;'
+wp user get admin --field=user_login
+wp eval 'echo ( file_exists( WP_CONTENT_DIR . "/mu-plugins/dev-login-cli.php" ) ? "mu-plugin present" : "mu-plugin missing" ), PHP_EOL;'
+wp dev login --user=admin --format=url
+```
 
 ## Experimental Workflows
 
