@@ -27,6 +27,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_ROOT="$(dirname "$SCRIPT_DIR")"
 AUTH_DIR="$(pwd)/temp/playwright/.auth"
 DEFAULT_MAX_AGE_HOURS=12
+TEMP_FILES=()
 
 # ============================================================
 # HELPERS
@@ -86,6 +87,50 @@ log_info() {
 log_error() {
     echo "[pw-auth] ERROR: $*" >&2
 }
+
+track_temp_file() {
+    local temp_file="${1:-}"
+
+    if [ -n "$temp_file" ]; then
+        TEMP_FILES+=("$temp_file")
+    fi
+}
+
+cleanup_temp_file() {
+    local target_file="${1:-}"
+    local temp_file
+    local -a remaining_files=()
+
+    if [ -n "$target_file" ]; then
+        rm -f "$target_file" 2>/dev/null || true
+    fi
+
+    for temp_file in "${TEMP_FILES[@]:-}"; do
+        if [ -n "$temp_file" ] && [ "$temp_file" != "$target_file" ]; then
+            remaining_files+=("$temp_file")
+        fi
+    done
+
+    if [ "${remaining_files[0]+set}" = "set" ]; then
+        TEMP_FILES=("${remaining_files[@]}")
+    else
+        TEMP_FILES=()
+    fi
+}
+
+cleanup_all_temp_files() {
+    local temp_file
+
+    for temp_file in "${TEMP_FILES[@]:-}"; do
+        [ -n "$temp_file" ] && rm -f "$temp_file" 2>/dev/null || true
+    done
+
+    TEMP_FILES=()
+}
+
+trap cleanup_all_temp_files EXIT
+trap 'cleanup_all_temp_files; exit 130' INT
+trap 'cleanup_all_temp_files; exit 143' TERM
 
 node_can_resolve_playwright() {
     node -e "require('playwright')" >/dev/null 2>&1 || \
@@ -332,6 +377,7 @@ run_playwright_auth_flow() {
         log_error "Failed to create temporary Playwright script file."
         return 1
     }
+    track_temp_file "$pw_script"
 
     cat > "$pw_script" <<'PLAYWRIGHT_SCRIPT'
 // pw-auth: Playwright login + storageState capture / validation
@@ -448,9 +494,11 @@ async function assertWpAdminAccessible(page) {
 })();
 PLAYWRIGHT_SCRIPT
 
+    set +e
     node "$pw_script" "$mode" "$site_url" "$auth_file" "$login_url" "$headless_val"
     exit_code=$?
-    rm -f "$pw_script"
+    set -e
+    cleanup_temp_file "$pw_script"
 
     return $exit_code
 }
@@ -530,8 +578,9 @@ do_login() {
                 log_error "Failed to create temporary validation log file."
                 return 1
             }
+            track_temp_file "$validate_log"
             if run_playwright_auth_flow "validate" "$site_url" "$auth_file" "" "true" >"$validate_log" 2>&1; then
-                rm -f "$validate_log"
+                cleanup_temp_file "$validate_log"
                 log_info "Cached auth passed live validation. Reusing: $auth_file"
                 log_info "Use --force to re-authenticate."
                 exit 0
@@ -543,7 +592,7 @@ do_login() {
                     log_info "Cached auth probe failed: $validate_summary"
                 fi
             fi
-            rm -f "$validate_log"
+            cleanup_temp_file "$validate_log"
             log_info "Cached auth is fresh but no longer valid. Re-authenticating..."
         else
             log_info "Cached auth is ${age}h old (max: ${max_age}h). Re-authenticating..."
@@ -586,6 +635,7 @@ do_login() {
         log_error "Failed to create temporary WP-CLI stderr log file."
         return 1
     }
+    track_temp_file "$stderr_file"
     login_url="$("${wp_cmd_args[@]}" 2>"$stderr_file")" || {
         log_error "WP-CLI command failed while generating the one-time login URL."
         if [ -s "$stderr_file" ]; then
@@ -602,10 +652,10 @@ do_login() {
         log_error "  $wp_prefix_display user get $wp_user --field=user_login"
         log_error "  $wp_prefix_display eval 'echo ( file_exists( WP_CONTENT_DIR . \"/mu-plugins/dev-login-cli.php\" ) ? \"mu-plugin present\" : \"mu-plugin missing\" ), PHP_EOL;'"
         log_error "  $wp_prefix_display dev login --user=$wp_user --format=url"
-        rm -f "$stderr_file"
+        cleanup_temp_file "$stderr_file"
         exit 1
     }
-    rm -f "$stderr_file"
+    cleanup_temp_file "$stderr_file"
 
     # Trim any whitespace / extra lines — take only the last line (the URL)
     login_url="$(echo "$login_url" | tail -n 1 | tr -d '[:space:]')"

@@ -67,6 +67,17 @@ detect_php_bin() {
 }
 
 PHP_BIN="${PHP_BIN:-$(detect_php_bin)}"
+PHP_INI_FILE=""
+
+cleanup_php_ini() {
+  if [ -n "$PHP_INI_FILE" ]; then
+    rm -f "$PHP_INI_FILE" 2>/dev/null || true
+  fi
+}
+
+trap cleanup_php_ini EXIT
+trap 'cleanup_php_ini; exit 130' INT
+trap 'cleanup_php_ini; exit 143' TERM
 
 # Colors
 RED='\033[0;31m'
@@ -144,7 +155,7 @@ if [ ! -f "$SITE_PATH/wp-config.php" ]; then
 fi
 
 # Find MySQL socket
-SITE_ID=$(grep -r "$SITE_NAME" "$LOCAL_RUN_DIR"/*/conf 2>/dev/null | head -1 | sed 's#.*/run/\([^/]*\)/.*#\1#')
+SITE_ID=$(grep -rF -- "$SITE_NAME" "$LOCAL_RUN_DIR"/*/conf 2>/dev/null | head -1 | sed 's#.*/run/\([^/]*\)/.*#\1#')
 
 if [ -z "$SITE_ID" ]; then
   echo -e "${RED}Error: Could not find site configuration${NC}"
@@ -169,6 +180,3 @@ cd "$SITE_PATH" || exit 1
 
 # Run WP-CLI with custom PHP ini
 "$PHP_BIN" -c "$PHP_INI_FILE" "$WP_CLI_PHAR" "$@"
-
-# Cleanup
-rm -f "$PHP_INI_FILE"
