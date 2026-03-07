@@ -37,6 +37,7 @@
 #   ├── bin/                  # Executable wrappers (added to PATH)
 #   │   ├── wpcc              # WP Code Check wrapper
 #   │   ├── wp-ajax-test      # AJAX endpoint tester
+#   │   ├── pw-auth           # Playwright WP admin auth helper
 #   │   └── aiddtk-tmux       # Optional resilient tmux wrapper
 #   ├── tools/                # Embedded dependencies via git subtree
 #   │   └── wp-code-check/    # WPCC subtree

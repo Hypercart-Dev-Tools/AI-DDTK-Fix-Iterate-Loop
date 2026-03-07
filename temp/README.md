@@ -94,20 +94,39 @@ wp user list --format=csv > temp/data/exports/users.csv
 
 ### `/temp/playwright/` - Playwright Test Data
 **Store**:
-- Authentication state files
+- Authentication state files (managed by `pw-auth`)
 - Session storage data
 - Cookies and local storage
 - Test screenshots (if sensitive)
 
-**Example**:
-```javascript
-// Save auth state
-await page.context().storageState({ path: 'temp/playwright/.auth/admin.json' });
+**Automated auth with `pw-auth`** (recommended):
 
-// Load auth state
-const context = await browser.newContext({ 
-  storageState: 'temp/playwright/.auth/admin.json' 
+`pw-auth` stores auth state in the **current working directory's** `temp/playwright/.auth/` folder, so each project gets its own cache. Run `pw-auth` from your project root.
+
+```bash
+# Authenticate and cache storageState automatically
+pw-auth login --site-url http://my-site.local
+
+# Check cached auth status
+pw-auth status
+
+# Auth state saved to: ./temp/playwright/.auth/<user>.json
+# Cached for 12 hours, auto-refreshes on next pw-auth login
+```
+
+**Using cached auth in Playwright scripts**:
+```javascript
+// Load auth state — no login form interaction needed
+const context = await browser.newContext({
+  storageState: 'temp/playwright/.auth/admin.json'
 });
+const page = await context.newPage();
+await page.goto('http://my-site.local/wp-admin/');
+```
+
+**Manual save** (if not using `pw-auth`):
+```javascript
+await page.context().storageState({ path: 'temp/playwright/.auth/admin.json' });
 ```
 
 ### `/temp/logs/` - Debug & Temporary Logs
@@ -207,6 +226,7 @@ rm -rf temp/*
 ## 📚 Related Documentation
 
 - **[AGENTS.md - Sensitive Data Handling](../AGENTS.md#sensitive-data-handling)** - Complete security guidelines
+- **[AGENTS.md - Playwright Auth](../AGENTS.md#-playwright-auth-wp-admin-login)** - `pw-auth` setup and usage
 - **[AGENTS.md - Tmux Proxy for Flaky Agent Terminals](../AGENTS.md#-tmux-proxy-for-flaky-agent-terminals)** - Resilient session workflow
 - **[AGENTS.md - WPCC Orchestration](../AGENTS.md#wpcc-orchestration)** - Where to store WPCC reports
 - **[README.md](../README.md)** - Project overview and setup

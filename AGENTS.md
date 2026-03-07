@@ -40,6 +40,7 @@ This workspace has access to **AI-DDTK** (AI Driven Development ToolKit) install
 | **WP Performance Timer** | Runtime performance profiling | `perf_timer_start()` / `perf_timer_stop()` |
 | **PHPStan** | Type-aware static analysis | `phpstan analyse --configuration=phpstan.neon` |
 | **WP AJAX Test** | Lightweight AJAX endpoint testing | `wp-ajax-test --url <url> --action <action>` |
+| **Playwright Auth** | One-time WP admin login + storageState caching | `pw-auth login --site-url <url>` |
 | **Fix-Iterate Loop** | Autonomous test-verify-fix workflow | See `~/bin/ai-ddtk/fix-iterate-loop.md` |
 | **Workflow Recipes** | Multi-tool workflows | See `~/bin/ai-ddtk/recipes/` |
 
@@ -52,6 +53,7 @@ This workspace has access to **AI-DDTK** (AI Driven Development ToolKit) install
 | "slow", "performance", "bottleneck", "profile" | WP Performance Timer |
 | "fix", "test", "verify", "iterate", "debug" | Fix-Iterate Loop |
 | "test this AJAX endpoint", "debug AJAX" | WP AJAX Test |
+| "login to WP admin", "Playwright auth", "browser automation" | Playwright Auth (`pw-auth`) |
 | "performance audit", complex multi-tool workflows | Recipes (`~/bin/ai-ddtk/recipes/`) |
 
 ### Task Management
@@ -95,6 +97,85 @@ aiddtk-tmux stop
 - Use explicit binary paths inside tmux commands (`~/bin/ai-ddtk/bin/wpcc`, project-local `vendor/bin/phpstan`) to avoid shell-init/PATH mismatches.
 - Session logs belong in `~/bin/ai-ddtk/temp/logs/tmux/`.
 - If `tmux` is missing, ask the user before installing it with `brew install tmux`.
+
+---
+
+## 🔑 Playwright Auth (WP Admin Login)
+
+Use `pw-auth` to authenticate Playwright browser sessions into WordPress admin without hardcoded passwords. It generates a one-time login URL via WP-CLI, navigates Playwright to it, and caches the resulting `storageState` for reuse.
+
+Auth state is stored in the **current working directory** at `./temp/playwright/.auth/<user>.json`, so each project gets its own cache.
+
+### Prerequisites
+
+1. **mu-plugin installed** on the target WordPress site:
+   ```bash
+   cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site-root>/wp-content/mu-plugins/
+   ```
+2. **Environment type** must not be `production`. Local by Flywheel sites work without any `wp-config.php` changes. To be explicit:
+   ```php
+   define('WP_ENVIRONMENT_TYPE', 'local'); // or 'development', 'staging'
+   ```
+3. **Playwright** installed globally and resolvable by Node.js:
+   ```bash
+   npm install -g playwright && npx playwright install chromium
+   ```
+   If `node -e "require('playwright')"` fails, set `NODE_PATH`:
+   ```bash
+   export NODE_PATH="$(npm root -g)"
+   ```
+
+### When to Use
+
+| Scenario | Action |
+|----------|--------|
+| AI agent needs to interact with WP admin via Playwright | Run `pw-auth login` before the Playwright script |
+| Auth state is stale or expired | Run `pw-auth login --force` to re-authenticate |
+| Switching between WP users | Run `pw-auth login --user=editor` (caches per-user) |
+| Checking if auth is still valid | Run `pw-auth status` |
+
+### Quick Commands
+
+```bash
+# Authenticate as admin
+pw-auth login --site-url http://my-site.local
+
+# With Local by Flywheel (always pass --wp-cli for Local sites)
+pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
+
+# Different user + custom landing page
+pw-auth login --site-url http://my-site.local --user=editor --redirect=/wp-admin/site-editor.php
+
+# Force re-auth (skip 12h cache)
+pw-auth login --site-url http://my-site.local --force
+
+# Check cached auth status
+pw-auth status
+
+# Clear all cached auth
+pw-auth clear
+```
+
+### Using Auth State in Playwright Scripts
+
+```javascript
+// Load cached auth — no login form interaction needed
+const context = await browser.newContext({
+  storageState: 'temp/playwright/.auth/admin.json'
+});
+const page = await context.newPage();
+await page.goto('http://my-site.local/wp-admin/');
+```
+
+### Guidance
+
+- Auth state is cached to `./temp/playwright/.auth/<user>.json` (relative to CWD) and reused for 12 hours (configurable with `--max-age`).
+- `--site-url` is **required** and validated against the URL returned by WP-CLI to catch origin mismatches early.
+- The mu-plugin refuses to run on `production` environments and restricts to `localhost`, `127.0.0.1`, `::1`, and `*.local` hosts.
+- Tokens are **one-time** (deleted after use) and expire after **5 minutes** if unused.
+- Auth verification checks: `wordpress_logged_in_` cookie present, `/wp-admin/` accessible without redirect to login, no WordPress error page.
+- If `pw-auth login` fails, verify: (1) the mu-plugin is in `wp-content/mu-plugins/`, (2) the site's environment is not `production`, (3) WP-CLI can reach the site, (4) `node -e "require('playwright')"` works.
+- For Local by Flywheel sites, always pass `--wp-cli "local-wp <site-name>"`.
 
 ---
 
@@ -446,12 +527,13 @@ WP-CLI's default 134MB memory limit is often insufficient with WooCommerce and o
 
 Playwright is not bundled with AI-DDTK (large dependency, project-specific versions):
 
-- **Check if installed**: `npx playwright --version`
-- **Install globally** (recommended): `npm install -g playwright`
-- **Or use npx**: `npx playwright` (downloads to cache, not project)
+- **Check if installed**: `node -e "require('playwright')"` (must succeed for `pw-auth`)
+- **Install globally** (recommended): `npm install -g playwright && npx playwright install chromium`
+- **If node can't resolve global install**: `export NODE_PATH="$(npm root -g)"`
 - **Never install per-project**: `npm install -D playwright` adds to node_modules (tracked by git)
 - **AI agents**: Always ask user before installing — never auto-install without permission
-- **Authentication files**: Store in `/temp/playwright-auth.json` (never commit)
+- **Authentication**: Use `pw-auth login --site-url <url>` to generate and cache WP admin auth state. See [Playwright Auth](#-playwright-auth-wp-admin-login) section.
+- **Auth files**: Stored in `./temp/playwright/.auth/<user>.json` relative to CWD (never commit)
 
 ```php
 // ✅ HTTP request with timeout and retry
@@ -818,6 +900,12 @@ aiddtk-tmux start --cwd /path/to/project
 
 # Capture recent output from that session
 aiddtk-tmux capture --tail 100
+
+# Authenticate Playwright into WP admin
+pw-auth login --site-url http://my-site.local
+
+# Check Playwright auth status
+pw-auth status
 
 # View workflow recipes
 ls ~/bin/ai-ddtk/recipes/

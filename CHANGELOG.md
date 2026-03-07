@@ -8,10 +8,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Playwright Auth helper (`pw-auth`)** for passwordless WP admin login in Playwright sessions
+  - New `bin/pw-auth` CLI with `login`, `status`, and `clear` commands
+  - Generates one-time login URLs via WP-CLI, captures auth state via Playwright
+  - Caches `storageState` to `./temp/playwright/.auth/<user>.json` relative to CWD (12h default, configurable)
+  - Supports Local by Flywheel via `--wp-cli "local-wp <site>"`, custom `--redirect` paths, `--force` re-auth
+  - Per-user auth files (e.g., `admin.json`, `editor.json`)
+  - `--site-url` validated against WP-CLI login URL origin to catch mismatches
+  - Auth verification: checks `wordpress_logged_in_` cookie, `/wp-admin/` accessibility, error page detection
+  - Playwright module resolution: pre-check with fallback to `playwright-core`, temp script file (avoids `node -e` resolution issues), clear error messaging with `NODE_PATH` guidance
+- **Dev Login CLI mu-plugin template** (`templates/dev-login-cli.php`)
+  - One-time, short-lived login tokens via WP-CLI (`wp dev login`)
+  - Host allowlist (localhost, 127.0.0.1, ::1, *.local) with `dev_login_allowed_hosts` filter
+  - `--format=url` for clean scripting output, `--redirect` for custom landing pages
+  - Disabled in production environments, limited to users with `edit_posts` capability
+  - PHP 7.0+ compatible (no `str_ends_with()` dependency)
+- **Playwright Auth documentation across the toolkit**
+  - AGENTS.md: Dedicated Playwright Auth section, Available Tools table, Workflow Triggers, Quick CLI Commands
+  - README.md: Playwright Auth section with setup, usage, prerequisites, and troubleshooting table
+  - `temp/README.md`: Updated Playwright section with `pw-auth` workflow and CWD storage note
 
 ### Changed
 
 ### Fixed
+- **`pw-auth` command injection** — replaced `eval` with bash array invocation for WP-CLI command execution; `--wp-cli`, `--user`, and `--redirect` values no longer pass through a shell parser
+- **`.mjs` + `require()` incompatibility** — temp Playwright script now uses `.js` extension (CJS) so `require()` works correctly
+- **Subdirectory WordPress installs** — Playwright verification now uses the full `--site-url` base path (not just origin) for `/wp-admin/` reachability check
+- **`--redirect` double-encoding** — removed `rawurlencode()` from CLI side; `add_query_arg()` handles encoding, PHP `$_GET` auto-decodes on the receiving end
+- **PHP 7 compatibility** — replaced `str_ends_with()` with `substr()` in mu-plugin host check
+- **Auth file stored in toolkit root** — default path changed from AI-DDTK's `temp/` to CWD `./temp/playwright/.auth/` so each project gets its own cache
+- **`--site-url` was unused** — now validated against the login URL origin returned by WP-CLI; mismatches fail immediately with a clear error
+- **Weak auth verification** — Playwright script now checks 4 conditions: not on `wp-login.php`, no WP error page, `wordpress_logged_in_` cookie present, `/wp-admin/` accessible without redirect
+- **Playwright module resolution** — pre-check `require('playwright')` with fallback to `playwright-core`; actionable `NODE_PATH` error messaging when global install isn't resolvable
 
 ## [1.0.7] - 2026-03-06
 

@@ -1,0 +1,396 @@
+#!/usr/bin/env bash
+# ============================================================
+# AI-DDTK Playwright Auth Helper
+# Generates and caches WordPress admin auth state for Playwright
+# ============================================================
+#
+# Requires:
+#   - WP-CLI (wp) or local-wp wrapper
+#   - Node.js + Playwright (npm install -g playwright)
+#   - dev-login-cli.php mu-plugin installed on target site
+#
+# Usage:
+#   pw-auth login --site-url http://my-site.local
+#   pw-auth login --site-url http://my-site.local --user=editor
+#   pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
+#   pw-auth login --site-url http://my-site.local --redirect /wp-admin/site-editor.php
+#   pw-auth status
+#   pw-auth clear
+#
+# Auth state is saved to: ./temp/playwright/.auth/<user>.json (relative to CWD)
+# Reuses cached state if less than 12 hours old (configurable with --max-age).
+#
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLKIT_ROOT="$(dirname "$SCRIPT_DIR")"
+AUTH_DIR="$(pwd)/temp/playwright/.auth"
+DEFAULT_MAX_AGE_HOURS=12
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+show_help() {
+    cat <<'EOF'
+AI-DDTK Playwright Auth Helper
+
+Generates one-time WP admin login URLs via WP-CLI and captures
+the authenticated session as Playwright storageState for reuse.
+
+Auth state is stored in the current working directory at:
+  ./temp/playwright/.auth/<user>.json
+
+Usage:
+  pw-auth <command> [options]
+
+Commands:
+  login    Generate login URL, authenticate via Playwright, save storageState
+  status   Show current auth state (file age, user, validity)
+  clear    Remove cached auth state files
+
+Options (login):
+  --site-url <url>       WordPress site URL (required)
+  --user <login>         WordPress username (default: admin)
+  --wp-cli <cmd>         WP-CLI command prefix (default: wp)
+                         e.g., "local-wp my-site" for Local by Flywheel
+  --redirect <path>      WP admin path to land on after login
+  --max-age <hours>      Reuse cached auth if younger than this (default: 12)
+  --force                Skip cache age check, always re-authenticate
+  --auth-file <path>     Custom path for auth state file
+  --headed               Run Playwright in headed mode (visible browser)
+
+Examples:
+  # Basic — authenticate as admin on a Local site
+  pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
+
+  # Reuse in Playwright scripts
+  # const context = await browser.newContext({
+  #   storageState: 'temp/playwright/.auth/admin.json'
+  # });
+
+  # Force re-auth even if cache is fresh
+  pw-auth login --site-url http://my-site.local --force
+
+  # Check if auth is still valid
+  pw-auth status
+EOF
+}
+
+log_info() {
+    echo "[pw-auth] $*"
+}
+
+log_error() {
+    echo "[pw-auth] ERROR: $*" >&2
+}
+
+# Check if a file is older than N hours
+file_age_hours() {
+    local file="$1"
+    if [ ! -f "$file" ]; then
+        echo "999999"
+        return
+    fi
+
+    local now
+    local mod_time
+    now="$(date +%s)"
+
+    if [ "$(uname)" = "Darwin" ]; then
+        mod_time="$(stat -f %m "$file")"
+    else
+        mod_time="$(stat -c %Y "$file")"
+    fi
+
+    echo $(( (now - mod_time) / 3600 ))
+}
+
+# ============================================================
+# COMMANDS
+# ============================================================
+
+do_login() {
+    local site_url=""
+    local wp_user="admin"
+    local wp_cli_cmd="wp"
+    local redirect=""
+    local max_age="$DEFAULT_MAX_AGE_HOURS"
+    local force=false
+    local auth_file=""
+    local headed=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --site-url)   site_url="$2"; shift 2 ;;
+            --user)       wp_user="$2"; shift 2 ;;
+            --wp-cli)     wp_cli_cmd="$2"; shift 2 ;;
+            --redirect)   redirect="$2"; shift 2 ;;
+            --max-age)    max_age="$2"; shift 2 ;;
+            --force)      force=true; shift ;;
+            --auth-file)  auth_file="$2"; shift 2 ;;
+            --headed)     headed="--headed"; shift ;;
+            -h|--help)    show_help; exit 0 ;;
+            *) log_error "Unknown option: $1"; exit 1 ;;
+        esac
+    done
+
+    if [ -z "$site_url" ]; then
+        log_error "--site-url is required"
+        echo ""
+        show_help
+        exit 1
+    fi
+
+    # Determine auth file path
+    if [ -z "$auth_file" ]; then
+        local safe_user
+        safe_user="$(echo "$wp_user" | tr -cd '[:alnum:]-_')"
+        auth_file="$AUTH_DIR/${safe_user}.json"
+    fi
+
+    # Check cache
+    if [ "$force" = false ] && [ -f "$auth_file" ]; then
+        local age
+        age="$(file_age_hours "$auth_file")"
+        if [ "$age" -lt "$max_age" ]; then
+            log_info "Cached auth is ${age}h old (max: ${max_age}h). Reusing: $auth_file"
+            log_info "Use --force to re-authenticate."
+            exit 0
+        fi
+        log_info "Cached auth is ${age}h old (max: ${max_age}h). Re-authenticating..."
+    fi
+
+    # Check prerequisites
+    if ! command -v node >/dev/null 2>&1; then
+        log_error "Node.js is required but not installed."
+        exit 1
+    fi
+
+    # Verify Playwright is resolvable by Node
+    if ! node -e "require('playwright')" 2>/dev/null && \
+       ! node -e "require('playwright-core')" 2>/dev/null; then
+        log_error "Playwright is not resolvable by Node.js."
+        log_error ""
+        log_error "Install globally:  npm install -g playwright"
+        log_error "Then install browsers:  npx playwright install chromium"
+        log_error ""
+        log_error "If already installed globally but node can't find it, set NODE_PATH:"
+        log_error "  export NODE_PATH=\"\$(npm root -g)\""
+        exit 1
+    fi
+
+    # Build WP-CLI login command as an array (no eval — avoids command injection)
+    local -a wp_cmd_args
+    # Split wp_cli_cmd on spaces to support "local-wp my-site" style prefixes
+    read -ra wp_cmd_args <<< "$wp_cli_cmd"
+    wp_cmd_args+=( "dev" "login" "--user=$wp_user" "--format=url" )
+    if [ -n "$redirect" ]; then
+        wp_cmd_args+=( "--redirect=$redirect" )
+    fi
+
+    log_info "Generating one-time login URL..."
+    log_info "Running: ${wp_cmd_args[*]}"
+
+    local login_url
+    login_url="$("${wp_cmd_args[@]}" 2>/dev/null)" || {
+        log_error "WP-CLI command failed. Is dev-login-cli.php installed as a mu-plugin?"
+        log_error "  Template: ~/bin/ai-ddtk/templates/dev-login-cli.php"
+        log_error "  Install:  cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site>/wp-content/mu-plugins/"
+        exit 1
+    }
+
+    # Trim any whitespace / extra lines — take only the last line (the URL)
+    login_url="$(echo "$login_url" | tail -n 1 | tr -d '[:space:]')"
+
+    if [ -z "$login_url" ]; then
+        log_error "No login URL returned from WP-CLI."
+        exit 1
+    fi
+
+    # Validate that the login URL matches the expected --site-url origin
+    local expected_origin
+    expected_origin="$(echo "$site_url" | sed -E 's|^(https?://[^/]+).*|\1|')"
+    case "$login_url" in
+        "${expected_origin}"*)
+            ;;
+        *)
+            log_error "Login URL origin mismatch."
+            log_error "  Expected: $expected_origin"
+            log_error "  Got:      $login_url"
+            log_error "Check that --site-url matches the site's home_url()."
+            exit 1
+            ;;
+    esac
+
+    log_info "Login URL obtained. Launching Playwright to capture auth state..."
+
+    # Create auth directory
+    mkdir -p "$(dirname "$auth_file")"
+
+    # Write Playwright script to temp file (avoids node -e module resolution issues)
+    local pw_script
+    pw_script="$(mktemp "${TMPDIR:-/tmp}/pw-auth-XXXXXX.js")"
+    trap "rm -f '$pw_script'" EXIT
+
+    local headless_val
+    headless_val="$( [ -n "$headed" ] && echo "false" || echo "true" )"
+
+    cat > "$pw_script" <<'PLAYWRIGHT_SCRIPT'
+// pw-auth: Playwright login + storageState capture
+// Usage: node <script> <login_url> <auth_file> <expected_origin> <headless>
+
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch { ({ chromium } = require('playwright-core')); }
+
+const [,, loginUrl, authFile, siteUrl, headlessFlag] = process.argv;
+const headless = headlessFlag !== 'false';
+
+// Derive origin (for cookie check) and base URL (for wp-admin, supports subdirectory installs)
+const origin = new URL(siteUrl).origin;
+const baseUrl = siteUrl.replace(/\/+$/, '');
+
+(async () => {
+    const browser = await chromium.launch({ headless });
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    try {
+        await page.goto(loginUrl, { waitUntil: 'networkidle', timeout: 30000 });
+
+        const finalUrl = page.url();
+
+        // Check 1: Did we land back on wp-login.php?
+        if (finalUrl.includes('wp-login.php')) {
+            console.error('[pw-auth] ERROR: Login failed — landed on wp-login.php');
+            console.error('[pw-auth] The login token may have expired or the mu-plugin is not active.');
+            process.exit(1);
+        }
+
+        // Check 2: Did we get a wp_die() error page?
+        const bodyText = await page.textContent('body').catch(() => '');
+        if (bodyText.includes('has been a critical error') || bodyText.includes('not allowed')) {
+            console.error('[pw-auth] ERROR: WordPress returned an error page.');
+            console.error('[pw-auth] Body: ' + bodyText.substring(0, 200));
+            process.exit(1);
+        }
+
+        // Check 3: Verify WordPress auth cookies are present
+        const cookies = await context.cookies(origin);
+        const authCookie = cookies.find(c =>
+            c.name.startsWith('wordpress_logged_in_')
+        );
+        if (!authCookie) {
+            console.error('[pw-auth] ERROR: No wordpress_logged_in_ cookie found after login.');
+            console.error('[pw-auth] Cookies present: ' + cookies.map(c => c.name).join(', '));
+            process.exit(1);
+        }
+
+        // Check 4: Verify we can reach wp-admin (not redirected to login)
+        // Uses baseUrl so subdirectory installs (e.g. http://localhost/mysite) work correctly
+        await page.goto(baseUrl + '/wp-admin/', {
+            waitUntil: 'domcontentloaded', timeout: 15000
+        });
+        if (page.url().includes('wp-login.php')) {
+            console.error('[pw-auth] ERROR: wp-admin redirected to wp-login.php — session is not valid.');
+            process.exit(1);
+        }
+
+        // Save storageState
+        await context.storageState({ path: authFile });
+        console.log('[pw-auth] Auth state saved to: ' + authFile);
+        console.log('[pw-auth] Verified: wordpress_logged_in_ cookie present, wp-admin accessible.');
+
+    } catch (err) {
+        console.error('[pw-auth] Playwright error: ' + err.message);
+        process.exit(1);
+    } finally {
+        await browser.close();
+    }
+})();
+PLAYWRIGHT_SCRIPT
+
+    node "$pw_script" "$login_url" "$auth_file" "$site_url" "$headless_val"
+
+    local exit_code=$?
+
+    if [ $exit_code -ne 0 ]; then
+        log_error "Playwright auth capture failed."
+        exit 1
+    fi
+
+    log_info "Done. Use in Playwright scripts:"
+    log_info "  storageState: '$auth_file'"
+}
+
+do_status() {
+    mkdir -p "$AUTH_DIR"
+
+    local found=false
+    for f in "$AUTH_DIR"/*.json; do
+        [ -f "$f" ] || continue
+        found=true
+        local age
+        age="$(file_age_hours "$f")"
+        local user
+        user="$(basename "$f" .json)"
+        local size
+        size="$(wc -c < "$f" | tr -d ' ')"
+
+        echo "  User: $user"
+        echo "  File: $f"
+        echo "  Age:  ${age}h"
+        echo "  Size: ${size} bytes"
+
+        if [ "$age" -lt "$DEFAULT_MAX_AGE_HOURS" ]; then
+            echo "  Status: VALID (< ${DEFAULT_MAX_AGE_HOURS}h)"
+        else
+            echo "  Status: STALE (>= ${DEFAULT_MAX_AGE_HOURS}h, will re-auth on next login)"
+        fi
+        echo ""
+    done
+
+    if [ "$found" = false ]; then
+        echo "No cached auth state found in $AUTH_DIR"
+        echo "Run: pw-auth login --site-url <url>"
+    fi
+}
+
+do_clear() {
+    if [ -d "$AUTH_DIR" ]; then
+        rm -f "$AUTH_DIR"/*.json
+        log_info "Cleared auth state from $AUTH_DIR"
+    else
+        log_info "No auth directory found. Nothing to clear."
+    fi
+}
+
+# ============================================================
+# MAIN
+# ============================================================
+
+COMMAND="${1:-help}"
+shift || true
+
+case "$COMMAND" in
+    login)
+        do_login "$@"
+        ;;
+    status)
+        do_status
+        ;;
+    clear)
+        do_clear
+        ;;
+    help|-h|--help)
+        show_help
+        ;;
+    *)
+        log_error "Unknown command: $COMMAND"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac
