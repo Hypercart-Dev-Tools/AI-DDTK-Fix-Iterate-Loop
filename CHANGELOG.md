@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.16] - 2026-03-07
+
+### Added
+- **Wrapper cleanup regression harness** — added `test/test-wrapper-cleanup.sh` to exercise `bin/local-wp` fixed-string lookup/temp-ini cleanup and `bin/pw-auth` temp-file cleanup on failure paths using lightweight shell stubs
+
+### Changed
+- **Installation test coverage** — `test/test-install.sh` now runs the wrapper cleanup harness as part of the existing test suite
+- **Docker test image** — `test/Dockerfile` now installs `python3` so the wrapper cleanup harness can create temporary UNIX sockets during test runs
+- **Version updates**
+  - README.md updated to `1.0.16`
+  - install.sh updated to `1.0.16`
+  - AGENTS.md updated to `v2.7.8`
+
 ## [1.0.15] - 2026-03-07
 
 ### Changed
