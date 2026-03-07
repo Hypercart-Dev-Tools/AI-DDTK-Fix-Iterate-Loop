@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.13
+> Version: 1.0.14
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -62,7 +62,7 @@ wpcc analyze ./wp-content/plugins/my-plugin
 local-wp my-site plugin list
 ```
 
-`local-wp` is now installed canonically from `bin/local-wp`. The repo-root `./local-wp` remains as a temporary compatibility shim during the migration period.
+`local-wp` is now installed canonically from `bin/local-wp`. The repo-root `./local-wp` remains as a temporary compatibility shim during the migration period and now emits a deprecation notice when invoked.
 
 ## Tools
 

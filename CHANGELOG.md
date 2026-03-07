@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.14] - 2026-03-07
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.14`
+  - install.sh updated to `1.0.14`
+  - AGENTS.md updated to `v2.7.6`
+- **Repo-root `./local-wp` shim** now emits a deprecation notice directing callers to `local-wp` on `PATH` or `bin/local-wp`
+
 ## [1.0.13] - 2026-03-07
 
 ### Changed

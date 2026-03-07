@@ -6,6 +6,8 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CANONICAL_WRAPPER="$SCRIPT_DIR/bin/local-wp"
 
+echo "Deprecated: repo-root ./local-wp is a compatibility shim and will be removed in a future release. Use 'local-wp' from PATH or 'bin/local-wp' instead." >&2
+
 if [ ! -f "$CANONICAL_WRAPPER" ]; then
   echo "Error: canonical wrapper not found at $CANONICAL_WRAPPER" >&2
   exit 1
