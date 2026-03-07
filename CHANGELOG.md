@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-03-07
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.10`
+  - install.sh updated to `1.0.10`
+  - AGENTS.md updated to `v2.7.2`
+- **Playwright Auth instructions** now explicitly tell agents to run `pw-auth login` immediately before browser automation and rerun with `--force` if the one-time login URL expires or auth is stale
+
 ## [1.0.9] - 2026-03-07
 
 ### Changed
