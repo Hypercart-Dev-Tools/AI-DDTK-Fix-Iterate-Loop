@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-03-07
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.9`
+  - install.sh updated to `1.0.9`
+- **Playwright Auth docs** now clarify that some imported/proxied Local sites still need `WP_ENVIRONMENT_TYPE` defined for browser requests, even if WP-CLI is already running in `local`
+
+### Fixed
+- **`pw-auth` false-positive error detection** — the Playwright login flow now detects real WordPress `wp_die()` / fatal pages using error-page markers and specific fatal messages instead of matching generic `not allowed` text from normal admin markup
+- **Dev Login mu-plugin template host allowlist** — `templates/dev-login-cli.php` now accepts `*.test` hosts in addition to localhost and `*.local`
+- **Dev Login mu-plugin template user resolution** — the WP-CLI command now falls back to `WP_CLI::get_runner()->config['user']` so wrappers that pass `--user` as a global WP-CLI flag still resolve the requested user correctly
+
 ## [1.0.8] - 2026-03-07
 
 ### Added

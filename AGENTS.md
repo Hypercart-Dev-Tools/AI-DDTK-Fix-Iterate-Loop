@@ -112,7 +112,7 @@ Auth state is stored in the **current working directory** at `./temp/playwright/
    ```bash
    cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site-root>/wp-content/mu-plugins/
    ```
-2. **Environment type** must not be `production`. Local by Flywheel sites work without any `wp-config.php` changes. To be explicit:
+2. **Environment type** must not be `production`. Many Local by Flywheel sites work without any `wp-config.php` changes, but imported/proxied sites may still need this explicitly:
    ```php
    define('WP_ENVIRONMENT_TYPE', 'local'); // or 'development', 'staging'
    ```
@@ -171,7 +171,7 @@ await page.goto('http://my-site.local/wp-admin/');
 
 - Auth state is cached to `./temp/playwright/.auth/<user>.json` (relative to CWD) and reused for 12 hours (configurable with `--max-age`).
 - `--site-url` is **required** and validated against the URL returned by WP-CLI to catch origin mismatches early.
-- The mu-plugin refuses to run on `production` environments and restricts to `localhost`, `127.0.0.1`, `::1`, and `*.local` hosts.
+- The mu-plugin refuses to run on `production` environments and restricts to `localhost`, `127.0.0.1`, `::1`, `*.local`, and `*.test` hosts.
 - Tokens are **one-time** (deleted after use) and expire after **5 minutes** if unused.
 - Auth verification checks: `wordpress_logged_in_` cookie present, `/wp-admin/` accessible without redirect to login, no WordPress error page.
 - If `pw-auth login` fails, verify: (1) the mu-plugin is in `wp-content/mu-plugins/`, (2) the site's environment is not `production`, (3) WP-CLI can reach the site, (4) the requested WP user exists, (5) if Playwright still isn't resolvable after auto-detection, export `NODE_PATH="$(npm root -g)"` manually.
