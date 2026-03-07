@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.7.4 — 2026-03-07_
+_Last updated: v2.7.5 — 2026-03-07_
 
 ## Purpose
 
@@ -155,6 +155,8 @@ pw-auth status
 # Clear all cached auth
 pw-auth clear
 ```
+
+The canonical installed Local wrapper is `bin/local-wp` (invoked as `local-wp` on `PATH`). The repo-root `./local-wp` remains only as a temporary compatibility shim during migration.
 
 ### Using Auth State in Playwright Scripts
 

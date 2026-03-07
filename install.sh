@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.0.12
+# Version: 1.0.13
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -38,6 +38,7 @@
 #   │   ├── wpcc              # WP Code Check wrapper
 #   │   ├── wp-ajax-test      # AJAX endpoint tester
 #   │   ├── pw-auth           # Playwright WP admin auth helper
+#   │   ├── local-wp          # Local WP-CLI wrapper (canonical)
 #   │   └── aiddtk-tmux       # Optional resilient tmux wrapper
 #   ├── tools/                # Embedded dependencies via git subtree
 #   │   └── wp-code-check/    # WPCC subtree
@@ -104,7 +105,7 @@
 # - All tools should be callable from any directory
 #
 # FUTURE TOOLS TO ADD:
-# - Move local-wp to bin/ with proper wrapper
+# - Remove the repo-root local-wp compatibility shim after deprecation
 # - Add playwright wrapper if needed
 # - Add pixelmatch wrapper if needed
 #
@@ -166,6 +167,7 @@ show_usage() {
     echo ""
     echo "Optional tools after install:"
     echo "  aiddtk-tmux --help   Resilient tmux-backed sessions for AI agents"
+    echo "  local-wp --help      Local by Flywheel WP-CLI wrapper"
     echo ""
 }
 
