@@ -322,9 +322,26 @@ const baseUrl = siteUrl.replace(/\/+$/, '');
             process.exit(1);
         }
 
-        // Check 2: Did we get a wp_die() error page?
+        // Check 2: Did we get a wp_die() / fatal error page?
         const bodyText = await page.textContent('body').catch(() => '');
-        if (bodyText.includes('has been a critical error') || bodyText.includes('not allowed')) {
+        const pageTitle = await page.title().catch(() => '');
+        const bodyId = await page.getAttribute('body', 'id').catch(() => '');
+        const hasWpDieMarkup = (await page.locator('#error-page, .wp-die-message').count().catch(() => 0)) > 0;
+        const fatalMarkers = [
+            'There has been a critical error on this website.',
+            'has been a critical error on this website.',
+            'Dev login is disabled in production environments.',
+            'Dev login is not allowed on this host.',
+            'Invalid or expired login link.',
+            'Invalid user.',
+            'Error establishing a database connection'
+        ];
+        const looksLikeWpErrorPage =
+            bodyId === 'error-page' ||
+            hasWpDieMarkup ||
+            pageTitle.includes('WordPress › Error') ||
+            fatalMarkers.some(marker => bodyText.includes(marker));
+        if (looksLikeWpErrorPage) {
             console.error('[pw-auth] ERROR: WordPress returned an error page.');
             console.error('[pw-auth] Body: ' + bodyText.substring(0, 200));
             process.exit(1);

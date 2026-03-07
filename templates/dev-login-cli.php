@@ -39,7 +39,7 @@ function _dev_login_allowed_hosts() {
 
 /**
  * Check if the current host is in the allowlist.
- * Accepts any *.local TLD automatically.
+ * Accepts any *.local or *.test TLD automatically.
  */
 function _dev_login_host_allowed() {
 	$host = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
@@ -48,8 +48,12 @@ function _dev_login_host_allowed() {
 		return true;
 	}
 
-	// Allow any .local TLD (e.g., my-site.local) — PHP 7 compatible
+	// Allow any .local or .test TLD (e.g., my-site.local, my-site.test) — PHP 7 compatible
 	if ( $host && substr( $host, -6 ) === '.local' ) {
+		return true;
+	}
+
+	if ( $host && substr( $host, -5 ) === '.test' ) {
 		return true;
 	}
 
@@ -115,7 +119,16 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			WP_CLI::error( 'Dev login is not allowed on this host. Check dev_login_allowed_hosts filter.' );
 		}
 
-		$login = $assoc_args['user'] ?? 'admin';
+		$login = $assoc_args['user'] ?? null;
+
+		if ( ! $login && method_exists( 'WP_CLI', 'get_runner' ) ) {
+			$runner_login = WP_CLI::get_runner()->config['user'] ?? null;
+			if ( is_string( $runner_login ) && $runner_login !== '' ) {
+				$login = $runner_login;
+			}
+		}
+
+		$login = $login ?: 'admin';
 		$user  = get_user_by( 'login', $login );
 
 		if ( ! $user ) {
