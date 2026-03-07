@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.7.6 — 2026-03-07_
+_Last updated: v2.7.7 — 2026-03-07_
 
 ## Purpose
 

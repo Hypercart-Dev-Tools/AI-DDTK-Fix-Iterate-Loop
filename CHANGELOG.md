@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.15] - 2026-03-07
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.15`
+  - install.sh updated to `1.0.15`
+  - AGENTS.md updated to `v2.7.7`
+- **`bin/local-wp` cleanup behavior** now removes its temporary PHP ini file even when the wrapped WP-CLI command exits with an error
+- **`bin/local-wp` Local config lookup** now uses fixed-string matching for site names when resolving the Local run directory
+- **`bin/pw-auth` temp file handling** now tracks temporary files with cleanup traps, preserves cleanup on Playwright failure/interruption paths, and avoids empty-array cleanup errors on macOS Bash
+
 ## [1.0.14] - 2026-03-07
 
 ### Changed
