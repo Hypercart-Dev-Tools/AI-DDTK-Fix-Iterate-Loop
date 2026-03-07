@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.13] - 2026-03-07
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.13`
+  - install.sh updated to `1.0.13`
+  - AGENTS.md updated to `v2.7.5`
+- **`local-wp` installation layout** now makes `bin/local-wp` the canonical installed wrapper while preserving the repo-root `./local-wp` as a temporary compatibility shim during migration
+- **Install and usage docs** now describe `local-wp` as a `bin/` command exposed on `PATH`
+
+### Added
+- **`bin/local-wp`** as the canonical Local by Flywheel WP-CLI wrapper entry point
+
 ## [1.0.12] - 2026-03-07
 
 ### Changed

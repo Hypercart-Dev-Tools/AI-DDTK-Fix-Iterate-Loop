@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.12
+> Version: 1.0.13
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -43,6 +43,7 @@ source ~/.zshrc  # or ~/.bashrc
 
 # Verify installation
 wpcc --help
+local-wp --help
 
 # (Optional) Set up temp folder structure for credentials, reports, etc.
 # The folder structure is already created; this just shows what's available
@@ -60,6 +61,8 @@ wpcc analyze ./wp-content/plugins/my-plugin
 # Run WP-CLI via Local
 local-wp my-site plugin list
 ```
+
+`local-wp` is now installed canonically from `bin/local-wp`. The repo-root `./local-wp` remains as a temporary compatibility shim during the migration period.
 
 ## Tools
 
@@ -81,6 +84,7 @@ AI-DDTK/
 ├── install.sh           # Install & maintenance script
 ├── bin/                  # Executable wrappers (added to PATH)
 │   ├── aiddtk-tmux      # Optional resilient tmux wrapper
+│   ├── local-wp         # Local WP-CLI wrapper (canonical)
 │   ├── pw-auth          # Playwright WP admin auth helper
 │   ├── wpcc             # WP Code Check wrapper
 │   └── wp-ajax-test     # AJAX endpoint tester
@@ -98,7 +102,7 @@ AI-DDTK/
 │   ├── playwright/      # Playwright auth state
 │   ├── logs/            # Debug logs and tmux session captures
 │   └── analysis/        # AI agent working files
-├── local-wp             # Local WP-CLI wrapper
+├── local-wp             # Temporary compatibility shim to bin/local-wp
 ├── fix-iterate-loop.md  # Autonomous test-verify-fix pattern
 ├── AGENTS.md            # AI agent guidelines
 └── CHANGELOG.md         # Version history
