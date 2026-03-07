@@ -47,7 +47,7 @@ Usage:
 
 Commands:
   login    Generate login URL, authenticate via Playwright, save storageState
-  status   Show current auth state (file age, user, validity)
+  status   Show cached auth files (age, user, size, freshness)
   clear    Remove cached auth state files
 
 Options (login):
@@ -57,6 +57,7 @@ Options (login):
                          e.g., "local-wp my-site" for Local by Flywheel
   --redirect <path>      WP admin path to land on after login
   --max-age <hours>      Reuse cached auth if younger than this (default: 12)
+                         Fresh cache entries are live-validated before reuse
   --force                Skip cache age check, always re-authenticate
   --auth-file <path>     Custom path for auth state file
   --headed               Run Playwright in headed mode (visible browser)
@@ -73,7 +74,7 @@ Examples:
   # Force re-auth even if cache is fresh
   pw-auth login --site-url http://my-site.local --force
 
-  # Check if auth is still valid
+  # Check cached auth file freshness
   pw-auth status
 EOF
 }
@@ -139,6 +140,164 @@ ensure_playwright_resolvable() {
     return 1
 }
 
+join_args_for_display() {
+    local out=""
+    local arg
+    local quoted
+
+    for arg in "$@"; do
+        quoted="$(printf '%q' "$arg")"
+        if [ -n "$out" ]; then
+            out="$out "
+        fi
+        out="$out$quoted"
+    done
+
+    echo "$out"
+}
+
+parse_command_prefix() {
+    local raw_command="$1"
+
+    node - "$raw_command" <<'NODE'
+const input = process.argv[2] ?? '';
+const tokens = [];
+let current = '';
+let quote = null;
+let escaping = false;
+let tokenStarted = false;
+
+function pushToken() {
+  tokens.push(current);
+  current = '';
+  tokenStarted = false;
+}
+
+for (let i = 0; i < input.length; i += 1) {
+  const ch = input[i];
+
+  if (escaping) {
+    current += ch;
+    escaping = false;
+    tokenStarted = true;
+    continue;
+  }
+
+  if (quote === "'") {
+    if (ch === "'") {
+      quote = null;
+    } else {
+      current += ch;
+      tokenStarted = true;
+    }
+    continue;
+  }
+
+  if (quote === '"') {
+    if (ch === '"') {
+      quote = null;
+      continue;
+    }
+
+    if (ch === '\\') {
+      const next = input[i + 1];
+      if (next !== undefined && '"\\$`'.includes(next)) {
+        current += next;
+        i += 1;
+        tokenStarted = true;
+        continue;
+      }
+    }
+
+    current += ch;
+    tokenStarted = true;
+    continue;
+  }
+
+  if (ch === '\\') {
+    escaping = true;
+    tokenStarted = true;
+    continue;
+  }
+
+  if (ch === "'" || ch === '"') {
+    quote = ch;
+    tokenStarted = true;
+    continue;
+  }
+
+  if (/\s/.test(ch)) {
+    if (tokenStarted || current.length > 0) {
+      pushToken();
+    }
+    continue;
+  }
+
+  current += ch;
+  tokenStarted = true;
+}
+
+if (escaping) {
+  console.error('Trailing escape in --wp-cli value.');
+  process.exit(1);
+}
+
+if (quote) {
+  console.error('Unterminated quote in --wp-cli value.');
+  process.exit(1);
+}
+
+if (tokenStarted || current.length > 0) {
+  pushToken();
+}
+
+if (tokens.length === 0) {
+  console.error('Empty --wp-cli command prefix.');
+  process.exit(1);
+}
+
+for (const token of tokens) {
+  console.log(token);
+}
+NODE
+}
+
+url_origin() {
+    local raw_url="$1"
+
+    node - "$raw_url" <<'NODE'
+try {
+  console.log(new URL(process.argv[2]).origin);
+} catch (error) {
+  console.error(error.message);
+  process.exit(1);
+}
+NODE
+}
+
+create_temp_file() {
+    local prefix="$1"
+    local suffix="${2:-}"
+    local tmp_dir="${TMPDIR:-/tmp}"
+    local temp_path=""
+    local suffixed_path=""
+
+    temp_path="$(mktemp "${tmp_dir%/}/${prefix}-XXXXXX")" || return 1
+
+    if [ -z "$suffix" ]; then
+        printf '%s\n' "$temp_path"
+        return 0
+    fi
+
+    suffixed_path="${temp_path}${suffix}"
+    mv "$temp_path" "$suffixed_path" || {
+        rm -f "$temp_path"
+        return 1
+    }
+
+    printf '%s\n' "$suffixed_path"
+}
+
 # Check if a file is older than N hours
 file_age_hours() {
     local file="$1"
@@ -158,6 +317,142 @@ file_age_hours() {
     fi
 
     echo $(( (now - mod_time) / 3600 ))
+}
+
+run_playwright_auth_flow() {
+    local mode="$1"
+    local site_url="$2"
+    local auth_file="$3"
+    local login_url="$4"
+    local headless_val="$5"
+    local pw_script
+    local exit_code
+
+    pw_script="$(create_temp_file "pw-auth" ".js")" || {
+        log_error "Failed to create temporary Playwright script file."
+        return 1
+    }
+
+    cat > "$pw_script" <<'PLAYWRIGHT_SCRIPT'
+// pw-auth: Playwright login + storageState capture / validation
+// Usage: node <script> <mode> <site_url> <auth_file> <login_url> <headless>
+
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch { ({ chromium } = require('playwright-core')); }
+
+const [,, mode, siteUrl, authFile, loginUrl, headlessFlag] = process.argv;
+const headless = headlessFlag !== 'false';
+const parsedSiteUrl = new URL(siteUrl);
+const origin = parsedSiteUrl.origin;
+const baseUrl = siteUrl.replace(/\/+$/, '');
+const host = parsedSiteUrl.hostname.toLowerCase();
+const ignoreHTTPSErrors = parsedSiteUrl.protocol === 'https:' && (
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host === '::1' ||
+    host.endsWith('.local') ||
+    host.endsWith('.test')
+);
+
+async function assertNotWpErrorPage(page) {
+    const bodyText = await page.textContent('body').catch(() => '');
+    const pageTitle = await page.title().catch(() => '');
+    const bodyId = await page.getAttribute('body', 'id').catch(() => '');
+    const hasWpDieMarkup = (await page.locator('#error-page, .wp-die-message').count().catch(() => 0)) > 0;
+    const fatalMarkers = [
+        'There has been a critical error on this website.',
+        'has been a critical error on this website.',
+        'Dev login is disabled in production environments.',
+        'Dev login is not allowed on this host.',
+        'Invalid or expired login link.',
+        'Invalid user.',
+        'Error establishing a database connection'
+    ];
+    const looksLikeWpErrorPage =
+        bodyId === 'error-page' ||
+        hasWpDieMarkup ||
+        pageTitle.includes('WordPress › Error') ||
+        fatalMarkers.some(marker => bodyText.includes(marker));
+
+    if (looksLikeWpErrorPage) {
+        throw new Error('WordPress returned an error page. Body: ' + bodyText.substring(0, 200));
+    }
+}
+
+async function assertAuthCookie(context) {
+    const cookies = await context.cookies(origin);
+    const authCookie = cookies.find(cookie => cookie.name.startsWith('wordpress_logged_in_'));
+
+    if (!authCookie) {
+        throw new Error('No wordpress_logged_in_ cookie found. Cookies present: ' + cookies.map(cookie => cookie.name).join(', '));
+    }
+}
+
+async function assertWpAdminAccessible(page) {
+    await page.goto(baseUrl + '/wp-admin/', {
+        waitUntil: 'domcontentloaded',
+        timeout: 15000,
+    });
+
+    if (page.url().includes('wp-login.php')) {
+        throw new Error('wp-admin redirected to wp-login.php — session is not valid.');
+    }
+}
+
+(async () => {
+    let browser;
+
+    try {
+        browser = await chromium.launch({ headless });
+        const contextOptions = ignoreHTTPSErrors ? { ignoreHTTPSErrors: true } : {};
+
+        if (mode === 'validate') {
+            contextOptions.storageState = authFile;
+        }
+
+        const context = await browser.newContext(contextOptions);
+        const page = await context.newPage();
+
+        if (mode === 'login') {
+            await page.goto(loginUrl, { waitUntil: 'networkidle', timeout: 30000 });
+
+            if (page.url().includes('wp-login.php')) {
+                throw new Error('Login failed — landed on wp-login.php. The login token may have expired or the mu-plugin may not be active.');
+            }
+
+            await assertNotWpErrorPage(page);
+            await assertAuthCookie(context);
+            await assertWpAdminAccessible(page);
+            await assertNotWpErrorPage(page);
+
+            await context.storageState({ path: authFile });
+            console.log('[pw-auth] Auth state saved to: ' + authFile);
+            console.log('[pw-auth] Verified: wordpress_logged_in_ cookie present, wp-admin accessible.');
+        } else if (mode === 'validate') {
+            await assertWpAdminAccessible(page);
+            await assertNotWpErrorPage(page);
+            await assertAuthCookie(context);
+            console.log('[pw-auth] Cached auth is still valid.');
+        } else {
+            throw new Error('Unknown mode: ' + mode);
+        }
+    } catch (err) {
+        console.error('[pw-auth] ERROR: ' + err.message);
+        process.exit(1);
+    } finally {
+        if (browser) {
+            await browser.close();
+        }
+    }
+})();
+PLAYWRIGHT_SCRIPT
+
+    node "$pw_script" "$mode" "$site_url" "$auth_file" "$login_url" "$headless_val"
+    exit_code=$?
+    rm -f "$pw_script"
+
+    return $exit_code
 }
 
 # ============================================================
@@ -203,18 +498,6 @@ do_login() {
         auth_file="$AUTH_DIR/${safe_user}.json"
     fi
 
-    # Check cache
-    if [ "$force" = false ] && [ -f "$auth_file" ]; then
-        local age
-        age="$(file_age_hours "$auth_file")"
-        if [ "$age" -lt "$max_age" ]; then
-            log_info "Cached auth is ${age}h old (max: ${max_age}h). Reusing: $auth_file"
-            log_info "Use --force to re-authenticate."
-            exit 0
-        fi
-        log_info "Cached auth is ${age}h old (max: ${max_age}h). Re-authenticating..."
-    fi
-
     # Check prerequisites
     if ! command -v node >/dev/null 2>&1; then
         log_error "Node.js is required but not installed."
@@ -234,25 +517,95 @@ do_login() {
         exit 1
     fi
 
+    # Check cache
+    if [ "$force" = false ] && [ -f "$auth_file" ]; then
+        local age
+        local validate_log
+        local validate_summary
+
+        age="$(file_age_hours "$auth_file")"
+        if [ "$age" -lt "$max_age" ]; then
+            log_info "Cached auth is ${age}h old (max: ${max_age}h). Verifying live session..."
+            validate_log="$(create_temp_file "pw-auth-validate" ".log")" || {
+                log_error "Failed to create temporary validation log file."
+                return 1
+            }
+            if run_playwright_auth_flow "validate" "$site_url" "$auth_file" "" "true" >"$validate_log" 2>&1; then
+                rm -f "$validate_log"
+                log_info "Cached auth passed live validation. Reusing: $auth_file"
+                log_info "Use --force to re-authenticate."
+                exit 0
+            fi
+
+            if [ -s "$validate_log" ]; then
+                validate_summary="$(tail -n 1 "$validate_log" | tr -d '\r')"
+                if [ -n "$validate_summary" ]; then
+                    log_info "Cached auth probe failed: $validate_summary"
+                fi
+            fi
+            rm -f "$validate_log"
+            log_info "Cached auth is fresh but no longer valid. Re-authenticating..."
+        else
+            log_info "Cached auth is ${age}h old (max: ${max_age}h). Re-authenticating..."
+        fi
+    fi
+
     # Build WP-CLI login command as an array (no eval — avoids command injection)
+    local parsed_wp_cli_cmd
+    local cmd_part
+    local wp_cmd_display
+    local wp_prefix_display
+    local stderr_file
     local -a wp_cmd_args
-    # Split wp_cli_cmd on spaces to support "local-wp my-site" style prefixes
-    read -ra wp_cmd_args <<< "$wp_cli_cmd"
+    local -a wp_cmd_prefix_args
+
+    parsed_wp_cli_cmd="$(parse_command_prefix "$wp_cli_cmd")" || {
+        log_error "Could not parse --wp-cli value: $wp_cli_cmd"
+        log_error "Pass only a command prefix, e.g. --wp-cli \"local-wp my-site\""
+        exit 1
+    }
+
+    while IFS= read -r cmd_part || [ -n "$cmd_part" ]; do
+        wp_cmd_prefix_args+=("$cmd_part")
+    done <<< "$parsed_wp_cli_cmd"
+
+    wp_cmd_args=("${wp_cmd_prefix_args[@]}")
     wp_cmd_args+=( "dev" "login" "--user=$wp_user" "--format=url" )
     if [ -n "$redirect" ]; then
         wp_cmd_args+=( "--redirect=$redirect" )
     fi
 
+    wp_cmd_display="$(join_args_for_display "${wp_cmd_args[@]}")"
+    wp_prefix_display="$(join_args_for_display "${wp_cmd_prefix_args[@]}")"
+
     log_info "Generating one-time login URL..."
-    log_info "Running: ${wp_cmd_args[*]}"
+    log_info "Running: $wp_cmd_display"
 
     local login_url
-    login_url="$("${wp_cmd_args[@]}" 2>/dev/null)" || {
-        log_error "WP-CLI command failed. Is dev-login-cli.php installed as a mu-plugin?"
+    stderr_file="$(create_temp_file "pw-auth-wpcli" ".log")" || {
+        log_error "Failed to create temporary WP-CLI stderr log file."
+        return 1
+    }
+    login_url="$("${wp_cmd_args[@]}" 2>"$stderr_file")" || {
+        log_error "WP-CLI command failed while generating the one-time login URL."
+        if [ -s "$stderr_file" ]; then
+            log_error "WP-CLI stderr:"
+            while IFS= read -r line; do
+                log_error "  $line"
+            done < "$stderr_file"
+        fi
         log_error "  Template: ~/bin/ai-ddtk/templates/dev-login-cli.php"
         log_error "  Install:  cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site>/wp-content/mu-plugins/"
+        log_error "Run these next:"
+        log_error "  $wp_prefix_display option get home"
+        log_error "  $wp_prefix_display eval 'echo wp_get_environment_type(), PHP_EOL;'"
+        log_error "  $wp_prefix_display user get $wp_user --field=user_login"
+        log_error "  $wp_prefix_display eval 'echo ( file_exists( WP_CONTENT_DIR . \"/mu-plugins/dev-login-cli.php\" ) ? \"mu-plugin present\" : \"mu-plugin missing\" ), PHP_EOL;'"
+        log_error "  $wp_prefix_display dev login --user=$wp_user --format=url"
+        rm -f "$stderr_file"
         exit 1
     }
+    rm -f "$stderr_file"
 
     # Trim any whitespace / extra lines — take only the last line (the URL)
     login_url="$(echo "$login_url" | tail -n 1 | tr -d '[:space:]')"
@@ -264,125 +617,33 @@ do_login() {
 
     # Validate that the login URL matches the expected --site-url origin
     local expected_origin
-    expected_origin="$(echo "$site_url" | sed -E 's|^(https?://[^/]+).*|\1|')"
-    case "$login_url" in
-        "${expected_origin}"*)
-            ;;
-        *)
-            log_error "Login URL origin mismatch."
-            log_error "  Expected: $expected_origin"
-            log_error "  Got:      $login_url"
-            log_error "Check that --site-url matches the site's home_url()."
-            exit 1
-            ;;
-    esac
+    local login_origin
+    expected_origin="$(url_origin "$site_url")" || {
+        log_error "Invalid --site-url: $site_url"
+        exit 1
+    }
+    login_origin="$(url_origin "$login_url")" || {
+        log_error "WP-CLI returned an invalid login URL: $login_url"
+        exit 1
+    }
+    if [ "$login_origin" != "$expected_origin" ]; then
+        log_error "Login URL origin mismatch."
+        log_error "  Expected origin: $expected_origin"
+        log_error "  Got origin:      $login_origin"
+        log_error "  Got URL:         $login_url"
+        log_error "Check that --site-url matches the site's home_url()."
+        exit 1
+    fi
 
     log_info "Login URL obtained. Launching Playwright to capture auth state..."
 
     # Create auth directory
     mkdir -p "$(dirname "$auth_file")"
 
-    # Write Playwright script to temp file (avoids node -e module resolution issues)
-    local pw_script
-    pw_script="$(mktemp "${TMPDIR:-/tmp}/pw-auth-XXXXXX.js")"
-    trap "rm -f '$pw_script'" EXIT
-
     local headless_val
     headless_val="$( [ -n "$headed" ] && echo "false" || echo "true" )"
 
-    cat > "$pw_script" <<'PLAYWRIGHT_SCRIPT'
-// pw-auth: Playwright login + storageState capture
-// Usage: node <script> <login_url> <auth_file> <expected_origin> <headless>
-
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('playwright-core')); }
-
-const [,, loginUrl, authFile, siteUrl, headlessFlag] = process.argv;
-const headless = headlessFlag !== 'false';
-
-// Derive origin (for cookie check) and base URL (for wp-admin, supports subdirectory installs)
-const origin = new URL(siteUrl).origin;
-const baseUrl = siteUrl.replace(/\/+$/, '');
-
-(async () => {
-    const browser = await chromium.launch({ headless });
-    const context = await browser.newContext();
-    const page = await context.newPage();
-
-    try {
-        await page.goto(loginUrl, { waitUntil: 'networkidle', timeout: 30000 });
-
-        const finalUrl = page.url();
-
-        // Check 1: Did we land back on wp-login.php?
-        if (finalUrl.includes('wp-login.php')) {
-            console.error('[pw-auth] ERROR: Login failed — landed on wp-login.php');
-            console.error('[pw-auth] The login token may have expired or the mu-plugin is not active.');
-            process.exit(1);
-        }
-
-        // Check 2: Did we get a wp_die() / fatal error page?
-        const bodyText = await page.textContent('body').catch(() => '');
-        const pageTitle = await page.title().catch(() => '');
-        const bodyId = await page.getAttribute('body', 'id').catch(() => '');
-        const hasWpDieMarkup = (await page.locator('#error-page, .wp-die-message').count().catch(() => 0)) > 0;
-        const fatalMarkers = [
-            'There has been a critical error on this website.',
-            'has been a critical error on this website.',
-            'Dev login is disabled in production environments.',
-            'Dev login is not allowed on this host.',
-            'Invalid or expired login link.',
-            'Invalid user.',
-            'Error establishing a database connection'
-        ];
-        const looksLikeWpErrorPage =
-            bodyId === 'error-page' ||
-            hasWpDieMarkup ||
-            pageTitle.includes('WordPress › Error') ||
-            fatalMarkers.some(marker => bodyText.includes(marker));
-        if (looksLikeWpErrorPage) {
-            console.error('[pw-auth] ERROR: WordPress returned an error page.');
-            console.error('[pw-auth] Body: ' + bodyText.substring(0, 200));
-            process.exit(1);
-        }
-
-        // Check 3: Verify WordPress auth cookies are present
-        const cookies = await context.cookies(origin);
-        const authCookie = cookies.find(c =>
-            c.name.startsWith('wordpress_logged_in_')
-        );
-        if (!authCookie) {
-            console.error('[pw-auth] ERROR: No wordpress_logged_in_ cookie found after login.');
-            console.error('[pw-auth] Cookies present: ' + cookies.map(c => c.name).join(', '));
-            process.exit(1);
-        }
-
-        // Check 4: Verify we can reach wp-admin (not redirected to login)
-        // Uses baseUrl so subdirectory installs (e.g. http://localhost/mysite) work correctly
-        await page.goto(baseUrl + '/wp-admin/', {
-            waitUntil: 'domcontentloaded', timeout: 15000
-        });
-        if (page.url().includes('wp-login.php')) {
-            console.error('[pw-auth] ERROR: wp-admin redirected to wp-login.php — session is not valid.');
-            process.exit(1);
-        }
-
-        // Save storageState
-        await context.storageState({ path: authFile });
-        console.log('[pw-auth] Auth state saved to: ' + authFile);
-        console.log('[pw-auth] Verified: wordpress_logged_in_ cookie present, wp-admin accessible.');
-
-    } catch (err) {
-        console.error('[pw-auth] Playwright error: ' + err.message);
-        process.exit(1);
-    } finally {
-        await browser.close();
-    }
-})();
-PLAYWRIGHT_SCRIPT
-
-    node "$pw_script" "$login_url" "$auth_file" "$site_url" "$headless_val"
+    run_playwright_auth_flow "login" "$site_url" "$auth_file" "$login_url" "$headless_val"
 
     local exit_code=$?
 
@@ -415,7 +676,7 @@ do_status() {
         echo "  Size: ${size} bytes"
 
         if [ "$age" -lt "$DEFAULT_MAX_AGE_HOURS" ]; then
-            echo "  Status: VALID (< ${DEFAULT_MAX_AGE_HOURS}h)"
+            echo "  Status: FRESH (< ${DEFAULT_MAX_AGE_HOURS}h; live validation happens on login)"
         else
             echo "  Status: STALE (>= ${DEFAULT_MAX_AGE_HOURS}h, will re-auth on next login)"
         fi

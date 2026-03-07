@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.12] - 2026-03-07
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.12`
+  - install.sh updated to `1.0.12`
+  - AGENTS.md updated to `v2.7.4`
+- **Playwright Auth docs** now note that Local/dev HTTPS origins with self-signed certificates are handled automatically for supported local hosts
+
+### Fixed
+- **`pw-auth` Local HTTPS auth capture** — Playwright now ignores certificate errors for `https://localhost`, `https://127.0.0.1`, `https://[::1]`, `https://*.local`, and `https://*.test` so self-signed Local-style certificates do not break one-time login capture
+- **`pw-auth` temp file creation on macOS** — temporary Playwright script and log files now use a suffix-safe helper instead of relying on BSD `mktemp` templates like `XXXXXX.js`
+
+## [1.0.11] - 2026-03-07
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.11`
+  - install.sh updated to `1.0.11`
+  - AGENTS.md updated to `v2.7.3`
+- **Playwright Auth troubleshooting** now includes exact WP-CLI diagnostic commands in both the CLI output and the docs
+
+### Fixed
+- **`pw-auth` cache reuse** now live-validates fresh cached auth against `/wp-admin/` before reuse and falls back to re-authentication when the saved session is no longer valid
+- **`pw-auth` login URL validation** now compares exact parsed origins instead of using a prefix match
+- **`pw-auth --wp-cli` parsing** now safely handles quoted command prefixes without using brittle space splitting
+
 ## [1.0.10] - 2026-03-07
 
 ### Changed
