@@ -38,26 +38,107 @@ function _dev_login_allowed_hosts() {
 }
 
 /**
- * Check if the current host is in the allowlist.
- * Accepts any *.local or *.test TLD automatically.
+ * Normalize a host string for allowlist comparisons.
+ *
+ * @param string $host Raw host value.
+ * @return string
  */
-function _dev_login_host_allowed() {
-	$host = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+function _dev_login_normalize_host( $host ) {
+	if ( ! is_string( $host ) ) {
+		return '';
+	}
 
-	if ( in_array( $host, _dev_login_allowed_hosts(), true ) ) {
-		return true;
+	$host = trim( strtolower( $host ) );
+
+	if ( $host === '' ) {
+		return '';
+	}
+
+	if ( strpos( $host, '://' ) !== false ) {
+		$parsed_host = wp_parse_url( $host, PHP_URL_HOST );
+		$host        = is_string( $parsed_host ) ? $parsed_host : '';
+	}
+
+	if ( $host === '' ) {
+		return '';
+	}
+
+	if ( substr( $host, 0, 1 ) === '[' ) {
+		$end = strpos( $host, ']' );
+		if ( false !== $end ) {
+			return trim( substr( $host, 1, $end - 1 ) );
+		}
+	}
+
+	if ( substr_count( $host, ':' ) === 1 ) {
+		$parts = explode( ':', $host, 2 );
+		$host  = $parts[0];
+	}
+
+	return trim( $host, '[]' );
+}
+
+/**
+ * Get the normalized incoming request host.
+ *
+ * @return string
+ */
+function _dev_login_get_request_host() {
+	if ( isset( $_SERVER['HTTP_HOST'] ) && is_string( $_SERVER['HTTP_HOST'] ) ) {
+		return _dev_login_normalize_host( wp_unslash( $_SERVER['HTTP_HOST'] ) );
+	}
+
+	if ( isset( $_SERVER['SERVER_NAME'] ) && is_string( $_SERVER['SERVER_NAME'] ) ) {
+		return _dev_login_normalize_host( wp_unslash( $_SERVER['SERVER_NAME'] ) );
+	}
+
+	return '';
+}
+
+/**
+ * Check if a host is in the allowlist.
+ * Accepts any *.local or *.test TLD automatically.
+ *
+ * @param string $host Host to validate.
+ * @return bool
+ */
+function _dev_login_is_allowed_host( $host ) {
+	$host = _dev_login_normalize_host( $host );
+
+	if ( ! $host ) {
+		return false;
+	}
+
+	foreach ( _dev_login_allowed_hosts() as $allowed_host ) {
+		if ( $host === _dev_login_normalize_host( $allowed_host ) ) {
+			return true;
+		}
 	}
 
 	// Allow any .local or .test TLD (e.g., my-site.local, my-site.test) — PHP 7 compatible
-	if ( $host && substr( $host, -6 ) === '.local' ) {
+	if ( substr( $host, -6 ) === '.local' ) {
 		return true;
 	}
 
-	if ( $host && substr( $host, -5 ) === '.test' ) {
+	if ( substr( $host, -5 ) === '.test' ) {
 		return true;
 	}
 
 	return false;
+}
+
+/**
+ * Check if the current site host is in the allowlist.
+ *
+ * @param string|null $host Optional host override.
+ * @return bool
+ */
+function _dev_login_host_allowed( $host = null ) {
+	if ( null === $host ) {
+		$host = wp_parse_url( home_url( '/' ), PHP_URL_HOST );
+	}
+
+	return _dev_login_is_allowed_host( $host );
 }
 
 /**
@@ -73,7 +154,7 @@ add_action( 'init', function () {
 		wp_die( 'Dev login is disabled in production environments.' );
 	}
 
-	if ( ! _dev_login_host_allowed() ) {
+	if ( ! _dev_login_host_allowed( _dev_login_get_request_host() ) ) {
 		wp_die( 'Dev login is not allowed on this host.' );
 	}
 

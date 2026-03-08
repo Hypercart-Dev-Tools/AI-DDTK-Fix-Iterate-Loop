@@ -69,6 +69,49 @@ detect_php_bin() {
 PHP_BIN="${PHP_BIN:-$(detect_php_bin)}"
 PHP_INI_FILE=""
 
+find_matching_site_ids() {
+  local site_name="$1"
+  local conf_file=""
+  local site_id=""
+
+  if [ ! -d "$LOCAL_RUN_DIR" ]; then
+    return 0
+  fi
+
+  while IFS= read -r conf_file; do
+    [ -f "$conf_file" ] || continue
+
+    if grep -Fxq -- "$site_name" "$conf_file"; then
+      site_id="${conf_file#"$LOCAL_RUN_DIR"/}"
+      site_id="${site_id%%/*}"
+
+      if [ -n "$site_id" ]; then
+        printf '%s\n' "$site_id"
+      fi
+    fi
+  done < <(find "$LOCAL_RUN_DIR" -mindepth 3 -maxdepth 3 -type f -path '*/conf/*' 2>/dev/null | sort)
+}
+
+create_php_ini_file() {
+  local tmp_dir="${TMPDIR:-/tmp}"
+  local original_umask=""
+
+  original_umask="$(umask)"
+  umask 077
+  PHP_INI_FILE="$(mktemp "$tmp_dir/local-wp-${SITE_NAME}.XXXXXX")" || {
+    umask "$original_umask"
+    return 1
+  }
+  umask "$original_umask"
+
+  chmod 600 "$PHP_INI_FILE" 2>/dev/null || true
+
+  cat > "$PHP_INI_FILE" << EOF
+mysqli.default_socket = "$MYSQL_SOCKET"
+pdo_mysql.default_socket = "$MYSQL_SOCKET"
+EOF
+}
+
 cleanup_php_ini() {
   if [ -n "$PHP_INI_FILE" ]; then
     rm -f "$PHP_INI_FILE" 2>/dev/null || true
@@ -154,13 +197,25 @@ if [ ! -f "$SITE_PATH/wp-config.php" ]; then
   exit 1
 fi
 
-# Find MySQL socket
-SITE_ID=$(grep -rF -- "$SITE_NAME" "$LOCAL_RUN_DIR"/*/conf 2>/dev/null | head -1 | sed 's#.*/run/\([^/]*\)/.*#\1#')
+MATCHED_SITE_IDS=()
+while IFS= read -r matched_site_id; do
+  [ -n "$matched_site_id" ] && MATCHED_SITE_IDS+=("$matched_site_id")
+done < <(find_matching_site_ids "$SITE_NAME")
 
-if [ -z "$SITE_ID" ]; then
+if [ "${#MATCHED_SITE_IDS[@]}" -eq 0 ]; then
   echo -e "${RED}Error: Could not find site configuration${NC}"
   exit 1
 fi
+
+if [ "${#MATCHED_SITE_IDS[@]}" -gt 1 ]; then
+  echo -e "${RED}Error: Multiple Local run configurations matched site name exactly: $SITE_NAME${NC}"
+  for matched_site_id in "${MATCHED_SITE_IDS[@]}"; do
+    echo "  - $matched_site_id"
+  done
+  exit 1
+fi
+
+SITE_ID="${MATCHED_SITE_IDS[0]}"
 
 MYSQL_SOCKET="$LOCAL_RUN_DIR/$SITE_ID/mysql/mysqld.sock"
 
@@ -170,11 +225,10 @@ if [ ! -S "$MYSQL_SOCKET" ]; then
 fi
 
 # Create temporary PHP ini with socket path
-PHP_INI_FILE="/tmp/local-wp-${SITE_NAME}.ini"
-cat > "$PHP_INI_FILE" << EOF
-mysqli.default_socket = "$MYSQL_SOCKET"
-pdo_mysql.default_socket = "$MYSQL_SOCKET"
-EOF
+if ! create_php_ini_file; then
+  echo -e "${RED}Error: Could not create temporary PHP configuration${NC}"
+  exit 1
+fi
 
 cd "$SITE_PATH" || exit 1
 
