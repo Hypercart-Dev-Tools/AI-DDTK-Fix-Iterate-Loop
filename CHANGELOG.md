@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.19] - 2026-03-08
+
+### Added
+- **AI-DDTK MCP server Phase 2 WPCC tool slice** — added `wpcc_list_features` and `wpcc_run_scan` to `tools/mcp-server/` so the unified MCP server can expose WP Code Check capabilities and invoke scans through `bin/wpcc`
+- **WPCC MCP regression coverage** — added targeted tests for feature parsing, JSON log-file parsing, text-mode passthrough, and non-zero exit handling in `tools/mcp-server/test/wpcc.test.ts`
+
+### Changed
+- **WPCC JSON scan handling** — `wpcc_run_scan` now treats the JSON log written to `tools/wp-code-check/dist/logs/` as the authoritative scan artifact instead of trusting mixed stdout from `bin/wpcc`
+- **Version updates**
+  - README.md updated to `1.0.19`
+  - install.sh updated to `1.0.19`
+  - `tools/mcp-server/package.json` updated to `0.2.0`
+
 ## [1.0.18] - 2026-03-08
 
 ### Added

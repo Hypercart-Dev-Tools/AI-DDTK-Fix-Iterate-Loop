@@ -6,7 +6,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
 import { createLocalWpHandlers } from "./handlers/local-wp.js";
+import { createWpccHandlers } from "./handlers/wpcc.js";
 import { SiteState } from "./state.js";
+
+const MCP_SERVER_VERSION = "0.2.0";
 
 const siteSummarySchema = z.object({
   name: z.string(),
@@ -18,6 +21,11 @@ const pluginSchema = z.object({
   name: z.string(),
   status: z.string(),
   version: z.string().nullable(),
+});
+
+const wpccFeatureSectionSchema = z.object({
+  title: z.string(),
+  lines: z.array(z.string()),
 });
 
 function getPackageRoot(moduleUrl: string): string {
@@ -51,11 +59,12 @@ export function createServer() {
   const packageRoot = getPackageRoot(import.meta.url);
   const repoRoot = path.resolve(packageRoot, "../..");
   const state = new SiteState();
-  const handlers = createLocalWpHandlers({ state, repoRoot });
+  const localWpHandlers = createLocalWpHandlers({ state, repoRoot });
+  const wpccHandlers = createWpccHandlers({ repoRoot });
 
   const server = new McpServer({
     name: "ai-ddtk-mcp",
-    version: "0.1.0",
+    version: MCP_SERVER_VERSION,
   });
 
   server.registerTool(
@@ -67,7 +76,7 @@ export function createServer() {
         sites: z.array(siteSummarySchema),
       },
     },
-    async () => successResult(await handlers.listSites()),
+    async () => successResult(await localWpHandlers.listSites()),
   );
 
   server.registerTool(
@@ -85,7 +94,7 @@ export function createServer() {
     },
     async ({ site }) => {
       try {
-        return successResult(await handlers.selectSite(site));
+        return successResult(await localWpHandlers.selectSite(site));
       } catch (error) {
         return errorResult(error);
       }
@@ -102,7 +111,7 @@ export function createServer() {
         path: z.string().nullable(),
       },
     },
-    async () => successResult(await handlers.getActiveSite()),
+    async () => successResult(await localWpHandlers.getActiveSite()),
   );
 
   server.registerTool(
@@ -125,7 +134,7 @@ export function createServer() {
     },
     async ({ site }) => {
       try {
-        return successResult(await handlers.testConnectivity(site));
+        return successResult(await localWpHandlers.testConnectivity(site));
       } catch (error) {
         return errorResult(error);
       }
@@ -150,7 +159,7 @@ export function createServer() {
     },
     async ({ site }) => {
       try {
-        return successResult(await handlers.getSiteInfo(site));
+        return successResult(await localWpHandlers.getSiteInfo(site));
       } catch (error) {
         return errorResult(error);
       }
@@ -177,7 +186,59 @@ export function createServer() {
     },
     async ({ site, command, args }) => {
       try {
-        return successResult(await handlers.runCommand(site, command, args ?? []));
+        return successResult(await localWpHandlers.runCommand(site, command, args ?? []));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "wpcc_list_features",
+    {
+      description: "List WP Code Check capabilities and workflows from the bin/wpcc wrapper.",
+      outputSchema: {
+        rawText: z.string(),
+        sections: z.array(wpccFeatureSectionSchema),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async () => {
+      try {
+        return successResult(await wpccHandlers.listFeatures());
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "wpcc_run_scan",
+    {
+      description:
+        "Run bin/wpcc against the requested path. JSON mode reads the authoritative dist/logs JSON file instead of trusting mixed stdout.",
+      inputSchema: {
+        paths: z.string().min(1).describe("Path or paths string to pass to --paths"),
+        format: z.enum(["json", "text"]).default("json"),
+        verbose: z.boolean().default(false),
+      },
+      outputSchema: {
+        paths: z.string(),
+        format: z.enum(["json", "text"]),
+        verbose: z.boolean(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+        logPath: z.string().nullable(),
+        reportPath: z.string().nullable(),
+        scan: z.record(z.string(), z.unknown()).nullable(),
+      },
+    },
+    async ({ paths, format, verbose }) => {
+      try {
+        return successResult(await wpccHandlers.runScan(paths, format, verbose));
       } catch (error) {
         return errorResult(error);
       }
