@@ -48,13 +48,13 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [x] Basic error handling & timeout patterns
   - [x] Smoke tests (including allowlist enforcement)
 
-- [ ] **Phase 2 — WPCC Scan Tools & Resources** · Effort: Med · Risk: Low
+- [x] **Phase 2 — WPCC Scan Tools & Resources** · Effort: Med · Risk: Low
   - [x] `wpcc_run_scan` tool
   - [x] `wpcc_list_features` tool
-  - [ ] `wpcc://latest-scan` resource
-  - [ ] `wpcc://latest-report` resource
-  - [ ] `wpcc://scan/{id}` resource
-  - [ ] Migrate/replace existing `mcp-server.js` in WPCC subtree
+  - [x] `wpcc://latest-scan` resource
+  - [x] `wpcc://latest-report` resource
+  - [x] `wpcc://scan/{id}` resource
+  - [x] Migrate/replace existing `mcp-server.js` in WPCC subtree
 
 - [ ] **Phase 3 — pw-auth & Playwright Tools** · Effort: Med · Risk: Med
   - [ ] `pw_auth_login` tool (structured args, no free-form wpCli string)
@@ -354,14 +354,17 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
 ### Resources
 
 3. **`wpcc://latest-scan`** — Latest JSON scan from `tools/wp-code-check/dist/logs/`
+   - Status: ✅ Implemented in unified `tools/mcp-server/`
 4. **`wpcc://latest-report`** — Latest HTML report from `tools/wp-code-check/dist/reports/`
+   - Status: ✅ Implemented in unified `tools/mcp-server/`
 5. **`wpcc://scan/{id}`** — Specific scan by timestamp ID
+   - Status: ✅ Implemented with templated MCP resource listing and read support
 
 ### Migration
 
-- Deprecate `tools/wp-code-check/dist/bin/mcp-server.js`
-- Port its resource logic into the unified server
-- Update any Claude Desktop / Cline configs that reference the old server
+- ✅ Deprecated `tools/wp-code-check/dist/bin/mcp-server.js` into a compatibility shim that forwards to the unified server
+- ✅ Ported the WPCC resource logic into the unified server
+- ✅ Claude Desktop / Cline docs now point to `tools/mcp-server/dist/src/index.js`
 
 ---
 
