@@ -1,9 +1,9 @@
 ---
 title: "P1: AI-DDTK MCP Server"
-status: planned
+status: in_progress
 author: noelsaw
 created: 2026-03-07
-updated: 2026-03-07
+updated: 2026-03-08
 project: AI-DDTK
 category: feature
 priority: P1
@@ -35,18 +35,18 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
 
 > **Note for LLM agents:** Continuously mark items off this checklist as progress is made during implementation. This section is the single source of truth for phase completion status. Update it **immediately** after completing any item — do not batch updates.
 
-- [ ] **Phase 1 — Scaffold & Local-WP Tool** · Effort: Low · Risk: Low
-  - [ ] Project scaffold (package.json, tsconfig, MCP SDK wiring)
-  - [ ] stdio transport (SSE deferred to Phase 5 with auth)
-  - [ ] Module-per-domain file structure (`src/handlers/<domain>.ts`)
-  - [ ] WP-CLI subcommand allowlist (`src/security/allowlist.ts`)
-  - [ ] `local_wp_list_sites` tool
-  - [ ] `local_wp_select_site` / `local_wp_get_active_site` tools (convenience only, not primary)
-  - [ ] `local_wp_test_connectivity` tool
-  - [ ] `local_wp_get_site_info` tool
-  - [ ] `local_wp_run` tool (allowlisted subcommands only)
-  - [ ] Basic error handling & timeout patterns
-  - [ ] Smoke tests (including allowlist enforcement)
+- [x] **Phase 1 — Scaffold & Local-WP Tool** · Effort: Low · Risk: Low
+  - [x] Project scaffold (package.json, tsconfig, MCP SDK wiring)
+  - [x] stdio transport (SSE deferred to Phase 5 with auth)
+  - [x] Module-per-domain file structure (`src/handlers/<domain>.ts`)
+  - [x] WP-CLI subcommand allowlist (`src/security/allowlist.ts`)
+  - [x] `local_wp_list_sites` tool
+  - [x] `local_wp_select_site` / `local_wp_get_active_site` tools (convenience only, not primary)
+  - [x] `local_wp_test_connectivity` tool
+  - [x] `local_wp_get_site_info` tool
+  - [x] `local_wp_run` tool (allowlisted subcommands only)
+  - [x] Basic error handling & timeout patterns
+  - [x] Smoke tests (including allowlist enforcement)
 
 - [ ] **Phase 2 — WPCC Scan Tools & Resources** · Effort: Med · Risk: Low
   - [ ] `wpcc_run_scan` tool
@@ -107,7 +107,7 @@ The two projects solve different problems. `wordpress-mcp` is a content manageme
 ### Goals
 
 - Expose every `bin/` tool as an MCP tool with typed inputs and structured outputs
-- Expose WPCC scan results and Playwright auth state as MCP resources
+- Expose WPCC scan results and Playwright auth metadata/status as MCP resources
 - Support stdio transport (Claude Desktop, Cline) and SSE transport (remote/VS Code)
 - Keep it thin — each tool handler shells out to the existing script, no reimplementation
 - Structured JSON output where possible (fall back to text for human-readable output)
@@ -262,6 +262,8 @@ In-memory active-site state is convenient but dangerous. With SSE or reconnectin
 
 Get the MCP server running with the simplest tool first.
 
+> Status update (2026-03-08): Implemented in `tools/mcp-server/` and validated with `npm test`.
+
 ### Deliverables
 
 1. **Project scaffold**
@@ -325,6 +327,7 @@ Get the MCP server running with the simplest tool first.
 - `local_wp_test_connectivity` returns structured health check
 - `local_wp_get_site_info` returns WP version, plugins, theme in one call
 - All tool responses include the resolved `site` name
+- Targeted package validation passes via `npm test` in `tools/mcp-server/`
 
 ---
 
