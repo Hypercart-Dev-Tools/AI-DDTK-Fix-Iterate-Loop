@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.17] - 2026-03-08
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.17`
+  - install.sh updated to `1.0.17`
+
+### Fixed
+- **Dev Login mu-plugin request host validation** — `templates/dev-login-cli.php` now normalizes and validates the incoming request host (`HTTP_HOST` / `SERVER_NAME`) during one-time login redemption instead of trusting only the configured `home_url()` host
+- **`bin/local-wp` Local run resolution** — the wrapper now exact-matches Local site names across run config files and fails clearly if multiple exact matches exist instead of taking the first substring match
+- **`bin/local-wp` temporary PHP ini handling** — the wrapper now creates a unique `mktemp`-based PHP ini file with restrictive permissions instead of reusing a predictable shared path in `/tmp`
+- **Regression coverage** — `test/test-wrapper-cleanup.sh` now covers request-host normalization for the dev-login template plus the real `site` vs `site-old` Local config collision case and unique temp-ini cleanup
+
 ## [1.0.16] - 2026-03-07
 
 ### Added

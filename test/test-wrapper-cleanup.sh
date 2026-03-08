@@ -4,8 +4,8 @@
 # ============================================================
 #
 # PURPOSE:
-#   Validates temp-file cleanup and fixed-string lookup behavior
-#   for the local-wp and pw-auth shell wrappers.
+#   Validates request-host checks, exact-match lookup behavior,
+#   and temp-file cleanup for toolkit helpers and shell wrappers.
 #
 # FOR LLM AGENTS:
 #   - Keep this harness self-contained and dependency-light
@@ -103,12 +103,94 @@ cleanup_test_root() {
     rm -rf "$test_root"
 }
 
-test_local_wp_fixed_string_lookup_and_cleanup() {
+test_dev_login_request_host_validation() {
+    local test_root=""
+    local php_test=""
+    local status=""
+
+    if ! command -v php >/dev/null 2>&1; then
+        echo "Skipping dev-login request-host test: php not available"
+        return 0
+    fi
+
+    test_root="$(make_temp_dir)" || return 1
+    php_test="$test_root/dev-login-host-test.php"
+
+    cat > "$php_test" <<EOF
+<?php
+define( 'ABSPATH', __DIR__ );
+
+
+\$GLOBALS['home_url_value'] = 'https://allowed.local/';
+
+function apply_filters( \$tag, \$value ) {
+    return \$value;
+}
+
+function wp_parse_url( \$url, \$component = -1 ) {
+    return parse_url( \$url, \$component );
+}
+
+function home_url( \$path = '/' ) {
+    return rtrim( \$GLOBALS['home_url_value'], '/' ) . \$path;
+}
+
+function wp_unslash( \$value ) {
+    return \$value;
+}
+
+function add_action( \$tag, \$callback ) {
+}
+
+function assert_true( \$condition, \$message ) {
+    if ( ! \$condition ) {
+        fwrite( STDERR, \$message . PHP_EOL );
+        exit( 1 );
+    }
+}
+
+function assert_same( \$expected, \$actual, \$message ) {
+    if ( \$expected !== \$actual ) {
+        fwrite( STDERR, \$message . ' expected=' . var_export( \$expected, true ) . ' actual=' . var_export( \$actual, true ) . PHP_EOL );
+        exit( 1 );
+    }
+}
+
+require '$TOOLKIT_DIR/templates/dev-login-cli.php';
+
+assert_true( _dev_login_host_allowed(), 'Expected configured site host to remain allowlisted.' );
+
+\$_SERVER['HTTP_HOST'] = 'Tunnel.Example.com:8443';
+assert_same( 'tunnel.example.com', _dev_login_get_request_host(), 'Expected request host normalization to strip port and lowercase.' );
+assert_true( ! _dev_login_host_allowed( _dev_login_get_request_host() ), 'Expected non-allowlisted request host to be rejected.' );
+
+\$_SERVER['HTTP_HOST'] = 'LOCALHOST:8080';
+assert_same( 'localhost', _dev_login_get_request_host(), 'Expected localhost request host normalization.' );
+assert_true( _dev_login_host_allowed( _dev_login_get_request_host() ), 'Expected localhost request host to be allowlisted.' );
+
+\$_SERVER['HTTP_HOST'] = '[::1]:8443';
+assert_same( '::1', _dev_login_get_request_host(), 'Expected IPv6 request host normalization.' );
+assert_true( _dev_login_host_allowed( _dev_login_get_request_host() ), 'Expected IPv6 localhost request host to be allowlisted.' );
+
+\$_SERVER['HTTP_HOST'] = 'Example.TEST:9443';
+assert_same( 'example.test', _dev_login_get_request_host(), 'Expected .test request host normalization.' );
+assert_true( _dev_login_host_allowed( _dev_login_get_request_host() ), 'Expected .test request host to be allowlisted.' );
+EOF
+
+    php "$php_test"
+    status=$?
+
+    cleanup_test_root "$test_root"
+    return "$status"
+}
+
+test_local_wp_exact_match_lookup_and_cleanup() {
     local test_root=""
     local local_sites_dir=""
     local local_run_dir=""
-    local site_name="regex.site"
-    local wrong_name="regexXsite"
+    local tmp_dir=""
+    local site_name="site"
+    local wrong_name="site-old"
     local wrong_id="a-match"
     local right_id="z-correct"
     local wrong_socket=""
@@ -118,21 +200,25 @@ test_local_wp_fixed_string_lookup_and_cleanup() {
     local wp_cli_phar=""
     local fake_php=""
     local fake_php_marker=""
-    local ini_file="/tmp/local-wp-${site_name}.ini"
+    local fake_php_ini_marker=""
+    local ini_file=""
     local local_wp_log=""
     local status=""
 
     test_root="$(make_temp_dir)" || return 1
     local_sites_dir="$test_root/local-sites"
     local_run_dir="$test_root/run"
+    tmp_dir="$test_root/tmp"
     wrong_socket="$local_run_dir/$wrong_id/mysql/mysqld.sock"
     right_socket="$local_run_dir/$right_id/mysql/mysqld.sock"
     wp_cli_phar="$test_root/wp-cli.phar"
     fake_php="$test_root/fake-php.sh"
     fake_php_marker="$test_root/fake-php.marker"
+    fake_php_ini_marker="$test_root/fake-php.ini"
     local_wp_log="$test_root/local-wp.log"
 
     mkdir -p "$local_sites_dir/$site_name/app/public" \
+             "$tmp_dir" \
              "$local_run_dir/$wrong_id/conf" "$local_run_dir/$wrong_id/mysql" \
              "$local_run_dir/$right_id/conf" "$local_run_dir/$right_id/mysql"
     touch "$local_sites_dir/$site_name/app/public/wp-config.php" "$wp_cli_phar"
@@ -157,14 +243,19 @@ test_local_wp_fixed_string_lookup_and_cleanup() {
 #!/usr/bin/env bash
 printf '%s\n' "invoked:\$*" > "$fake_php_marker"
 ini_file="\$2"
+printf '%s\n' "\$ini_file" > "$fake_php_ini_marker"
 [ -f "\$ini_file" ] || exit 90
+case "\$ini_file" in
+    "$tmp_dir/local-wp-${site_name}."*) ;;
+    *) exit 92 ;;
+esac
 grep -Fq "$right_socket" "\$ini_file" || exit 91
+grep -Fq "$wrong_socket" "\$ini_file" && exit 93
 exit 42
 EOF
     chmod +x "$fake_php"
 
-    rm -f "$ini_file"
-    LOCAL_SITES_DIR="$local_sites_dir" \
+    TMPDIR="$tmp_dir" LOCAL_SITES_DIR="$local_sites_dir" \
     LOCAL_RUN_DIR="$local_run_dir" \
     WP_CLI_PHAR="$wp_cli_phar" \
     PHP_BIN="$fake_php" \
@@ -184,6 +275,14 @@ EOF
         cleanup_test_root "$test_root" "$right_pid" "$wrong_pid"
         return 1
     fi
+
+    if [ ! -f "$fake_php_ini_marker" ]; then
+        echo "Fake PHP stub did not record the temporary ini path"
+        cleanup_test_root "$test_root" "$right_pid" "$wrong_pid"
+        return 1
+    fi
+
+    ini_file="$(cat "$fake_php_ini_marker")"
 
     if [ -e "$ini_file" ]; then
         echo "Expected temporary ini file to be cleaned: $ini_file"
@@ -280,7 +379,8 @@ echo -e "${BLUE}║   AI-DDTK Wrapper Cleanup Regression Test Suite      ║${NC
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════╝${NC}"
 echo ""
 
-run_test "local-wp uses fixed-string lookup and cleans temp ini" test_local_wp_fixed_string_lookup_and_cleanup
+run_test "dev-login validates incoming request hosts" test_dev_login_request_host_validation
+run_test "local-wp exact-matches site config and cleans unique temp ini" test_local_wp_exact_match_lookup_and_cleanup
 run_test "pw-auth cleans temp files after validate/login failure paths" test_pw_auth_cleans_temp_files_after_validate_and_login_failures
 
 echo ""
