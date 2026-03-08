@@ -267,11 +267,13 @@ See [AI Instructions - Phase 3](dist/TEMPLATES/_AI_INSTRUCTIONS.md#phase-3-githu
 
 WP Code Check supports the Model Context Protocol (MCP), allowing AI assistants like Claude Desktop and Cline to directly access scan results.
 
-**Quick Start:**
+**Quick Start (AI-DDTK unified MCP server):**
 
 ```bash
-# 1. Install Node.js dependencies
+# 1. Build the unified AI-DDTK MCP server
+cd /absolute/path/to/AI-DDTK/tools/mcp-server
 npm install
+npm run build
 
 # 2. Configure Claude Desktop (macOS)
 # Add to ~/Library/Application Support/Claude/claude_desktop_config.json:
@@ -279,7 +281,7 @@ npm install
   "mcpServers": {
     "wp-code-check": {
       "command": "node",
-      "args": ["/absolute/path/to/wp-code-check/dist/bin/mcp-server.js"]
+      "args": ["/absolute/path/to/AI-DDTK/tools/mcp-server/dist/src/index.js"]
     }
   }
 }
@@ -289,6 +291,8 @@ npm install
 
 # 4. Ask Claude: "Show me the latest WP Code Check scan results"
 ```
+
+> Legacy configs that still point to `tools/wp-code-check/dist/bin/mcp-server.js` continue to work for now, but that entrypoint now forwards to the unified server and emits a deprecation warning.
 
 **Features:**
 - ✅ **Direct AI Access** - AI assistants can read scan results without copy/paste

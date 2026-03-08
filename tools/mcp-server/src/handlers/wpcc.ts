@@ -4,6 +4,13 @@ import { ExecFileTextError, execFileText, type ExecFileText, type ExecResult } f
 
 const DEFAULT_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_BUFFER = 25 * 1024 * 1024;
+const DEFAULT_SCAN_RESOURCE_LIMIT = 10;
+const JSON_MIME_TYPE = "application/json";
+const HTML_MIME_TYPE = "text/html";
+
+export const WPCC_LATEST_SCAN_URI = "wpcc://latest-scan";
+export const WPCC_LATEST_REPORT_URI = "wpcc://latest-report";
+export const WPCC_SCAN_URI_TEMPLATE = "wpcc://scan/{id}";
 
 export type WpccFeatureSection = Record<string, unknown> & {
   title: string;
@@ -28,6 +35,21 @@ export type WpccScanResult = Record<string, unknown> & {
   logPath: string | null;
   reportPath: string | null;
   scan: Record<string, unknown> | null;
+};
+
+export type WpccResource = {
+  uri: string;
+  name: string;
+  description: string;
+  mimeType: typeof JSON_MIME_TYPE | typeof HTML_MIME_TYPE;
+};
+
+export type WpccReadResourceResult = {
+  contents: Array<{
+    uri: string;
+    mimeType: string;
+    text: string;
+  }>;
 };
 
 export interface WpccHandlerDeps {
@@ -97,6 +119,20 @@ function resolveArtifactFallback(directory: string, before: string[], after: str
   return selected ? path.join(directory, selected) : null;
 }
 
+function removeExtension(fileName: string, extension: ".json" | ".html"): string {
+  return fileName.endsWith(extension) ? fileName.slice(0, -extension.length) : fileName;
+}
+
+function buildScanUri(scanId: string): string {
+  return `wpcc://scan/${scanId}`;
+}
+
+function buildReadResourceResult(uri: string, mimeType: string, text: string): WpccReadResourceResult {
+  return {
+    contents: [{ uri, mimeType, text }],
+  };
+}
+
 export function createWpccHandlers(deps: WpccHandlerDeps) {
   const runExec = deps.execRunner ?? execFileText;
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -114,6 +150,22 @@ export function createWpccHandlers(deps: WpccHandlerDeps) {
 
       throw error;
     }
+  }
+
+  async function resolveLatestArtifactPath(directory: string, extension: ".json" | ".html"): Promise<string | null> {
+    const artifacts = await listArtifacts(directory, extension);
+    const latestArtifact = artifacts[0];
+    return latestArtifact ? path.join(directory, latestArtifact) : null;
+  }
+
+  async function resolveScanPathById(scanId: string): Promise<string | null> {
+    const artifacts = await listArtifacts(logsDir, ".json");
+    const scanFileName = `${scanId}.json`;
+    return artifacts.includes(scanFileName) ? path.join(logsDir, scanFileName) : null;
+  }
+
+  async function readResourceText(filePath: string): Promise<string> {
+    return readFile(filePath, "utf8");
   }
 
   return {
@@ -176,6 +228,53 @@ export function createWpccHandlers(deps: WpccHandlerDeps) {
         reportPath,
         scan,
       };
+    },
+
+    async listScanResources(limit = DEFAULT_SCAN_RESOURCE_LIMIT): Promise<WpccResource[]> {
+      const artifacts = (await listArtifacts(logsDir, ".json")).slice(0, limit);
+
+      return artifacts.map((fileName) => {
+        const scanId = removeExtension(fileName, ".json");
+
+        return {
+          uri: buildScanUri(scanId),
+          name: `Scan: ${scanId}`,
+          description: `WordPress code scan from ${scanId}`,
+          mimeType: JSON_MIME_TYPE,
+        };
+      });
+    },
+
+    async readLatestScanResource(): Promise<WpccReadResourceResult> {
+      const latestScanPath = await resolveLatestArtifactPath(logsDir, ".json");
+
+      if (!latestScanPath) {
+        throw new Error("No WPCC JSON scans found. Run `wpcc_run_scan` or `bin/wpcc --paths <path> --format json` first.");
+      }
+
+      return buildReadResourceResult(WPCC_LATEST_SCAN_URI, JSON_MIME_TYPE, await readResourceText(latestScanPath));
+    },
+
+    async readLatestReportResource(): Promise<WpccReadResourceResult> {
+      const latestReportPath = await resolveLatestArtifactPath(reportsDir, ".html");
+
+      if (!latestReportPath) {
+        throw new Error(
+          "No WPCC HTML reports found. Run a JSON scan first or regenerate one with `tools/wp-code-check/dist/bin/json-to-html.py`."
+        );
+      }
+
+      return buildReadResourceResult(WPCC_LATEST_REPORT_URI, HTML_MIME_TYPE, await readResourceText(latestReportPath));
+    },
+
+    async readScanResource(scanId: string): Promise<WpccReadResourceResult> {
+      const scanPath = await resolveScanPathById(scanId);
+
+      if (!scanPath) {
+        throw new Error(`WPCC scan not found: ${scanId}`);
+      }
+
+      return buildReadResourceResult(buildScanUri(scanId), JSON_MIME_TYPE, await readResourceText(scanPath));
     },
   };
 }

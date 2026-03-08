@@ -3,7 +3,7 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createWpccHandlers } from "../src/handlers/wpcc.js";
+import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, createWpccHandlers } from "../src/handlers/wpcc.js";
 import { ExecFileTextError, type ExecResult } from "../src/utils/exec.js";
 
 async function createWpccFixture() {
@@ -163,6 +163,91 @@ test("wpcc_run_scan falls back to newly created artifacts when stdout omits path
     assert.equal(result.logPath, logPath);
     assert.equal(result.reportPath, reportPath);
     assert.deepEqual(result.scan, scanData);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("wpcc resources resolve latest artifacts and list recent scans", async () => {
+  const fixture = await createWpccFixture();
+  const olderScanId = "2026-03-08-070600-UTC";
+  const latestScanId = "2026-03-08-070700-UTC";
+  const olderReportId = "2026-03-08-070600-UTC";
+  const latestReportId = "2026-03-08-070800-UTC";
+
+  try {
+    await writeFile(path.join(fixture.logsDir, `${olderScanId}.json`), JSON.stringify({ summary: { total_errors: 1 } }, null, 2));
+    await writeFile(path.join(fixture.logsDir, `${latestScanId}.json`), JSON.stringify({ summary: { total_errors: 0 } }, null, 2));
+    await writeFile(path.join(fixture.reportsDir, `${olderReportId}.html`), "<html>older report</html>");
+    await writeFile(path.join(fixture.reportsDir, `${latestReportId}.html`), "<html>latest report</html>");
+
+    const handlers = createWpccHandlers({ repoRoot: fixture.root });
+    const resources = await handlers.listScanResources();
+    const latestScan = await handlers.readLatestScanResource();
+    const latestReport = await handlers.readLatestReportResource();
+
+    assert.equal(resources.length, 2);
+    assert.equal(resources[0]?.uri, `wpcc://scan/${latestScanId}`);
+    assert.equal(resources[1]?.uri, `wpcc://scan/${olderScanId}`);
+    assert.equal(latestScan.contents[0]?.uri, WPCC_LATEST_SCAN_URI);
+    assert.deepEqual(JSON.parse(latestScan.contents[0]?.text ?? "{}"), { summary: { total_errors: 0 } });
+    assert.equal(latestReport.contents[0]?.uri, WPCC_LATEST_REPORT_URI);
+    assert.equal(latestReport.contents[0]?.mimeType, "text/html");
+    assert.match(latestReport.contents[0]?.text ?? "", /latest report/);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("wpcc scan resources are limited to the 10 most recent logs", async () => {
+  const fixture = await createWpccFixture();
+
+  try {
+    for (let index = 0; index < 12; index += 1) {
+      const scanId = `2026-03-08-07${String(index).padStart(2, "0")}00-UTC`;
+      await writeFile(path.join(fixture.logsDir, `${scanId}.json`), JSON.stringify({ index }, null, 2));
+    }
+
+    const handlers = createWpccHandlers({ repoRoot: fixture.root });
+    const resources = await handlers.listScanResources();
+
+    assert.equal(resources.length, 10);
+    assert.equal(resources[0]?.uri, "wpcc://scan/2026-03-08-071100-UTC");
+    assert.equal(resources.at(-1)?.uri, "wpcc://scan/2026-03-08-070200-UTC");
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("wpcc scan resource reads specific scans and rejects unknown ids", async () => {
+  const fixture = await createWpccFixture();
+  const scanId = "2026-03-08-071500-UTC";
+
+  try {
+    await writeFile(path.join(fixture.logsDir, `${scanId}.json`), JSON.stringify({ findings: [{ id: "spo-001" }] }, null, 2));
+
+    const handlers = createWpccHandlers({ repoRoot: fixture.root });
+    const resource = await handlers.readScanResource(scanId);
+
+    assert.equal(resource.contents[0]?.uri, `wpcc://scan/${scanId}`);
+    assert.deepEqual(JSON.parse(resource.contents[0]?.text ?? "{}"), { findings: [{ id: "spo-001" }] });
+
+    await assert.rejects(() => handlers.readScanResource("../secret"), /WPCC scan not found: \.\.\/secret/);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("wpcc latest scan resource throws a friendly error when no scans exist", async () => {
+  const fixture = await createWpccFixture();
+
+  try {
+    const handlers = createWpccHandlers({ repoRoot: fixture.root });
+
+    await assert.rejects(
+      () => handlers.readLatestScanResource(),
+      /No WPCC JSON scans found\. Run `wpcc_run_scan` or `bin\/wpcc --paths <path> --format json` first\./,
+    );
   } finally {
     await fixture.cleanup();
   }

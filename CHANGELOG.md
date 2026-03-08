@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.20] - 2026-03-08
+
+### Added
+- **AI-DDTK MCP server Phase 2 WPCC resources** — added `wpcc://latest-scan`, `wpcc://latest-report`, and templated `wpcc://scan/{id}` resources to the unified `tools/mcp-server/` package so MCP clients can list and read WP Code Check artifacts directly
+- **WPCC resource regression coverage** — added targeted tests for latest scan/report resolution, specific scan reads, missing-artifact handling, and recent-scan listing limits in `tools/mcp-server/test/wpcc.test.ts`
+
+### Changed
+- **WPCC legacy MCP entrypoint** — `tools/wp-code-check/dist/bin/mcp-server.js` now acts as a compatibility shim that forwards to `tools/mcp-server/dist/src/index.js` and emits a deprecation warning
+- **Phase 2 MCP validation** — verified the unified server with `npm test` in `tools/mcp-server` plus a live stdio MCP smoke check covering `listResources` and real `readResource(...)` calls for latest scan/report and a specific scan artifact
+- **Backlog cleanup** — removed the completed WPCC MCP server follow-up item from `tools/wp-code-check/PROJECT/2-WORKING/BACKLOG.md`
+- **Version updates**
+  - README.md updated to `1.0.20`
+  - install.sh updated to `1.0.20`
+  - `tools/mcp-server/package.json` updated to `0.3.0`
+
 ## [1.0.19] - 2026-03-08
 
 ### Added

@@ -2,14 +2,14 @@
 
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
 import { createLocalWpHandlers } from "./handlers/local-wp.js";
-import { createWpccHandlers } from "./handlers/wpcc.js";
+import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, createWpccHandlers } from "./handlers/wpcc.js";
 import { SiteState } from "./state.js";
 
-const MCP_SERVER_VERSION = "0.2.0";
+const MCP_SERVER_VERSION = "0.3.0";
 
 const siteSummarySchema = z.object({
   name: z.string(),
@@ -53,6 +53,17 @@ function errorResult(error: unknown) {
     isError: true,
     content: [{ type: "text" as const, text: message }],
   };
+}
+
+function getWpccScanId(uri: URL): string {
+  const match = uri.href.match(/^wpcc:\/\/scan\/(.+)$/);
+  const scanId = match?.[1];
+
+  if (!scanId) {
+    throw new Error(`Invalid WPCC scan resource URI: ${uri.href}`);
+  }
+
+  return scanId;
 }
 
 export function createServer() {
@@ -243,6 +254,40 @@ export function createServer() {
         return errorResult(error);
       }
     },
+  );
+
+  server.registerResource(
+    "wpcc_latest_scan",
+    WPCC_LATEST_SCAN_URI,
+    {
+      description: "Most recent WP Code Check JSON scan artifact.",
+      mimeType: "application/json",
+    },
+    async () => wpccHandlers.readLatestScanResource(),
+  );
+
+  server.registerResource(
+    "wpcc_latest_report",
+    WPCC_LATEST_REPORT_URI,
+    {
+      description: "Most recent WP Code Check HTML report artifact.",
+      mimeType: "text/html",
+    },
+    async () => wpccHandlers.readLatestReportResource(),
+  );
+
+  server.registerResource(
+    "wpcc_scan_by_id",
+    new ResourceTemplate(WPCC_SCAN_URI_TEMPLATE, {
+      list: async () => ({
+        resources: await wpccHandlers.listScanResources(),
+      }),
+    }),
+    {
+      description: "Specific WP Code Check JSON scan artifact by timestamp id.",
+      mimeType: "application/json",
+    },
+    async (uri) => wpccHandlers.readScanResource(getWpccScanId(uri)),
   );
 
   return server;
