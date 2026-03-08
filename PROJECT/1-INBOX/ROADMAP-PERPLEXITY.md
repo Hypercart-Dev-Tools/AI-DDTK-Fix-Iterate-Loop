@@ -1,8 +1,8 @@
 ---
 title: AI-DDTK Roadmap
-status: draft
-author: Perplexity (AI-generated)
-reviewer: noelsaw
+status: partially in progress
+author: Perplexity -> Claude Code Reviewed and Edited
+reviewer: Noel Saw
 created: 2026-03-07
 updated: 2026-03-07
 project: AI-DDTK
