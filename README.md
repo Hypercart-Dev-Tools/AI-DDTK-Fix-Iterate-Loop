@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.17
+> Version: 1.0.18
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -68,6 +68,7 @@ local-wp my-site plugin list
 
 | Tool | Description |
 |------|-------------|
+| **AI-DDTK MCP Server** | Phase 1 stdio MCP package for LocalWP tool orchestration |
 | **WP Code Check** | Code review + AI triage with MCP server |
 | **WP AJAX Test** | AJAX endpoint testing and validation |
 | **AI-DDTK Tmux Proxy** | Persistent tmux-backed sessions for flaky IDE terminals |
@@ -88,7 +89,8 @@ AI-DDTK/
 │   ├── pw-auth          # Playwright WP admin auth helper
 │   ├── wpcc             # WP Code Check wrapper
 │   └── wp-ajax-test     # AJAX endpoint tester
-├── tools/               # Embedded dependencies (git subtree)
+├── tools/               # Embedded tool packages and dependencies
+│   ├── mcp-server/      # AI-DDTK MCP server package (Phase 1 stdio + LocalWP tools)
 │   ├── wp-code-check/   # WPCC source
 │   └── wp-ajax-test/    # AJAX test tool source
 ├── recipes/             # Workflow guides (PHPStan, audits, etc.)

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.18] - 2026-03-08
+
+### Added
+- **AI-DDTK MCP server Phase 1 scaffold** — added `tools/mcp-server/` as a standalone TypeScript MCP package with stdio transport, MCP SDK tool registration, in-memory active-site state, WP-CLI allowlist enforcement, and a safe `execFile` wrapper
+- **LocalWP MCP tool suite** — added `local_wp_list_sites`, `local_wp_select_site`, `local_wp_get_active_site`, `local_wp_test_connectivity`, `local_wp_get_site_info`, and allowlisted `local_wp_run`
+- **Targeted MCP validation** — added `tools/mcp-server/test/local-wp.test.ts` coverage for allowlist enforcement, active-site read-only fallback, site-info parsing, wrapper error handling, and server creation
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.18`
+  - install.sh updated to `1.0.18`
+- **MCP package metadata** — `tools/mcp-server/package.json` now declares a direct `zod` dependency and the npm lockfile metadata has been refreshed for `ai-ddtk-mcp`
+
 ## [1.0.17] - 2026-03-08
 
 ### Changed

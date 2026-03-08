@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.0.17
+# Version: 1.0.18
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -40,7 +40,8 @@
 #   │   ├── pw-auth           # Playwright WP admin auth helper
 #   │   ├── local-wp          # Local WP-CLI wrapper (canonical)
 #   │   └── aiddtk-tmux       # Optional resilient tmux wrapper
-#   ├── tools/                # Embedded dependencies via git subtree
+#   ├── tools/                # Embedded tool packages and dependencies
+#   │   ├── mcp-server/       # AI-DDTK MCP server package
 #   │   └── wp-code-check/    # WPCC subtree
 #   ├── temp/                 # Sensitive data, logs, analysis files
 #   ├── recipes/              # Workflow recipes
