@@ -16,11 +16,12 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
 - [Overview](#overview)
 - [Goals & Non-Goals](#goals--non-goals)
 - [Architecture](#architecture)
+- [Security Model](#security-model)
 - [Phase 1 — Scaffold & Local-WP Tool](#phase-1--scaffold--local-wp-tool)
 - [Phase 2 — WPCC Scan Tools & Resources](#phase-2--wpcc-scan-tools--resources)
 - [Phase 3 — pw-auth & Playwright Tools](#phase-3--pw-auth--playwright-tools)
 - [Phase 4 — wp-ajax-test & Tmux Tools](#phase-4--wp-ajax-test--tmux-tools)
-- [Phase 5 — VS Code Integration](#phase-5--vs-code-integration)
+- [Phase 5 — VS Code Integration & SSE Transport](#phase-5--vs-code-integration--sse-transport)
 - [Phase 6 — Documentation & Onboarding](#phase-6--documentation--onboarding)
 - [Tool Reference](#tool-reference)
 - [Resource Reference](#resource-reference)
@@ -36,15 +37,16 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
 
 - [ ] **Phase 1 — Scaffold & Local-WP Tool** · Effort: Low · Risk: Low
   - [ ] Project scaffold (package.json, tsconfig, MCP SDK wiring)
-  - [ ] stdio + SSE transport
+  - [ ] stdio transport (SSE deferred to Phase 5 with auth)
   - [ ] Module-per-domain file structure (`src/handlers/<domain>.ts`)
+  - [ ] WP-CLI subcommand allowlist (`src/security/allowlist.ts`)
   - [ ] `local_wp_list_sites` tool
-  - [ ] `local_wp_select_site` / `local_wp_get_active_site` tools (site context)
+  - [ ] `local_wp_select_site` / `local_wp_get_active_site` tools (convenience only, not primary)
   - [ ] `local_wp_test_connectivity` tool
   - [ ] `local_wp_get_site_info` tool
-  - [ ] `local_wp_run` tool
+  - [ ] `local_wp_run` tool (allowlisted subcommands only)
   - [ ] Basic error handling & timeout patterns
-  - [ ] Smoke tests
+  - [ ] Smoke tests (including allowlist enforcement)
 
 - [ ] **Phase 2 — WPCC Scan Tools & Resources** · Effort: Med · Risk: Low
   - [ ] `wpcc_run_scan` tool
@@ -55,18 +57,20 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [ ] Migrate/replace existing `mcp-server.js` in WPCC subtree
 
 - [ ] **Phase 3 — pw-auth & Playwright Tools** · Effort: Med · Risk: Med
-  - [ ] `pw_auth_login` tool
+  - [ ] `pw_auth_login` tool (structured args, no free-form wpCli string)
   - [ ] `pw_auth_status` tool
   - [ ] `pw_auth_clear` tool
-  - [ ] Auth state resource (`auth://state/{user}`)
+  - [ ] Auth metadata resource (`auth://status/{user}`) — no raw credentials
   - [ ] Timeout & retry handling for browser automation
 
-- [ ] **Phase 4 — wp-ajax-test & Tmux Tools** · Effort: Low · Risk: Low
-  - [ ] `wp_ajax_test` tool
-  - [ ] `tmux_start` / `tmux_send` / `tmux_capture` / `tmux_stop` tools
+- [ ] **Phase 4 — wp-ajax-test & Tmux Tools** · Effort: Low · Risk: Low–Med
+  - [ ] `wp_ajax_test` tool (explicit `site` required)
+  - [ ] `tmux_start` / `tmux_capture` / `tmux_stop` tools
   - [ ] `tmux_list` / `tmux_status` tools
+  - [ ] `tmux_send` — allowlisted commands only (no arbitrary shell execution)
 
-- [ ] **Phase 5 — VS Code Integration** · Effort: Low · Risk: Low
+- [ ] **Phase 5 — VS Code Integration & SSE Transport** · Effort: Low–Med · Risk: Med
+  - [ ] SSE transport (localhost-only bind, bearer token auth required)
   - [ ] `.vscode/tasks.json` with common commands
   - [ ] `.vscode/launch.json` for MCP server debugging
   - [ ] `mcp.json` / Claude Desktop config snippet
@@ -157,6 +161,8 @@ tools/mcp-server/
 │   ├── resources/
 │   │   ├── wpcc.ts           # wpcc:// resources
 │   │   └── auth.ts           # auth:// resources
+│   ├── security/
+│   │   └── allowlist.ts      # WP-CLI + tmux command allowlists
 │   └── utils/
 │       └── exec.ts           # Safe shell-out helper
 ├── test/
@@ -170,12 +176,83 @@ Each handler file owns tool registration + execution for its domain. The server 
 ### Key decisions
 
 - **Language:** Node.js (TypeScript). Matches existing JS tooling (`wp-ajax-test`, WPCC MCP server). Uses `@modelcontextprotocol/sdk`.
-- **Transport:** stdio (default) + SSE (opt-in via `--sse` flag, port 3100).
-- **Site context:** Agents call `local_wp_select_site` once; subsequent tools that need a site use the active context automatically (inspired by `wordpress-mcp`'s `select_site` / `get_active_site` pattern). Tools still accept an explicit `site` param to override.
-- **Shell-out pattern:** Each tool handler calls the corresponding `bin/` script via `child_process.execFile` with structured argument passing. No `eval`, no shell interpolation.
+- **Transport:** stdio only in Phase 1. SSE deferred to Phase 5 with mandatory localhost bind + bearer token auth (see Security Model).
+- **Site context:** `local_wp_select_site` is a **convenience helper**, not the primary execution model. All stateful and destructive tools **require explicit `site`**. Active site is used only for read-only tools when `site` is omitted. Every response echoes the resolved site name so wrong-site execution is immediately visible.
+- **Shell-out pattern:** Each tool handler calls the corresponding `bin/` script via `child_process.execFile` with structured argument passing. No `eval`, no shell interpolation. Passthrough tools (`local_wp_run`, `tmux_send`) enforce a subcommand allowlist — not arbitrary execution.
 - **Output parsing:** Tools return JSON when the underlying script supports `--format json`; otherwise return raw text in a `content` block.
 - **Timeout:** Default 60s per tool call, configurable. WPCC scans get 300s.
 - **Location:** `tools/mcp-server/` (alongside existing embedded tools).
+
+---
+
+## Security Model
+
+> This section addresses three design-level risks identified during review. All three are **must-fix before implementation**, not open questions.
+
+### 1. No accidental RCE surface (Red Flag #1)
+
+The combination of free-form command tools (`local_wp_run`, `tmux_send`) with network transport (SSE) creates a local command-execution bridge. Left unchecked, this is effectively a remote shell.
+
+**Mitigations — all mandatory:**
+
+- **SSE is localhost-only.** Bind to `127.0.0.1`, never `0.0.0.0`. Enforced at transport init, not configurable.
+- **SSE requires bearer token auth.** Token generated on first run, stored in `~/.ai-ddtk/mcp-token`. No token = no connection.
+- **SSE deferred to Phase 5.** Phase 1–4 are stdio-only, which is inherently local and single-client.
+- **`local_wp_run` uses a subcommand allowlist.** Only safe, read-heavy WP-CLI subcommands are permitted by default:
+  ```
+  ALLOWED: cli info, core version, plugin list, theme list, option get,
+           post list, user list, db query (SELECT only), cache flush,
+           cron event list, rewrite flush, transient list
+  BLOCKED: eval, shell, db export, db import, db reset, db drop,
+           config set, config delete, core update, plugin install,
+           plugin delete, theme install, theme delete, user create,
+           user delete, package install
+  ```
+  Allowlist lives in `src/security/allowlist.ts`. Can be extended via config, but defaults are restrictive.
+- **`tmux_send` uses a command allowlist.** Only AI-DDTK bin/ commands and safe reads are allowed — no arbitrary shell dispatch:
+  ```
+  ALLOWED: wpcc, pw-auth, local-wp, wp-ajax-test, cat, ls, head, tail
+  BLOCKED: rm, sudo, curl, wget, eval, sh, bash, node, python, pip, npm
+  ```
+- **`pw_auth_login` uses structured args, not a free-form `wpCli` string.** Instead of accepting `wpCli: "local-wp my-site"`, accept `site: "my-site"` and construct the `--wp-cli` flag internally. The agent never controls the command shape.
+
+### 2. No credential exposure via MCP resources (Red Flag #2)
+
+The `auth://state/{user}` resource as originally designed would expose raw Playwright `storageState` JSON containing session cookies, auth tokens, and reusable admin login state. This directly conflicts with the repo's rules about sensitive data in `temp/`.
+
+**Mitigations — all mandatory:**
+
+- **`auth://status/{user}` replaces `auth://state/{user}`.** Returns metadata only:
+  ```json
+  {
+    "user": "admin",
+    "exists": true,
+    "lastUpdated": "2026-03-07T10:30:00Z",
+    "age": "2h 15m",
+    "fresh": true,
+    "validationStatus": "ok",
+    "filePath": "temp/playwright/.auth/admin.json"
+  }
+  ```
+- **Raw storageState is never exposed over MCP.** If ever needed for debugging, gate behind `--unsafe-expose-auth` flag and redact cookie values by default.
+- **`pw_auth_login` returns auth file path and metadata, never file contents.**
+
+### 3. Explicit site on all destructive/stateful tools (Red Flag #3)
+
+In-memory active-site state is convenient but dangerous. With SSE or reconnecting clients, "per-session" is hard to define. Wrong-site execution on destructive tooling is unacceptable.
+
+**Mitigations — all mandatory:**
+
+- **Explicit `site` required on all stateful/destructive tools:**
+  - `local_wp_run` — always requires `site`
+  - `pw_auth_login` — always requires `site` (via `siteUrl`)
+  - `wp_ajax_test` — always requires `site` (via `url`)
+  - `pw_auth_clear` — clears for explicit user only, no "clear all" from MCP
+- **Active site context is convenience-only for read-only tools:**
+  - `local_wp_test_connectivity` — can fall back to active site
+  - `local_wp_get_site_info` — can fall back to active site
+- **Every response echoes the resolved site.** Agents (and humans reviewing transcripts) always see which site was acted upon.
+- **If SSE is enabled (Phase 5+), active site is scoped to client session ID.** No shared mutable state across clients.
 
 ---
 
@@ -190,8 +267,9 @@ Get the MCP server running with the simplest tool first.
 1. **Project scaffold**
    - `tools/mcp-server/package.json` with `@modelcontextprotocol/sdk`, `typescript`
    - `tools/mcp-server/tsconfig.json`
-   - `tools/mcp-server/src/index.ts` — server entry point, transport setup, handler registration
-   - `tools/mcp-server/src/state.ts` — active site context (in-memory, per-session)
+   - `tools/mcp-server/src/index.ts` — server entry point, stdio transport, handler registration
+   - `tools/mcp-server/src/state.ts` — active site context (in-memory, convenience-only for read tools)
+   - `tools/mcp-server/src/security/allowlist.ts` — WP-CLI subcommand allowlist (see Security Model)
    - `tools/mcp-server/src/handlers/local-wp.ts` — all `local_wp_*` tools
    - `tools/mcp-server/src/utils/exec.ts` — safe shell-out helper (execFile, timeout, error normalization)
 
@@ -201,7 +279,8 @@ Get the MCP server running with the simplest tool first.
    - No shell-out needed — pure filesystem read
 
 3. **`local_wp_select_site` / `local_wp_get_active_site`** tools (borrowed from `wordpress-mcp`)
-   - `select_site`: Sets the active site context for the session. Agent calls this once, then subsequent tools use it implicitly.
+   - **Convenience only.** Active site is used as a fallback for read-only tools (`test_connectivity`, `get_site_info`). Stateful/destructive tools always require explicit `site`.
+   - `select_site`: Sets the active site context for the session.
      - Inputs: `site` (string, required)
      - Validates site exists in `~/Local Sites/` before accepting
      - Returns: `{ activeSite, path }`
@@ -222,25 +301,30 @@ Get the MCP server running with the simplest tool first.
    - Returns: `{ site, wpVersion, phpVersion, activeTheme, plugins: [{ name, status, version }], siteUrl }`
 
 6. **`local_wp_run`** tool
-   - General-purpose WP-CLI passthrough for anything the specialized tools don't cover
-   - Inputs: `site` (string, optional — uses active site if omitted), `command` (string, required), `args` (string[], optional)
+   - WP-CLI passthrough for commands not covered by specialized tools
+   - **Requires explicit `site`** — does not fall back to active site (see Security Model §3)
+   - **Subcommand allowlist enforced** — rejects commands not in `allowlist.ts` (see Security Model §1)
+   - Inputs: `site` (string, **required**), `command` (string, required), `args` (string[], optional)
    - Shells out to: `bin/local-wp <site> <command> [args...]`
-   - Returns: `{ stdout, stderr, exitCode }`
+   - Returns: `{ site, stdout, stderr, exitCode }` — always echoes resolved site
    - Timeout: 60s default
 
 7. **Smoke tests**
    - `tools/mcp-server/test/local-wp.test.ts`
    - Mock `execFile` to verify argument construction and output parsing
-   - Test site context: select → implicit use → explicit override
+   - Test site context: select → read-only fallback works, destructive tools reject missing site
+   - Test allowlist: blocked subcommands are rejected before shell-out
+   - Test response shape: every response includes resolved `site` field
 
 ### Acceptance criteria
 
 - `npx ai-ddtk-mcp` starts and registers tools via stdio
 - Claude Desktop can discover and call `local_wp_list_sites`
-- `local_wp_select_site` sets context; `local_wp_run` uses it without explicit `site` param
+- `local_wp_select_site` sets context; read-only tools use it, `local_wp_run` rejects without explicit `site`
+- `local_wp_run` rejects disallowed subcommands (e.g. `eval`, `db drop`)
 - `local_wp_test_connectivity` returns structured health check
 - `local_wp_get_site_info` returns WP version, plugins, theme in one call
-- `local_wp_run` correctly passes arguments to `bin/local-wp`
+- All tool responses include the resolved `site` name
 
 ---
 
@@ -283,10 +367,11 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
 ### Tools
 
 1. **`pw_auth_login`**
-   - Inputs: `siteUrl` (string, required), `wpCli` (string, e.g. `"local-wp my-site"`), `user` (string, default "admin"), `redirect` (string), `force` (boolean)
-   - Shells out to: `bin/pw-auth login --site-url <url> [--wp-cli "<cmd>"] [--user <user>] [--redirect <path>] [--force]`
+   - Inputs: `siteUrl` (string, required), `site` (string, required — Local site name), `user` (string, default "admin"), `redirect` (string), `force` (boolean)
+   - **No free-form `wpCli` string.** The handler constructs `--wp-cli "local-wp <site>"` internally from the `site` param. The agent never controls the command shape (see Security Model §1).
+   - Shells out to: `bin/pw-auth login --site-url <url> --wp-cli "local-wp <site>" [--user <user>] [--redirect <path>] [--force]`
    - Timeout: 120s (browser launch + navigation)
-   - Returns: `{ authFile, user, siteUrl, expiresAt }`
+   - Returns: `{ site, authFile, user, siteUrl, expiresAt }` — echoes resolved site
 
 2. **`pw_auth_status`**
    - Shells out to: `bin/pw-auth status`
@@ -298,13 +383,17 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
 
 ### Resources
 
-4. **`auth://state/{user}`** — Read cached Playwright auth JSON for a given user
+4. **`auth://status/{user}`** — Auth metadata only (see Security Model §2)
+   - Returns: `{ user, exists, lastUpdated, age, fresh, validationStatus, filePath }`
+   - **Never exposes raw storageState**, cookies, or tokens
+   - Raw state available only via `--unsafe-expose-auth` debug flag (redacts cookie values by default)
 
 ### Risk mitigations
 
 - Headless mode only from MCP (no `--headed` flag exposed)
 - Retry once on timeout before returning error
 - Clear error messages when dev-login-cli.php mu-plugin is missing
+- `pw_auth_clear` requires explicit `user` param — no "clear all" from MCP
 
 ---
 
@@ -315,12 +404,15 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
 ### Tools
 
 1. **`wp_ajax_test`**
-   - Inputs: `url` (string), `action` (string), `data` (object), `auth` (string), `method` (string), `nopriv` (boolean), `insecure` (boolean)
+   - Inputs: `url` (string, **required**), `action` (string, **required**), `data` (object), `auth` (string), `method` (string), `nopriv` (boolean), `insecure` (boolean)
+   - **Explicit `url` required** — does not infer from active site (see Security Model §3)
    - Shells out to: `bin/wp-ajax-test --url <url> --action <action> --format json [...]`
    - Returns: parsed JSON response
 
 2. **`tmux_start`** — `aiddtk-tmux start --cwd <path>`
-3. **`tmux_send`** — `aiddtk-tmux send --command <cmd>`
+3. **`tmux_send`** — **Allowlisted commands only** (see Security Model §1). Only AI-DDTK bin/ commands and safe reads (`cat`, `ls`, `head`, `tail`) are permitted. Arbitrary shell commands are rejected before dispatch.
+   - Inputs: `command` (string, required), `session` (string, optional)
+   - Validates command prefix against allowlist before calling `aiddtk-tmux send`
 4. **`tmux_capture`** — `aiddtk-tmux capture --tail <lines>`
 5. **`tmux_stop`** — `aiddtk-tmux stop`
 6. **`tmux_list`** — `aiddtk-tmux list`
@@ -330,11 +422,18 @@ All tmux tools are thin wrappers with short timeouts (10s).
 
 ---
 
-## Phase 5 — VS Code Integration
+## Phase 5 — VS Code Integration & SSE Transport
 
-> Effort: **Low** · Risk: **Low**
+> Effort: **Low–Med** · Risk: **Med** (SSE introduces network attack surface)
 
-Ship config files that make the toolkit immediately usable from VS Code.
+Ship config files and SSE transport with mandatory security controls.
+
+### SSE Transport (deferred from Phase 1)
+
+- **Bind to `127.0.0.1` only** — never `0.0.0.0`, not configurable
+- **Bearer token required** — generated on first run, stored in `~/.ai-ddtk/mcp-token`
+- **Client session ID tracking** — active site state scoped per session, no cross-client contamination
+- Port 3100 (configurable)
 
 ### Deliverables
 
@@ -389,15 +488,15 @@ Ship config files that make the toolkit immediately usable from VS Code.
 | `local_wp_get_active_site` | in-memory state | — | `{ activeSite, path } \| null` |
 | `local_wp_test_connectivity` | `bin/local-wp` + fs | `site?` | `{ status, checks }` |
 | `local_wp_get_site_info` | `bin/local-wp` (multiple) | `site?` | `{ wpVersion, phpVersion, activeTheme, plugins, siteUrl }` |
-| `local_wp_run` | `bin/local-wp` | `site?`, `command`, `args` | `{ stdout, stderr, exitCode }` |
+| `local_wp_run` | `bin/local-wp` | `site` (required), `command` (allowlisted), `args` | `{ site, stdout, stderr, exitCode }` |
 | `wpcc_run_scan` | `bin/wpcc` | `paths`, `format`, `verbose` | scan JSON or text |
 | `wpcc_list_features` | `bin/wpcc --features` | — | feature list |
-| `pw_auth_login` | `bin/pw-auth login` | `siteUrl`, `wpCli`, `user`, `redirect`, `force` | `{ authFile, user, expiresAt }` |
+| `pw_auth_login` | `bin/pw-auth login` | `siteUrl`, `site` (required), `user`, `redirect`, `force` | `{ site, authFile, user, expiresAt }` |
 | `pw_auth_status` | `bin/pw-auth status` | — | auth cache info |
 | `pw_auth_clear` | `bin/pw-auth clear` | — | confirmation |
 | `wp_ajax_test` | `bin/wp-ajax-test` | `url`, `action`, `data`, `auth`, `method`, `nopriv` | JSON response |
 | `tmux_start` | `aiddtk-tmux start` | `cwd`, `session` | session info |
-| `tmux_send` | `aiddtk-tmux send` | `command`, `session` | confirmation |
+| `tmux_send` | `aiddtk-tmux send` | `command` (allowlisted), `session` | confirmation |
 | `tmux_capture` | `aiddtk-tmux capture` | `tail`, `session` | captured output |
 | `tmux_stop` | `aiddtk-tmux stop` | `session` | confirmation |
 | `tmux_list` | `aiddtk-tmux list` | — | session list |
@@ -410,14 +509,16 @@ Ship config files that make the toolkit immediately usable from VS Code.
 | `wpcc://latest-scan` | Most recent WPCC scan (JSON) | `application/json` |
 | `wpcc://latest-report` | Most recent WPCC report (HTML) | `text/html` |
 | `wpcc://scan/{id}` | Specific scan by timestamp | `application/json` |
-| `auth://state/{user}` | Playwright auth state for user | `application/json` |
+| `auth://status/{user}` | Auth metadata only (no credentials) | `application/json` |
 
 ---
 
 ## Open Questions
 
+> Items 2 and 3 from the original list are now resolved in the Security Model section.
+
 1. **Should tmux tools be optional?** Not all users have tmux installed. Could gate behind a `--enable-tmux` flag.
-2. **SSE transport auth?** If exposing over HTTP, should we require a bearer token? Probably yes for anything beyond localhost.
-3. **Config file location?** Use `.ai-ddtk.config` for MCP settings or a separate `mcp.config.json`?
-4. **Monorepo bin entry?** Should `install.sh` add `ai-ddtk-mcp` to PATH, or is `npx` sufficient?
-5. **Existing WPCC MCP server migration timeline?** Deprecate immediately or run both in parallel for one release?
+2. **Config file location?** Use `.ai-ddtk.config` for MCP settings or a separate `mcp.config.json`?
+3. **Monorepo bin entry?** Should `install.sh` add `ai-ddtk-mcp` to PATH, or is `npx` sufficient?
+4. **Existing WPCC MCP server migration timeline?** Deprecate immediately or run both in parallel for one release?
+5. **Allowlist extensibility model?** Should users extend the WP-CLI allowlist via config file, env var, or CLI flag? Need to balance flexibility with not accidentally opening RCE.
