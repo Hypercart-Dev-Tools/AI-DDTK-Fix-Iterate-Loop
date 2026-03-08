@@ -49,8 +49,8 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [x] Smoke tests (including allowlist enforcement)
 
 - [ ] **Phase 2 — WPCC Scan Tools & Resources** · Effort: Med · Risk: Low
-  - [ ] `wpcc_run_scan` tool
-  - [ ] `wpcc_list_features` tool
+  - [x] `wpcc_run_scan` tool
+  - [x] `wpcc_list_features` tool
   - [ ] `wpcc://latest-scan` resource
   - [ ] `wpcc://latest-report` resource
   - [ ] `wpcc://scan/{id}` resource
@@ -344,10 +344,12 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
    - Shells out to: `bin/wpcc --paths <paths> [--format json] [--verbose]`
    - Timeout: 300s (scans can be slow on large repos)
    - Returns: parsed JSON scan results or raw text
+   - Status: ✅ Initial implementation complete in unified `tools/mcp-server/`; JSON mode reads the authoritative `dist/logs/*.json` artifact instead of mixed stdout
 
 2. **`wpcc_list_features`**
    - Shells out to: `bin/wpcc --features`
    - Returns: feature list as structured data
+   - Status: ✅ Initial implementation complete in unified `tools/mcp-server/`
 
 ### Resources
 

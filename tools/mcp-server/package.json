@@ -1,7 +1,7 @@
 {
   "name": "ai-ddtk-mcp",
-  "version": "0.1.0",
-  "description": "AI-DDTK MCP server for LocalWP and toolkit command orchestration",
+  "version": "0.2.0",
+  "description": "AI-DDTK MCP server for LocalWP, WPCC, and toolkit command orchestration",
   "type": "module",
   "main": "dist/src/index.js",
   "bin": {
@@ -12,7 +12,7 @@
     "clean": "rm -rf dist",
     "mcp": "node dist/src/index.js",
     "start": "npm run mcp",
-    "test": "npm run build && node --test dist/test/local-wp.test.js"
+    "test": "npm run build && node --test dist/test/*.test.js"
   },
   "keywords": [
     "mcp",
