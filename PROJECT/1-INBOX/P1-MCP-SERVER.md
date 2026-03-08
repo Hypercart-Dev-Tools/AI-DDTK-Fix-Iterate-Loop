@@ -37,7 +37,11 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
 - [ ] **Phase 1 — Scaffold & Local-WP Tool** · Effort: Low · Risk: Low
   - [ ] Project scaffold (package.json, tsconfig, MCP SDK wiring)
   - [ ] stdio + SSE transport
+  - [ ] Module-per-domain file structure (`src/handlers/<domain>.ts`)
   - [ ] `local_wp_list_sites` tool
+  - [ ] `local_wp_select_site` / `local_wp_get_active_site` tools (site context)
+  - [ ] `local_wp_test_connectivity` tool
+  - [ ] `local_wp_get_site_info` tool
   - [ ] `local_wp_run` tool
   - [ ] Basic error handling & timeout patterns
   - [ ] Smoke tests
@@ -135,10 +139,39 @@ The two projects solve different problems. `wordpress-mcp` is a content manageme
 └─────────────────────────────────────────────┘
 ```
 
+### File structure (module-per-domain)
+
+Borrowed from `wordpress-mcp`'s module pattern, adapted with namespace prefixes for clarity:
+
+```
+tools/mcp-server/
+├── src/
+│   ├── index.ts              # Server entry, transport setup, handler registration
+│   ├── state.ts              # Active site context (select/get)
+│   ├── handlers/
+│   │   ├── local-wp.ts       # local_wp_* tools
+│   │   ├── wpcc.ts           # wpcc_* tools
+│   │   ├── pw-auth.ts        # pw_auth_* tools
+│   │   ├── wp-ajax-test.ts   # wp_ajax_test tool
+│   │   └── tmux.ts           # tmux_* tools
+│   ├── resources/
+│   │   ├── wpcc.ts           # wpcc:// resources
+│   │   └── auth.ts           # auth:// resources
+│   └── utils/
+│       └── exec.ts           # Safe shell-out helper
+├── test/
+│   └── *.test.ts
+├── package.json
+└── tsconfig.json
+```
+
+Each handler file owns tool registration + execution for its domain. The server entry point imports and registers all handlers.
+
 ### Key decisions
 
 - **Language:** Node.js (TypeScript). Matches existing JS tooling (`wp-ajax-test`, WPCC MCP server). Uses `@modelcontextprotocol/sdk`.
 - **Transport:** stdio (default) + SSE (opt-in via `--sse` flag, port 3100).
+- **Site context:** Agents call `local_wp_select_site` once; subsequent tools that need a site use the active context automatically (inspired by `wordpress-mcp`'s `select_site` / `get_active_site` pattern). Tools still accept an explicit `site` param to override.
 - **Shell-out pattern:** Each tool handler calls the corresponding `bin/` script via `child_process.execFile` with structured argument passing. No `eval`, no shell interpolation.
 - **Output parsing:** Tools return JSON when the underlying script supports `--format json`; otherwise return raw text in a `content` block.
 - **Timeout:** Default 60s per tool call, configurable. WPCC scans get 300s.
@@ -157,7 +190,9 @@ Get the MCP server running with the simplest tool first.
 1. **Project scaffold**
    - `tools/mcp-server/package.json` with `@modelcontextprotocol/sdk`, `typescript`
    - `tools/mcp-server/tsconfig.json`
-   - `tools/mcp-server/src/index.ts` — server entry point, transport setup
+   - `tools/mcp-server/src/index.ts` — server entry point, transport setup, handler registration
+   - `tools/mcp-server/src/state.ts` — active site context (in-memory, per-session)
+   - `tools/mcp-server/src/handlers/local-wp.ts` — all `local_wp_*` tools
    - `tools/mcp-server/src/utils/exec.ts` — safe shell-out helper (execFile, timeout, error normalization)
 
 2. **`local_wp_list_sites`** tool
@@ -165,20 +200,46 @@ Get the MCP server running with the simplest tool first.
    - Returns: `{ sites: [{ name, path, hasWordPress }] }`
    - No shell-out needed — pure filesystem read
 
-3. **`local_wp_run`** tool
-   - Inputs: `site` (string, required), `command` (string, required), `args` (string[], optional)
+3. **`local_wp_select_site` / `local_wp_get_active_site`** tools (borrowed from `wordpress-mcp`)
+   - `select_site`: Sets the active site context for the session. Agent calls this once, then subsequent tools use it implicitly.
+     - Inputs: `site` (string, required)
+     - Validates site exists in `~/Local Sites/` before accepting
+     - Returns: `{ activeSite, path }`
+   - `get_active_site`: Returns the currently selected site (or null if none set).
+     - Returns: `{ activeSite, path } | null`
+
+4. **`local_wp_test_connectivity`** tool (borrowed from `wordpress-mcp`)
+   - Preflight check before running scans or auth
+   - Validates: site directory exists, `wp-config.php` present, MySQL socket alive, WP responds to `wp cli info`
+   - Inputs: `site` (string, optional — uses active site if omitted)
+   - Shells out to: `bin/local-wp <site> cli info`
+   - Returns: `{ site, status: "ok" | "error", checks: { dir, wpConfig, mysql, wpCli } }`
+
+5. **`local_wp_get_site_info`** tool (borrowed from `wordpress-mcp`)
+   - Rich site summary in one call — gives agents context before deciding what to run
+   - Shells out to: `bin/local-wp <site> cli info` + `bin/local-wp <site> core version` + `bin/local-wp <site> theme list --format=json` + `bin/local-wp <site> plugin list --format=json --fields=name,status,version`
+   - Inputs: `site` (string, optional — uses active site if omitted)
+   - Returns: `{ site, wpVersion, phpVersion, activeTheme, plugins: [{ name, status, version }], siteUrl }`
+
+6. **`local_wp_run`** tool
+   - General-purpose WP-CLI passthrough for anything the specialized tools don't cover
+   - Inputs: `site` (string, optional — uses active site if omitted), `command` (string, required), `args` (string[], optional)
    - Shells out to: `bin/local-wp <site> <command> [args...]`
    - Returns: `{ stdout, stderr, exitCode }`
    - Timeout: 60s default
 
-4. **Smoke tests**
+7. **Smoke tests**
    - `tools/mcp-server/test/local-wp.test.ts`
    - Mock `execFile` to verify argument construction and output parsing
+   - Test site context: select → implicit use → explicit override
 
 ### Acceptance criteria
 
 - `npx ai-ddtk-mcp` starts and registers tools via stdio
 - Claude Desktop can discover and call `local_wp_list_sites`
+- `local_wp_select_site` sets context; `local_wp_run` uses it without explicit `site` param
+- `local_wp_test_connectivity` returns structured health check
+- `local_wp_get_site_info` returns WP version, plugins, theme in one call
 - `local_wp_run` correctly passes arguments to `bin/local-wp`
 
 ---
@@ -324,7 +385,11 @@ Ship config files that make the toolkit immediately usable from VS Code.
 | Tool | Wraps | Inputs | Output |
 |------|-------|--------|--------|
 | `local_wp_list_sites` | filesystem scan | — | `{ sites: Site[] }` |
-| `local_wp_run` | `bin/local-wp` | `site`, `command`, `args` | `{ stdout, stderr, exitCode }` |
+| `local_wp_select_site` | in-memory state | `site` | `{ activeSite, path }` |
+| `local_wp_get_active_site` | in-memory state | — | `{ activeSite, path } \| null` |
+| `local_wp_test_connectivity` | `bin/local-wp` + fs | `site?` | `{ status, checks }` |
+| `local_wp_get_site_info` | `bin/local-wp` (multiple) | `site?` | `{ wpVersion, phpVersion, activeTheme, plugins, siteUrl }` |
+| `local_wp_run` | `bin/local-wp` | `site?`, `command`, `args` | `{ stdout, stderr, exitCode }` |
 | `wpcc_run_scan` | `bin/wpcc` | `paths`, `format`, `verbose` | scan JSON or text |
 | `wpcc_list_features` | `bin/wpcc --features` | — | feature list |
 | `pw_auth_login` | `bin/pw-auth login` | `siteUrl`, `wpCli`, `user`, `redirect`, `force` | `{ authFile, user, expiresAt }` |
