@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.25
+> Version: 1.0.28
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -77,6 +77,22 @@ local-wp my-site plugin list
 | **local-wp** | WP-CLI wrapper for Local by Flywheel |
 | **Playwright** | Headless browser automation |
 | **PixelMatch** | Visual regression testing |
+
+## MCP Server Quick Start
+
+Use the bundled MCP server when you want Claude Code, Claude Desktop, Cline, or another MCP client to call AI-DDTK tools directly.
+
+```bash
+./install.sh setup-mcp
+./install.sh status
+```
+
+- **Claude Code**: `.mcp.json` is already tracked in this repo.
+- **Claude Desktop / Cline**: copy the reference configs from `tools/mcp-server/mcp-configs/`.
+- **HTTP debug mode**: run `cd tools/mcp-server && npm run mcp:http`.
+- **More details**: see `tools/mcp-server/README.md`.
+
+For WordPress database queries outside direct MySQL server access, see the external **WP-DB-Toolkit** and its MCP server: https://github.com/Hypercart-Dev-Tools/WP-DB-Toolkit
 
 ## Repository Structure
 

@@ -1,6 +1,6 @@
 ---
 title: "P1: AI-DDTK MCP Server"
-status: in_progress
+status: complete
 author: noelsaw
 created: 2026-03-07
 updated: 2026-03-09
@@ -21,7 +21,7 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
 - [Phase 2 — WPCC Scan Tools & Resources](#phase-2--wpcc-scan-tools--resources)
 - [Phase 3 — pw-auth & Playwright Tools](#phase-3--pw-auth--playwright-tools)
 - [Phase 4 — wp-ajax-test & Tmux Tools](#phase-4--wp-ajax-test--tmux-tools)
-- [Phase 5 — VS Code Integration & SSE Transport](#phase-5--vs-code-integration--sse-transport)
+- [Phase 5 — VS Code Integration & Secure HTTP and SSE Transport](#phase-5--vs-code-integration--secure-http-and-sse-transport)
 - [Phase 6 — Documentation & Onboarding](#phase-6--documentation--onboarding)
 - [Tool Reference](#tool-reference)
 - [Resource Reference](#resource-reference)
@@ -69,18 +69,22 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [x] `tmux_list` / `tmux_status` tools
   - [x] `tmux_send` — allowlisted commands only (no arbitrary shell execution)
 
-- [ ] **Phase 5 — VS Code Integration & SSE Transport** · Effort: Low–Med · Risk: Med
-  - [ ] SSE transport (localhost-only bind, bearer token auth required)
-  - [ ] `.vscode/tasks.json` with common commands
-  - [ ] `.vscode/launch.json` for MCP server debugging
-  - [ ] `mcp.json` / Claude Desktop config snippet
-  - [ ] Cline MCP config snippet
+- [x] **Phase 5 — VS Code Integration & Secure HTTP and SSE Transport** · Effort: Med · Risk: Med
+  - [x] Per-session active-site context/state handling
+  - [x] Secure localhost-only HTTP/SSE transport with bearer token auth
+  - [x] Repo-tracked `.vscode/tasks.json` with common commands
+  - [x] Repo-tracked `.vscode/launch.json` for MCP server debugging
+  - [x] `mcp.json` / Claude Desktop config snippet
+  - [x] Cline MCP config snippet
+  - [x] Installer wiring for MCP setup/config generation
+  - [x] Targeted tests + smoke validation
+  - [x] Update changelog, version, and project tracking
 
-- [ ] **Phase 6 — Documentation & Onboarding** · Effort: Low · Risk: Low
-  - [ ] README for MCP server (setup, config, tool catalog)
-  - [ ] Update AGENTS.md with MCP tool usage patterns
-  - [ ] Update ROADMAP-PERPLEXITY.md — mark #6 complete
-  - [ ] Short screencast or GIF demo
+- [x] **Phase 6 — Documentation & Onboarding** · Effort: Low · Risk: Low
+  - [x] README for MCP server (setup, config, tool catalog)
+  - [x] Update AGENTS.md with MCP tool usage patterns
+  - [x] Update ROADMAP-PERPLEXITY.md — mark #6 complete
+  - [x] Add reference to external WP DB Toolkit and it's MCP server that can be used for database queries outside of MySQL server. https://github.com/Hypercart-Dev-Tools/WP-DB-Toolkit
 
 ---
 
@@ -437,11 +441,13 @@ Phase 4 is now implemented in `tools/mcp-server/src/handlers/wp-ajax-test.ts` an
 
 ---
 
-## Phase 5 — VS Code Integration & SSE Transport
+## Phase 5 — VS Code Integration & Secure HTTP and SSE Transport
 
-> Effort: **Low–Med** · Risk: **Med** (SSE introduces network attack surface)
+> Effort: **Med** · Risk: **Med** (SSE introduces network attack surface)
 
-Ship config files and SSE transport with mandatory security controls.
+Ship repo-tracked integration files plus secure localhost-only HTTP/SSE transport with mandatory security controls.
+
+> Status update (2026-03-09): Phase 5 is **complete**. Implemented secure localhost-only HTTP transport via `StreamableHTTPServerTransport` with bearer token auth (`~/.ai-ddtk/mcp-token`), per-session `SessionStore` for isolated active-site context, repo-tracked `.vscode/tasks.json` and `.vscode/launch.json`, `.mcp.json` for Claude Code auto-discovery, reference configs for Claude Desktop and Cline in `tools/mcp-server/mcp-configs/`, `install.sh setup-mcp` command, and 7 new regression tests in `test/phase5.test.ts`. MCP server version bumped to `0.6.0`, toolkit version to `1.0.26`.
 
 ### SSE Transport (deferred from Phase 1)
 
@@ -464,6 +470,7 @@ Ship config files and SSE transport with mandatory security controls.
    ```
 
 2. **`.vscode/launch.json`** — Debug config for the MCP server itself
+   - Root `.gitignore` currently ignores `.vscode/`; Phase 5 must explicitly decide and implement how these files are tracked in-repo.
 
 3. **MCP client configs**
    - `mcp.json` for Claude Code
@@ -490,7 +497,9 @@ Ship config files and SSE transport with mandatory security controls.
 
 3. **ROADMAP-PERPLEXITY.md update** — Mark item #6 as complete
 
-4. **Demo** — Short screencast or GIF showing: open project → Claude discovers tools → run scan → view results
+4. **Optional follow-up demo** — Short screencast or GIF showing: open project → Claude discovers tools → run scan → view results
+
+> Status update (2026-03-09): Phase 6 is **complete**. Added concise MCP onboarding in `tools/mcp-server/README.md`, root `README.md`, and `AGENTS.md`; marked roadmap item #6 complete; and added a WP-DB-Toolkit MCP reference for database-query workflows outside direct MySQL access. MCP server version bumped to `0.6.1`, toolkit version to `1.0.27`.
 
 ---
 

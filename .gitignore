@@ -20,7 +20,9 @@ playwright-auth.json
 
 # IDE files
 .DS_Store
-.vscode/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 *.sublime-*
 *.swp

@@ -1,6 +1,6 @@
 {
   "name": "ai-ddtk-mcp",
-  "version": "0.5.1",
+  "version": "0.6.2",
   "description": "AI-DDTK MCP server for LocalWP, pw-auth, wp-ajax-test, tmux, and WPCC tools/resources",
   "type": "module",
   "main": "dist/src/index.js",
@@ -11,6 +11,7 @@
     "build": "tsc -p tsconfig.json",
     "clean": "rm -rf dist",
     "mcp": "node dist/src/index.js",
+    "mcp:http": "node dist/src/index.js --http",
     "start": "npm run mcp",
     "test": "npm run build && node --test dist/test/*.test.js"
   },
