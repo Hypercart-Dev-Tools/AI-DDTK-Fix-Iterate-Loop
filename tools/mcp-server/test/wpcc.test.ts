@@ -168,6 +168,29 @@ test("wpcc_run_scan falls back to newly created artifacts when stdout omits path
   }
 });
 
+test("wpcc_run_scan rejects path entries that look like flags", async () => {
+  const fixture = await createWpccFixture();
+  let execCalled = false;
+
+  try {
+    const handlers = createWpccHandlers({
+      repoRoot: fixture.root,
+      execRunner: async (): Promise<ExecResult> => {
+        execCalled = true;
+        return { stdout: "", stderr: "", exitCode: 0 };
+      },
+    });
+
+    await assert.rejects(
+      () => handlers.runScan("templates, --verbose", "json", false),
+      /WPCC scan path entries must not start with '-': --verbose/,
+    );
+    assert.equal(execCalled, false);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("wpcc resources resolve latest artifacts and list recent scans", async () => {
   const fixture = await createWpccFixture();
   const olderScanId = "2026-03-08-070600-UTC";
