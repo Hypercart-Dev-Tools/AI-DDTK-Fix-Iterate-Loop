@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.25] - 2026-03-09
+
+### Changed
+- **Phase 4 pre-merge tmux hardening** — `tools/mcp-server/src/security/allowlist.ts` now narrows `tmux_send` to validated repo-relative `wpcc` invocations only, removes direct read-command passthrough, rejects `${...}` shell expansion syntax, and blocks unsafe `wpcc --paths` values such as absolute or out-of-workspace paths.
+- **AJAX URL scheme hardening** — `tools/mcp-server/src/index.ts` and `tools/mcp-server/src/handlers/wp-ajax-test.ts` now reject non-HTTP(S) URLs so `wp_ajax_test` cannot be used with `file://`, `ftp://`, or similar schemes.
+- **tmux parsing safety** — `tools/mcp-server/src/handlers/tmux.ts` now escapes `extractField()` labels before building a `RegExp`.
+- **Regression coverage** — `tools/mcp-server/test/tmux.test.ts` and `tools/mcp-server/test/wp-ajax-test.test.ts` now cover repo-relative `wpcc --paths` validation, blocked read commands, blocked `${...}` expansion, non-HTTP(S) AJAX URLs, and exit-0 non-JSON wrapper output.
+- **Version updates**
+  - README.md updated to `1.0.25`
+  - install.sh updated to `1.0.25`
+  - `tools/mcp-server/src/index.ts` updated to `0.5.1`
+  - `tools/mcp-server/package.json` updated to `0.5.1`
+
+## [1.0.24] - 2026-03-09
+
+### Added
+- **AI-DDTK MCP server Phase 4 tools** — added `wp_ajax_test`, `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, and `tmux_status` to `tools/mcp-server/src/index.ts` with dedicated handlers in `src/handlers/wp-ajax-test.ts` and `src/handlers/tmux.ts`.
+- **Phase 4 regression coverage** — added `tools/mcp-server/test/wp-ajax-test.test.ts` and `tools/mcp-server/test/tmux.test.ts` for JSON parsing, tmux session normalization, allowlist enforcement, wrapper output parsing, and non-zero exit preservation.
+
+### Changed
+- **tmux command hardening** — `tools/mcp-server/src/security/allowlist.ts` now enforces a Phase 4 tmux command allowlist for `wpcc`, `pw-auth`, `local-wp`, `wp-ajax-test`, and safe read commands while rejecting blocked executables and shell control operators.
+- **Phase 4 project tracking** — `PROJECT/1-INBOX/P1-MCP-SERVER.md` now marks Phase 4 complete, fixes the earlier `wp_ajax_test` checklist wording from explicit `site` to explicit `url`, and documents the concrete implementation files.
+- **Version updates**
+  - README.md updated to `1.0.24`
+  - install.sh updated to `1.0.24`
+  - `tools/mcp-server/src/index.ts` updated to `0.5.0`
+  - `tools/mcp-server/package.json` updated to `0.5.0`
+
 ## [1.0.23] - 2026-03-09
 
 ### Changed

@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.23
+> Version: 1.0.25
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -68,7 +68,7 @@ local-wp my-site plugin list
 
 | Tool | Description |
 |------|-------------|
-| **AI-DDTK MCP Server** | Unified stdio MCP package for LocalWP orchestration, pw-auth login/status, and WPCC scan/report tools/resources |
+| **AI-DDTK MCP Server** | Unified stdio MCP package for LocalWP, pw-auth, wp-ajax-test, tmux, and WPCC tools/resources |
 | **WP Code Check** | Code review + AI triage with MCP server |
 | **WP AJAX Test** | AJAX endpoint testing and validation |
 | **AI-DDTK Tmux Proxy** | Persistent tmux-backed sessions for flaky IDE terminals |
@@ -90,7 +90,7 @@ AI-DDTK/
 │   ├── wpcc             # WP Code Check wrapper
 │   └── wp-ajax-test     # AJAX endpoint tester
 ├── tools/               # Embedded tool packages and dependencies
-│   ├── mcp-server/      # AI-DDTK MCP server package (stdio + LocalWP + pw-auth + WPCC tools/resources)
+│   ├── mcp-server/      # AI-DDTK MCP server package (stdio + LocalWP + pw-auth + wp-ajax-test + tmux + WPCC)
 │   ├── wp-code-check/   # WPCC source
 │   └── wp-ajax-test/    # AJAX test tool source
 ├── recipes/             # Workflow guides (PHPStan, audits, etc.)
@@ -311,7 +311,7 @@ await page.goto('http://my-site.local/wp-admin/');
 
 Auth state is cached for 12 hours by default (configurable with `--max-age`). Run `pw-auth login --site-url <url> [--wp-cli "local-wp <site>"]` immediately before Playwright automation to mint or reuse auth state; if the one-time URL expired or auth is stale, rerun `pw-auth login --force ...` to generate a fresh login URL. Fresh cached auth files are now **live-validated before reuse**; if the saved session no longer reaches `/wp-admin/`, `pw-auth` re-authenticates instead of returning a false success. `pw-auth status` shows cache freshness/metadata only. `pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright before failing. For HTTPS local-development origins (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`), the Playwright browser context now tolerates self-signed certificates so Local-style sites can authenticate cleanly. The tool verifies login by checking for `wordpress_logged_in_` cookies, confirming `/wp-admin/` is accessible, and detecting real WordPress error pages without falsely flagging normal admin markup. See `pw-auth --help` for all options.
 
-The unified MCP server now exposes the same workflow as structured MCP surfaces: `pw_auth_login`, `pw_auth_status`, `pw_auth_clear`, and metadata-only `auth://status/{user}`. The MCP layer never exposes raw auth-state JSON. `pw_auth_login` reports `cacheFreshUntil` as a best-effort cache freshness timestamp derived from the auth file mtime, not a guaranteed WordPress session expiry, and `pw_auth_status.users[]` is the authoritative structured status while `rawText` remains informational passthrough.
+The unified MCP server now exposes structured MCP surfaces for LocalWP, `pw_auth_login`, `pw_auth_status`, `pw_auth_clear`, metadata-only `auth://status/{user}`, `wp_ajax_test`, and tmux orchestration (`tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status`). The MCP layer never exposes raw auth-state JSON. `tmux_send` remains intentionally narrow after the Phase 4 pre-merge hardening pass: it now accepts only validated repo-relative `wpcc` invocations, while direct file inspection should use `tmux_capture` and LocalWP / auth / AJAX workflows should use their dedicated MCP tools. `pw_auth_login` reports `cacheFreshUntil` as a best-effort cache freshness timestamp derived from the auth file mtime, not a guaranteed WordPress session expiry, and `pw_auth_status.users[]` is the authoritative structured status while `rawText` remains informational passthrough.
 
 ### Troubleshooting
 
