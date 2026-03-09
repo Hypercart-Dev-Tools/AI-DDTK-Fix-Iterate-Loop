@@ -7,6 +7,50 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.28] - 2026-03-09
+
+### Changed
+- **MCP README wording polish** — refined `tools/mcp-server/README.md` phrasing for clarity and consistency around Node.js dependencies, stdio launch wording, WP-DB-Toolkit wording, and `--force` usage.
+- **Version updates**
+  - README.md updated to `1.0.28`
+  - install.sh updated to `1.0.28`
+  - `tools/mcp-server/src/index.ts` updated to `0.6.2`
+  - `tools/mcp-server/package.json` updated to `0.6.2`
+
+## [1.0.27] - 2026-03-09
+
+### Added
+- **Phase 6 MCP documentation** — added `tools/mcp-server/README.md` with concise setup, client config, tool/resource catalog, usage pattern, and troubleshooting guidance.
+
+### Changed
+- **Root onboarding docs** — `README.md` now includes a short MCP server quick-start section and a reference to the external WP-DB-Toolkit MCP server for database-query workflows outside direct MySQL access.
+- **Agent guidance** — `AGENTS.md` now includes concise MCP usage patterns, example prompts, and failure-mode guidance.
+- **Project tracking** — `PROJECT/1-INBOX/P1-MCP-SERVER.md` now marks Phase 6 complete and `PROJECT/1-INBOX/ROADMAP-PERPLEXITY.md` now marks roadmap item #6 complete.
+- **Version updates**
+  - README.md updated to `1.0.27`
+  - install.sh updated to `1.0.27`
+  - `tools/mcp-server/src/index.ts` updated to `0.6.1`
+  - `tools/mcp-server/package.json` updated to `0.6.1`
+
+## [1.0.26] - 2026-03-09
+
+### Added
+- **Phase 5 VS Code integration & HTTP/SSE transport** — MCP server now supports secure localhost-only HTTP transport via `--http` flag with bearer token authentication (token stored in `~/.ai-ddtk/mcp-token`), using the MCP SDK's `StreamableHTTPServerTransport` with per-session state isolation.
+- **Per-session active-site context** — added `SessionStore` class in `tools/mcp-server/src/state.ts` so HTTP/SSE sessions each get isolated `SiteState` with no cross-client contamination.
+- **Bearer token management** — added `tools/mcp-server/src/utils/token.ts` for automatic token generation and persistence in `~/.ai-ddtk/mcp-token`.
+- **Repo-tracked VS Code integration** — added `.vscode/tasks.json` (MCP build/test/start, WPCC scan, pw-auth login, AJAX test) and `.vscode/launch.json` (stdio debug, HTTP debug, test debug) with `.gitignore` updated to whitelist these files.
+- **MCP client config files** — added `.mcp.json` for Claude Code auto-discovery, plus reference configs for Claude Desktop and Cline in `tools/mcp-server/mcp-configs/`.
+- **`install.sh setup-mcp` command** — builds the MCP server, installs dependencies, and prints client configuration snippets for Claude Code, Claude Desktop, Cline, and HTTP mode.
+- **Phase 5 regression tests** — added `tools/mcp-server/test/phase5.test.ts` covering `SessionStore` isolation, bearer token auth rejection, localhost-only binding, and server factory validation.
+
+### Changed
+- **MCP server HTTP mode** — `tools/mcp-server/src/index.ts` now accepts `--http` and `--port=N` CLI flags (default port 3100) to start a Streamable HTTP server bound to `127.0.0.1` with mandatory bearer token auth on every request.
+- **Version updates**
+  - README.md updated to `1.0.26`
+  - install.sh updated to `1.0.26`
+  - `tools/mcp-server/src/index.ts` updated to `0.6.0`
+  - `tools/mcp-server/package.json` updated to `0.6.0`
+
 ## [1.0.25] - 2026-03-09
 
 ### Changed

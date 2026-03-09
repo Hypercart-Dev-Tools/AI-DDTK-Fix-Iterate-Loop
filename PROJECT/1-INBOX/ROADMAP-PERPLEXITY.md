@@ -4,7 +4,7 @@ status: partially in progress
 author: Perplexity -> Claude Code Reviewed and Edited
 reviewer: Noel Saw
 created: 2026-03-07
-updated: 2026-03-07
+updated: 2026-03-09
 project: AI-DDTK
 category: roadmap
 priority: high
@@ -24,13 +24,13 @@ This roadmap reflects an opinionated path to make AI‑DDTK a high‑leverage to
 | 3 | Harden Core Tooling | High | Low | Med | High |
 | 4 | Smooth Environment & Setup | **Low–Med** | **High** | Med | Low |
 | 5 | Agent-First Design & Docs | Med | Med | Med | High |
-| 6 | VS Code & MCP Integration | **Low** | **High** | **High** | Med |
+| 6 | VS Code & MCP Integration ✅ Complete | **Low** | **High** | **High** | Med |
 | 7 | Auth & Browser Automation Polish | Med | High | High | Med |
 | 8 | Experimental → Stable Recipes | Low–Med | Med | High | Med |
 | 9 | Team Use & Collaboration | Med–High | Low | Med | High |
 | 10 | Onboarding & Educational Content | Low–Med | High | Med | Low |
 
-**Recommended starting point:** #6 (VS Code & MCP Integration) — lowest effort, broadest appeal, and a force multiplier for every other item on this list.
+**Completed:** #6 (VS Code & MCP Integration) shipped on 2026-03-09 with repo-tracked VS Code configs, secure MCP HTTP/SSE transport, installer setup, and concise onboarding docs.
 
 ---
 
@@ -71,10 +71,12 @@ AI‑DDTK is explicitly built to be driven by AI coding assistants, so agent‑f
 
 ## 6. VS Code & MCP Integration
 
+> **Status:** Complete on 2026-03-09.
+
 To reduce friction, AI‑DDTK should ship with opinionated but simple integration snippets for VS Code tasks, launch configs, and MCP server tooling. This includes sample `tasks.json` entries for common commands (`wpcc run`, `pw-auth login`, AJAX tests) and minimal guidance on wiring those into AI agents so devs can trigger workflows from their editor. Where possible, the toolkit should aim for "open folder, accept suggested tasks, run one command" as the default experience for new projects. [caseywest](https://caseywest.com/ai-driven-development-modernizing-a-decade-old-website-in-3-days)
 
 > **Effort: Low** — Sample JSON files, a few launch configs, and short docs. No new runtime code.
-> **Appeal:** High for new devs (removes CLI intimidation), High for intermediate (productivity boost), Med for advanced. **This is the recommended starting point** — lowest effort, broadest reach, and a force multiplier that makes every other roadmap item more accessible. It's also inherently demo-worthy, feeding back into #2 and #10 for free.
+> **Appeal:** High for new devs (removes CLI intimidation), High for intermediate (productivity boost), Med for advanced. This shipped as a strong starting-point improvement because it had low effort, broad reach, and made the rest of the roadmap easier to adopt. It's also inherently demo-worthy, feeding back into #2 and #10.
 
 ## 7. Authentication & Browser Automation Polish
 
