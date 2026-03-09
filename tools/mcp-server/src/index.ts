@@ -7,10 +7,12 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import * as z from "zod/v4";
 import { createLocalWpHandlers } from "./handlers/local-wp.js";
 import { AUTH_STATUS_URI_TEMPLATE, createPwAuthHandlers } from "./handlers/pw-auth.js";
+import { createTmuxHandlers } from "./handlers/tmux.js";
+import { createWpAjaxTestHandlers } from "./handlers/wp-ajax-test.js";
 import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, createWpccHandlers } from "./handlers/wpcc.js";
 import { SiteState } from "./state.js";
 
-const MCP_SERVER_VERSION = "0.4.1";
+const MCP_SERVER_VERSION = "0.5.1";
 
 const siteSummarySchema = z.object({
   name: z.string(),
@@ -39,6 +41,13 @@ const authStatusEntrySchema = z.object({
   validationStatus: z.enum(["fresh", "stale", "missing"]),
   filePath: z.string().nullable(),
   sizeBytes: z.number().nullable(),
+});
+
+const tmuxSessionSummarySchema = z.object({
+  session: z.string(),
+  windows: z.number(),
+  attached: z.boolean(),
+  state: z.enum(["attached", "detached"]),
 });
 
 // This entrypoint is expected to run either from tools/mcp-server/src/ during local
@@ -108,6 +117,8 @@ export function createServer() {
   const state = new SiteState();
   const localWpHandlers = createLocalWpHandlers({ state, repoRoot });
   const pwAuthHandlers = createPwAuthHandlers({ repoRoot });
+  const tmuxHandlers = createTmuxHandlers({ repoRoot });
+  const wpAjaxTestHandlers = createWpAjaxTestHandlers({ repoRoot });
   const wpccHandlers = createWpccHandlers({ repoRoot });
 
   const server = new McpServer({
@@ -313,6 +324,199 @@ export function createServer() {
     async ({ user }) => {
       try {
         return successResult(await pwAuthHandlers.clear(user));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "wp_ajax_test",
+    {
+      description: "Test a WordPress AJAX endpoint through bin/wp-ajax-test using explicit URL/action input and structured JSON results.",
+      inputSchema: {
+        url: z.string().url().refine((value) => /^https?:\/\//i.test(value), "Only http:// and https:// URLs are allowed").describe("Full WordPress site URL, for example http://my-site.local"),
+        action: z.string().min(1).describe("AJAX action name"),
+        data: z.record(z.string(), z.unknown()).default({}).describe("JSON object payload passed to --data"),
+        auth: z.string().min(1).optional().describe("Optional auth JSON file path for authenticated AJAX requests"),
+        method: z.enum(["GET", "POST"]).default("POST"),
+        nopriv: z.boolean().default(false).describe("Use the nopriv AJAX endpoint"),
+        insecure: z.boolean().default(false).describe("Skip SSL certificate verification for local/self-signed dev environments"),
+      },
+      outputSchema: {
+        url: z.string(),
+        action: z.string(),
+        method: z.enum(["GET", "POST"]),
+        nopriv: z.boolean(),
+        insecure: z.boolean(),
+        authProvided: z.boolean(),
+        success: z.boolean(),
+        statusCode: z.number().nullable(),
+        responseTimeMs: z.number().nullable(),
+        response: z.unknown().nullable(),
+        headers: z.record(z.string(), z.unknown()).nullable(),
+        error: z.object({ code: z.string(), message: z.string() }).nullable(),
+        suggestions: z.array(z.string()).nullable(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async ({ url, action, data, auth, method, nopriv, insecure }) => {
+      try {
+        return successResult(await wpAjaxTestHandlers.runTest(url, action, data ?? {}, auth, method ?? "POST", nopriv ?? false, insecure ?? false));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "tmux_start",
+    {
+      description: "Start or reuse an AI-DDTK tmux workspace session with an optional cwd and session name.",
+      inputSchema: {
+        cwd: z.string().min(1).optional().describe("Optional working directory to start the session in; defaults to the MCP process cwd"),
+        session: z.string().min(1).optional().describe("Optional tmux session name; normalized to the aiddtk-* convention"),
+      },
+      outputSchema: {
+        session: z.string(),
+        cwd: z.string(),
+        logFile: z.string().nullable(),
+        reused: z.boolean(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async ({ cwd, session }) => {
+      try {
+        return successResult(await tmuxHandlers.start(cwd, session));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "tmux_send",
+    {
+      description: "Send one allowlisted command into an AI-DDTK tmux session. Rejects arbitrary shell execution and shell control operators.",
+      inputSchema: {
+        command: z.string().min(1).describe("Allowlisted command to send, for example 'wpcc --features' or 'tail temp/mcp-server.log'"),
+        session: z.string().min(1).optional().describe("Optional tmux session name; normalized to the aiddtk-* convention"),
+      },
+      outputSchema: {
+        session: z.string(),
+        command: z.string(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async ({ command, session }) => {
+      try {
+        return successResult(await tmuxHandlers.send(command, session));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "tmux_capture",
+    {
+      description: "Capture recent output from an AI-DDTK tmux session.",
+      inputSchema: {
+        tail: z.number().int().min(1).max(5000).default(200).describe("Number of trailing pane lines to capture"),
+        session: z.string().min(1).optional().describe("Optional tmux session name; normalized to the aiddtk-* convention"),
+      },
+      outputSchema: {
+        session: z.string(),
+        tail: z.number(),
+        output: z.string(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async ({ tail, session }) => {
+      try {
+        return successResult(await tmuxHandlers.capture(tail ?? 200, session));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "tmux_stop",
+    {
+      description: "Stop an AI-DDTK tmux session.",
+      inputSchema: {
+        session: z.string().min(1).optional().describe("Optional tmux session name; normalized to the aiddtk-* convention"),
+      },
+      outputSchema: {
+        session: z.string(),
+        stopped: z.boolean(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async ({ session }) => {
+      try {
+        return successResult(await tmuxHandlers.stop(session));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "tmux_list",
+    {
+      description: "List AI-DDTK tmux sessions.",
+      outputSchema: {
+        sessions: z.array(tmuxSessionSummarySchema),
+        rawText: z.string(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async () => {
+      try {
+        return successResult(await tmuxHandlers.list());
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "tmux_status",
+    {
+      description: "Show status for one AI-DDTK tmux session.",
+      inputSchema: {
+        session: z.string().min(1).optional().describe("Optional tmux session name; normalized to the aiddtk-* convention"),
+      },
+      outputSchema: {
+        session: z.string(),
+        exists: z.boolean(),
+        path: z.string().nullable(),
+        windows: z.number().nullable(),
+        logFile: z.string().nullable(),
+        tmuxVersion: z.string().nullable(),
+        rawText: z.string(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async ({ session }) => {
+      try {
+        return successResult(await tmuxHandlers.status(session));
       } catch (error) {
         return errorResult(error);
       }

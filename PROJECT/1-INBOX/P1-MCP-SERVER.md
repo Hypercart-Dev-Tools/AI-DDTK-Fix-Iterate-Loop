@@ -63,11 +63,11 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [x] Auth metadata resource (`auth://status/{user}`) — no raw credentials
   - [x] Timeout & retry handling for browser automation
 
-- [ ] **Phase 4 — wp-ajax-test & Tmux Tools** · Effort: Low · Risk: Low–Med
-  - [ ] `wp_ajax_test` tool (explicit `site` required)
-  - [ ] `tmux_start` / `tmux_capture` / `tmux_stop` tools
-  - [ ] `tmux_list` / `tmux_status` tools
-  - [ ] `tmux_send` — allowlisted commands only (no arbitrary shell execution)
+- [x] **Phase 4 — wp-ajax-test & Tmux Tools** · Effort: Low · Risk: Low–Med
+  - [x] `wp_ajax_test` tool (explicit `url` required)
+  - [x] `tmux_start` / `tmux_capture` / `tmux_stop` tools
+  - [x] `tmux_list` / `tmux_status` tools
+  - [x] `tmux_send` — allowlisted commands only (no arbitrary shell execution)
 
 - [ ] **Phase 5 — VS Code Integration & SSE Transport** · Effort: Low–Med · Risk: Med
   - [ ] SSE transport (localhost-only bind, bearer token auth required)
@@ -420,10 +420,10 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
    - Inputs: `url` (string, **required**), `action` (string, **required**), `data` (object), `auth` (string), `method` (string), `nopriv` (boolean), `insecure` (boolean)
    - **Explicit `url` required** — does not infer from active site (see Security Model §3)
    - Shells out to: `bin/wp-ajax-test --url <url> --action <action> --format json [...]`
-   - Returns: parsed JSON response
+   - Returns: structured parsed success/error metadata plus raw stdout/stderr passthrough
 
 2. **`tmux_start`** — `aiddtk-tmux start --cwd <path>`
-3. **`tmux_send`** — **Allowlisted commands only** (see Security Model §1). Only AI-DDTK bin/ commands and safe reads (`cat`, `ls`, `head`, `tail`) are permitted. Arbitrary shell commands are rejected before dispatch.
+3. **`tmux_send`** — **Allowlisted commands only** (see Security Model §1). After the pre-merge hardening pass, MCP only permits validated repo-relative `wpcc` invocations (for example `wpcc --features` or `wpcc --paths tools/mcp-server --format json`). Direct file reads should use `tmux_capture`, and LocalWP / pw-auth / AJAX flows should use their dedicated MCP tools.
    - Inputs: `command` (string, required), `session` (string, optional)
    - Validates command prefix against allowlist before calling `aiddtk-tmux send`
 4. **`tmux_capture`** — `aiddtk-tmux capture --tail <lines>`
@@ -432,6 +432,8 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
 7. **`tmux_status`** — `aiddtk-tmux status`
 
 All tmux tools are thin wrappers with short timeouts (10s).
+
+Phase 4 is now implemented in `tools/mcp-server/src/handlers/wp-ajax-test.ts` and `tools/mcp-server/src/handlers/tmux.ts`, with `tmux_send` prefix validation in `src/security/allowlist.ts`.
 
 ---
 
