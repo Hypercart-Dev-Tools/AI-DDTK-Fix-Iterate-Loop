@@ -6,10 +6,11 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as z from "zod/v4";
 import { createLocalWpHandlers } from "./handlers/local-wp.js";
+import { AUTH_STATUS_URI_TEMPLATE, createPwAuthHandlers } from "./handlers/pw-auth.js";
 import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, createWpccHandlers } from "./handlers/wpcc.js";
 import { SiteState } from "./state.js";
 
-const MCP_SERVER_VERSION = "0.3.1";
+const MCP_SERVER_VERSION = "0.4.1";
 
 const siteSummarySchema = z.object({
   name: z.string(),
@@ -26,6 +27,18 @@ const pluginSchema = z.object({
 const wpccFeatureSectionSchema = z.object({
   title: z.string(),
   lines: z.array(z.string()),
+});
+
+const authStatusEntrySchema = z.object({
+  user: z.string(),
+  exists: z.boolean(),
+  lastUpdated: z.string().nullable(),
+  age: z.string().nullable(),
+  ageHours: z.number().nullable(),
+  fresh: z.boolean(),
+  validationStatus: z.enum(["fresh", "stale", "missing"]),
+  filePath: z.string().nullable(),
+  sizeBytes: z.number().nullable(),
 });
 
 // This entrypoint is expected to run either from tools/mcp-server/src/ during local
@@ -78,11 +91,23 @@ function getWpccScanId(uri: URL): string {
   return scanId;
 }
 
+function getAuthStatusUser(uri: URL): string {
+  const match = uri.href.match(/^auth:\/\/status\/(.+)$/);
+  const user = match?.[1];
+
+  if (!user) {
+    throw new Error(`Invalid auth status resource URI: ${uri.href}`);
+  }
+
+  return decodeURIComponent(user);
+}
+
 export function createServer() {
   const packageRoot = getPackageRoot(import.meta.url);
   const repoRoot = path.resolve(packageRoot, "../..");
   const state = new SiteState();
   const localWpHandlers = createLocalWpHandlers({ state, repoRoot });
+  const pwAuthHandlers = createPwAuthHandlers({ repoRoot });
   const wpccHandlers = createWpccHandlers({ repoRoot });
 
   const server = new McpServer({
@@ -217,6 +242,84 @@ export function createServer() {
   );
 
   server.registerTool(
+    "pw_auth_login",
+    {
+      description:
+        "Authenticate Playwright against WordPress admin using bin/pw-auth with structured Local site input and metadata-only output.",
+      inputSchema: {
+        siteUrl: z.string().url().describe("Full WordPress site URL, for example http://my-site.local"),
+        site: z.string().min(1).describe("Local site name used to construct the internal local-wp command prefix"),
+        user: z.string().min(1).default("admin").describe("WordPress username/login to authenticate"),
+        redirect: z.string().min(1).optional().describe("Optional wp-admin-relative redirect path after login"),
+        force: z.boolean().default(false).describe("Force re-auth even if cached auth is still fresh"),
+      },
+      outputSchema: {
+        site: z.string(),
+        user: z.string(),
+        siteUrl: z.string(),
+        authFile: z.string(),
+        cacheFreshUntil: z.string().nullable().describe("Best-effort cache freshness window derived from the auth file mtime, not the actual WordPress session expiry."),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+        retried: z.boolean(),
+      },
+    },
+    async ({ siteUrl, site, user, redirect, force }) => {
+      try {
+        return successResult(await pwAuthHandlers.login(siteUrl, site, user ?? "admin", redirect, force ?? false));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "pw_auth_status",
+    {
+      description: "Return Playwright auth cache metadata from bin/pw-auth status without exposing raw storageState contents. Use users[] as the authoritative structured data; rawText/stdout are informational passthrough only.",
+      outputSchema: {
+        authDir: z.string(),
+        users: z.array(authStatusEntrySchema).describe("Authoritative structured auth metadata derived from the auth directory."),
+        rawText: z.string().describe("Informational plain-text passthrough from bin/pw-auth status; do not rely on this for program logic."),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async () => {
+      try {
+        return successResult(await pwAuthHandlers.status());
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "pw_auth_clear",
+    {
+      description: "Clear cached Playwright auth for one explicit user only. Does not expose pw-auth clear-all semantics over MCP.",
+      inputSchema: {
+        user: z.string().min(1).describe("Explicit WordPress username/login whose cached auth file should be deleted"),
+      },
+      outputSchema: {
+        user: z.string(),
+        filePath: z.string(),
+        existed: z.boolean(),
+        cleared: z.boolean(),
+      },
+    },
+    async ({ user }) => {
+      try {
+        return successResult(await pwAuthHandlers.clear(user));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
     "wpcc_list_features",
     {
       description: "List WP Code Check capabilities and workflows from the bin/wpcc wrapper.",
@@ -266,6 +369,21 @@ export function createServer() {
         return errorResult(error);
       }
     },
+  );
+
+  server.registerResource(
+    "auth_status_by_user",
+    new ResourceTemplate(AUTH_STATUS_URI_TEMPLATE, {
+      list: async () =>
+        withResourceError(async () => ({
+          resources: await pwAuthHandlers.listStatusResources(),
+        })),
+    }),
+    {
+      description: "Metadata-only Playwright auth status by user. Never exposes raw storageState, cookies, or tokens, and avoids synthesizing missing-user file paths.",
+      mimeType: "application/json",
+    },
+    async (uri) => withResourceError(() => pwAuthHandlers.readStatusResource(getAuthStatusUser(uri))),
   );
 
   server.registerResource(

@@ -3,7 +3,7 @@ title: "P1: AI-DDTK MCP Server"
 status: in_progress
 author: noelsaw
 created: 2026-03-07
-updated: 2026-03-08
+updated: 2026-03-09
 project: AI-DDTK
 category: feature
 priority: P1
@@ -56,12 +56,12 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [x] `wpcc://scan/{id}` resource
   - [x] Migrate/replace existing `mcp-server.js` in WPCC subtree
 
-- [ ] **Phase 3 — pw-auth & Playwright Tools** · Effort: Med · Risk: Med
-  - [ ] `pw_auth_login` tool (structured args, no free-form wpCli string)
-  - [ ] `pw_auth_status` tool
-  - [ ] `pw_auth_clear` tool
-  - [ ] Auth metadata resource (`auth://status/{user}`) — no raw credentials
-  - [ ] Timeout & retry handling for browser automation
+- [x] **Phase 3 — pw-auth & Playwright Tools** · Effort: Med · Risk: Med
+  - [x] `pw_auth_login` tool (structured args, no free-form wpCli string)
+  - [x] `pw_auth_status` tool
+  - [x] `pw_auth_clear` tool
+  - [x] Auth metadata resource (`auth://status/{user}`) — no raw credentials
+  - [x] Timeout & retry handling for browser automation
 
 - [ ] **Phase 4 — wp-ajax-test & Tmux Tools** · Effort: Low · Risk: Low–Med
   - [ ] `wp_ajax_test` tool (explicit `site` required)
@@ -372,6 +372,8 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
 
 > Effort: **Med** · Risk: **Med** (browser automation has inherent flakiness)
 
+> Status update (2026-03-09): Implemented in `tools/mcp-server/` with a dedicated `pw-auth` handler, explicit-user-only clear semantics, metadata-only auth resources, targeted `npm test` coverage, and a follow-up contract clarification pass that renamed login freshness output to `cacheFreshUntil`, reduced missing-user resource disclosure, and documented `users[]` as authoritative over raw status text.
+
 ### Tools
 
 1. **`pw_auth_login`**
@@ -379,20 +381,23 @@ Expose WPCC scanning and replace the existing standalone `mcp-server.js`.
    - **No free-form `wpCli` string.** The handler constructs `--wp-cli "local-wp <site>"` internally from the `site` param. The agent never controls the command shape (see Security Model §1).
    - Shells out to: `bin/pw-auth login --site-url <url> --wp-cli "local-wp <site>" [--user <user>] [--redirect <path>] [--force]`
    - Timeout: 120s (browser launch + navigation)
-   - Returns: `{ site, authFile, user, siteUrl, expiresAt }` — echoes resolved site
+   - Returns: `{ site, authFile, user, siteUrl, cacheFreshUntil }` — echoes resolved site
+   - `cacheFreshUntil` is derived from the auth file mtime plus the default cache window; it is **not** a guaranteed WordPress session expiry
 
 2. **`pw_auth_status`**
    - Shells out to: `bin/pw-auth status`
    - Returns: cached auth info (users, freshness, file paths)
+   - `users[]` is authoritative structured metadata; `rawText` is informational passthrough/debug output only
 
 3. **`pw_auth_clear`**
-   - Shells out to: `bin/pw-auth clear`
-   - Returns: confirmation
+   - Deletes only the explicit user's cached auth file under `temp/playwright/.auth/`
+   - Returns: `{ user, filePath, existed, cleared }`
 
 ### Resources
 
 4. **`auth://status/{user}`** — Auth metadata only (see Security Model §2)
    - Returns: `{ user, exists, lastUpdated, age, fresh, validationStatus, filePath }`
+   - Missing users return `validationStatus: "missing"`, but omit synthesized file paths to reduce username-probing disclosure
    - **Never exposes raw storageState**, cookies, or tokens
    - Raw state available only via `--unsafe-expose-auth` debug flag (redacts cookie values by default)
 
@@ -499,9 +504,9 @@ Ship config files and SSE transport with mandatory security controls.
 | `local_wp_run` | `bin/local-wp` | `site` (required), `command` (allowlisted), `args` | `{ site, stdout, stderr, exitCode }` |
 | `wpcc_run_scan` | `bin/wpcc` | `paths`, `format`, `verbose` | scan JSON or text |
 | `wpcc_list_features` | `bin/wpcc --features` | — | feature list |
-| `pw_auth_login` | `bin/pw-auth login` | `siteUrl`, `site` (required), `user`, `redirect`, `force` | `{ site, authFile, user, expiresAt }` |
+| `pw_auth_login` | `bin/pw-auth login` | `siteUrl`, `site` (required), `user`, `redirect`, `force` | `{ site, authFile, user, cacheFreshUntil }` |
 | `pw_auth_status` | `bin/pw-auth status` | — | auth cache info |
-| `pw_auth_clear` | `bin/pw-auth clear` | — | confirmation |
+| `pw_auth_clear` | handler-scoped file delete | `user` (required) | `{ user, filePath, existed, cleared }` |
 | `wp_ajax_test` | `bin/wp-ajax-test` | `url`, `action`, `data`, `auth`, `method`, `nopriv` | JSON response |
 | `tmux_start` | `aiddtk-tmux start` | `cwd`, `session` | session info |
 | `tmux_send` | `aiddtk-tmux send` | `command` (allowlisted), `session` | confirmation |

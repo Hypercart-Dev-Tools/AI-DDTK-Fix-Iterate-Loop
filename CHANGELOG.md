@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.23] - 2026-03-09
+
+### Changed
+- **Phase 3 auth contract clarity** — `tools/mcp-server/src/handlers/pw-auth.ts` now returns `cacheFreshUntil` from `pw_auth_login` instead of `expiresAt` so MCP callers do not confuse cache freshness with the real WordPress session lifetime.
+- **Reduced missing-user auth resource disclosure** — `auth://status/{user}` still returns a stable `missing` payload, but missing-user reads no longer expose synthesized auth file paths.
+- **Documented authoritative pw-auth status fields** — `tools/mcp-server/src/handlers/pw-auth.ts`, `tools/mcp-server/src/index.ts`, and `PROJECT/1-INBOX/P1-MCP-SERVER.md` now clarify that structured `users[]` metadata is authoritative while `rawText` remains informational/debug passthrough from `bin/pw-auth status`.
+- **Version updates**
+  - README.md updated to `1.0.23`
+  - install.sh updated to `1.0.23`
+  - `tools/mcp-server/src/index.ts` updated to `0.4.1`
+  - `tools/mcp-server/package.json` updated to `0.4.1`
+
+## [1.0.22] - 2026-03-09
+
+### Added
+- **AI-DDTK MCP server Phase 3 pw-auth support** — added `pw_auth_login`, `pw_auth_status`, and `pw_auth_clear` to `tools/mcp-server/` so MCP clients can authenticate Playwright sessions, inspect auth-cache metadata, and clear one explicit user's cached auth safely.
+- **Auth metadata MCP resource** — added `auth://status/{user}` with metadata-only responses from `tools/mcp-server/src/handlers/pw-auth.ts`, intentionally excluding raw Playwright `storageState`, cookies, and tokens.
+- **Phase 3 regression coverage** — added `tools/mcp-server/test/pw-auth.test.ts` for retry-on-timeout login behavior, safe `--wp-cli` prefix construction, explicit-user clear semantics, and metadata-only auth resource reads.
+
+### Changed
+- **MCP server registration** — `tools/mcp-server/src/index.ts` now registers the Phase 3 `pw-auth` tools/resource and bumps the MCP server version to `0.4.0`.
+- **Phase 3 project tracking** — `PROJECT/1-INBOX/P1-MCP-SERVER.md` now marks all Phase 3 checklist items complete and updates the `pw_auth_clear` contract to explicit-user-only deletion.
+- **Version updates**
+  - README.md updated to `1.0.22`
+  - install.sh updated to `1.0.22`
+  - `tools/mcp-server/package.json` updated to `0.4.0`
+
 ## [1.0.21] - 2026-03-09
 
 ### Fixed

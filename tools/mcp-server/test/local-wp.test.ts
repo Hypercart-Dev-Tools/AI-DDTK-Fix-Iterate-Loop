@@ -65,6 +65,12 @@ async function createFixture(siteName = "demo") {
   };
 }
 
+test("server factory creates the MCP server without connecting transport", async () => {
+  const server = createServer();
+  assert.ok(server);
+  assert.equal(typeof server.connect, "function");
+});
+
 test("allowlist accepts safe commands and blocks dangerous ones", async () => {
   assert.equal(getWpCliAllowlistDecision("plugin list").allowed, true);
   assert.equal(getWpCliAllowlistDecision("eval").allowed, false);
@@ -210,10 +216,4 @@ test("local_wp_run returns wrapper output and exit code", async () => {
   } finally {
     await fixture.cleanup(socketServer);
   }
-});
-
-test("server factory creates the MCP server without connecting transport", async () => {
-  const server = createServer();
-  assert.ok(server);
-  assert.equal(typeof server.connect, "function");
 });
