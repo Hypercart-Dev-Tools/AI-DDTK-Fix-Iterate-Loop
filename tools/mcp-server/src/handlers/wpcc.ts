@@ -133,6 +133,22 @@ function buildReadResourceResult(uri: string, mimeType: string, text: string): W
   };
 }
 
+function normalizeScanPaths(pathsToScan: string): string {
+  const entries = pathsToScan.split(",").map((entry) => entry.trim());
+
+  if (entries.some((entry) => entry.length === 0)) {
+    throw new Error("WPCC scan paths must not contain empty entries.");
+  }
+
+  const invalidEntry = entries.find((entry) => entry.startsWith("-"));
+
+  if (invalidEntry) {
+    throw new Error(`WPCC scan path entries must not start with '-': ${invalidEntry}`);
+  }
+
+  return entries.join(",");
+}
+
 export function createWpccHandlers(deps: WpccHandlerDeps) {
   const runExec = deps.execRunner ?? execFileText;
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
@@ -183,7 +199,8 @@ export function createWpccHandlers(deps: WpccHandlerDeps) {
     },
 
     async runScan(pathsToScan: string, format: "json" | "text" = "json", verbose = false): Promise<WpccScanResult> {
-      const args = ["--paths", pathsToScan, ...(format === "json" ? ["--format", "json"] : []), ...(verbose ? ["--verbose"] : [])];
+      const normalizedPaths = normalizeScanPaths(pathsToScan);
+      const args = ["--paths", normalizedPaths, ...(format === "json" ? ["--format", "json"] : []), ...(verbose ? ["--verbose"] : [])];
       const logsBefore = format === "json" ? await listArtifacts(logsDir, ".json") : [];
       const reportsBefore = format === "json" ? await listArtifacts(reportsDir, ".html") : [];
       const result = await executeWpcc(args);
@@ -191,7 +208,7 @@ export function createWpccHandlers(deps: WpccHandlerDeps) {
 
       if (format === "text") {
         return {
-          paths: pathsToScan,
+          paths: normalizedPaths,
           format,
           verbose,
           stdout: result.stdout,
@@ -218,7 +235,7 @@ export function createWpccHandlers(deps: WpccHandlerDeps) {
       }
 
       return {
-        paths: pathsToScan,
+        paths: normalizedPaths,
         format,
         verbose,
         stdout: result.stdout,

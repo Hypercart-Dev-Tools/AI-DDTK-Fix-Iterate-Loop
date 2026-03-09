@@ -70,6 +70,7 @@ test("allowlist accepts safe commands and blocks dangerous ones", async () => {
   assert.equal(getWpCliAllowlistDecision("eval").allowed, false);
   assert.equal(getWpCliAllowlistDecision("db drop").allowed, false);
   assert.equal(getWpCliAllowlistDecision("db query", ["SELECT * FROM wp_options LIMIT 1"]).allowed, true);
+  assert.equal(getWpCliAllowlistDecision("db query", ["SELECT 1; DROP TABLE wp_posts"]).allowed, false);
   assert.equal(getWpCliAllowlistDecision("db query", ["DELETE FROM wp_options"]).allowed, false);
 });
 

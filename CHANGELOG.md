@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.21] - 2026-03-09
+
+### Fixed
+- **MCP allowlisted `db query` hardening** — `tools/mcp-server/src/security/allowlist.ts` now rejects semicolon-delimited SQL so Phase 1/2 `db query` calls stay limited to single `SELECT` statements.
+- **`wpcc_run_scan` path validation** — `tools/mcp-server/src/handlers/wpcc.ts` now rejects empty path entries and any comma-separated `--paths` entry that begins with `-`, preventing flag-shaped argument injection into `bin/wpcc`.
+
+### Changed
+- **MCP resource error handling** — `tools/mcp-server/src/index.ts` now normalizes WPCC resource/list callback failures through a small wrapper so resource errors are surfaced consistently with sanitized messages.
+- **Package-root assumption documentation** — added an inline note in `tools/mcp-server/src/index.ts` clarifying the expected `src/` vs `dist/src/` layout used to derive `packageRoot` and `repoRoot`.
+- **Hardening regression coverage** — extended `tools/mcp-server/test/local-wp.test.ts` and `tools/mcp-server/test/wpcc.test.ts` for semicolon-rejected SQL and flag-shaped WPCC path input.
+- **Version updates**
+  - README.md updated to `1.0.21`
+  - install.sh updated to `1.0.21`
+  - `tools/mcp-server/package.json` updated to `0.3.1`
+
 ## [1.0.20] - 2026-03-08
 
 ### Added

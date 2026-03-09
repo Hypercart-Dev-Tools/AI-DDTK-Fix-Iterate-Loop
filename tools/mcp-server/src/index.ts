@@ -9,7 +9,7 @@ import { createLocalWpHandlers } from "./handlers/local-wp.js";
 import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, createWpccHandlers } from "./handlers/wpcc.js";
 import { SiteState } from "./state.js";
 
-const MCP_SERVER_VERSION = "0.3.0";
+const MCP_SERVER_VERSION = "0.3.1";
 
 const siteSummarySchema = z.object({
   name: z.string(),
@@ -28,6 +28,9 @@ const wpccFeatureSectionSchema = z.object({
   lines: z.array(z.string()),
 });
 
+// This entrypoint is expected to run either from tools/mcp-server/src/ during local
+// TypeScript execution/tests or from tools/mcp-server/dist/src/ after build. The
+// repoRoot calculation in createServer() depends on that fixed package layout.
 function getPackageRoot(moduleUrl: string): string {
   const currentDir = path.dirname(fileURLToPath(moduleUrl));
   const parentDir = path.dirname(currentDir);
@@ -53,6 +56,15 @@ function errorResult(error: unknown) {
     isError: true,
     content: [{ type: "text" as const, text: message }],
   };
+}
+
+async function withResourceError<T>(callback: () => Promise<T>): Promise<T> {
+  try {
+    return await callback();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(message);
+  }
 }
 
 function getWpccScanId(uri: URL): string {
@@ -263,7 +275,7 @@ export function createServer() {
       description: "Most recent WP Code Check JSON scan artifact.",
       mimeType: "application/json",
     },
-    async () => wpccHandlers.readLatestScanResource(),
+    async () => withResourceError(() => wpccHandlers.readLatestScanResource()),
   );
 
   server.registerResource(
@@ -273,21 +285,22 @@ export function createServer() {
       description: "Most recent WP Code Check HTML report artifact.",
       mimeType: "text/html",
     },
-    async () => wpccHandlers.readLatestReportResource(),
+    async () => withResourceError(() => wpccHandlers.readLatestReportResource()),
   );
 
   server.registerResource(
     "wpcc_scan_by_id",
     new ResourceTemplate(WPCC_SCAN_URI_TEMPLATE, {
-      list: async () => ({
-        resources: await wpccHandlers.listScanResources(),
-      }),
+      list: async () =>
+        withResourceError(async () => ({
+          resources: await wpccHandlers.listScanResources(),
+        })),
     }),
     {
       description: "Specific WP Code Check JSON scan artifact by timestamp id.",
       mimeType: "application/json",
     },
-    async (uri) => wpccHandlers.readScanResource(getWpccScanId(uri)),
+    async (uri) => withResourceError(() => wpccHandlers.readScanResource(getWpccScanId(uri))),
   );
 
   return server;

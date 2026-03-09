@@ -53,6 +53,12 @@ function firstNonFlagArg(args: string[]): string | undefined {
   return args.find((arg) => !arg.startsWith("-"));
 }
 
+function isAllowedSelectQuery(sql: string): boolean {
+  const normalizedSql = sql.trim();
+
+  return normalizedSql.length > 0 && /^select\b/i.test(normalizedSql) && !normalizedSql.includes(";");
+}
+
 export function splitWpCliCommand(command: string): string[] {
   const normalized = command.trim();
 
@@ -101,11 +107,11 @@ export function getWpCliAllowlistDecision(command: string | string[], args: stri
   if (normalizedCommand[0] === "db" && normalizedCommand[1] === "query") {
     const sql = firstNonFlagArg(args);
 
-    if (!sql || !/^\s*select\b/i.test(sql)) {
+    if (!sql || !isAllowedSelectQuery(sql)) {
       return {
         allowed: false,
         normalizedCommand,
-        reason: "Blocked WP-CLI command: db query only allows SELECT statements in Phase 1.",
+        reason: "Blocked WP-CLI command: db query only allows single SELECT statements without semicolons in Phase 1.",
       };
     }
   }
