@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.0.17
+# Version: 1.0.28
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -18,6 +18,7 @@
 #   ./install.sh update       # Pull latest AI-DDTK
 #   ./install.sh update-wpcc  # Pull latest WP Code Check
 #   ./install.sh setup-wpcc   # Initial WPCC subtree setup
+#   ./install.sh setup-mcp    # Build MCP server + show client config
 #   ./install.sh status       # Show versions and status
 #   ./install.sh uninstall    # Remove PATH entries
 #
@@ -40,7 +41,8 @@
 #   │   ├── pw-auth           # Playwright WP admin auth helper
 #   │   ├── local-wp          # Local WP-CLI wrapper (canonical)
 #   │   └── aiddtk-tmux       # Optional resilient tmux wrapper
-#   ├── tools/                # Embedded dependencies via git subtree
+#   ├── tools/                # Embedded tool packages and dependencies
+#   │   ├── mcp-server/       # AI-DDTK MCP server package (LocalWP + pw-auth + WPCC)
 #   │   └── wp-code-check/    # WPCC subtree
 #   ├── temp/                 # Sensitive data, logs, analysis files
 #   ├── recipes/              # Workflow recipes
@@ -162,6 +164,7 @@ show_usage() {
     echo "  update        Pull latest AI-DDTK changes"
     echo "  update-wpcc   Pull latest WP Code Check"
     echo "  setup-wpcc    Initial WPCC subtree setup"
+    echo "  setup-mcp     Build MCP server + show client config"
     echo "  status        Show versions and status"
     echo "  uninstall     Remove PATH entries"
     echo ""
@@ -261,6 +264,17 @@ show_status() {
         echo -e "  WPCC: ${YELLOW}✗ Not installed${NC} (run './install.sh setup-wpcc')"
     fi
 
+    # Check MCP server
+    local MCP_ENTRY="$TOOLS_DIR/mcp-server/dist/src/index.js"
+    if [ -f "$MCP_ENTRY" ]; then
+        MCP_VER=$(node -e "import('$MCP_ENTRY').then(m => {})" 2>&1 | head -1 || echo "built")
+        echo -e "  MCP Server: ${GREEN}✓ Built${NC} ($TOOLS_DIR/mcp-server)"
+    elif [ -d "$TOOLS_DIR/mcp-server" ]; then
+        echo -e "  MCP Server: ${YELLOW}○ Not built${NC} (run './install.sh setup-mcp')"
+    else
+        echo -e "  MCP Server: ${YELLOW}✗ Not found${NC}"
+    fi
+
     show_tmux_status
 
     echo ""
@@ -270,6 +284,67 @@ show_status() {
             echo "  - $(basename "$tool")"
         fi
     done
+}
+
+setup_mcp() {
+    local MCP_DIR="$TOOLS_DIR/mcp-server"
+
+    echo -e "${CYAN}Setting up AI-DDTK MCP Server...${NC}"
+
+    if [ ! -d "$MCP_DIR" ]; then
+        echo -e "${RED}MCP server not found at $MCP_DIR${NC}"
+        return 1
+    fi
+
+    # Check Node.js
+    if ! command -v node >/dev/null 2>&1; then
+        echo -e "${RED}Node.js is required but not installed.${NC}"
+        echo "Install via: brew install node"
+        return 1
+    fi
+
+    NODE_VERSION="$(node -v)"
+    echo -e "  Node.js: ${GREEN}✓${NC} $NODE_VERSION"
+
+    # Install dependencies
+    echo -e "${CYAN}Installing dependencies...${NC}"
+    cd "$MCP_DIR"
+    npm install --ignore-scripts 2>&1 | tail -1
+
+    # Build
+    echo -e "${CYAN}Building MCP server...${NC}"
+    npm run build 2>&1 | tail -3
+
+    echo -e "${GREEN}✓ MCP server built successfully${NC}"
+    echo ""
+
+    # Show config snippets
+    local MCP_ENTRY="$MCP_DIR/dist/src/index.js"
+
+    echo -e "${CYAN}Client Configuration:${NC}"
+    echo ""
+    echo -e "${YELLOW}Claude Code (.mcp.json — already in repo root):${NC}"
+    echo "  Auto-detected when you open the project."
+    echo ""
+    echo -e "${YELLOW}Claude Desktop (add to ~/Library/Application Support/Claude/claude_desktop_config.json):${NC}"
+    echo "  \"ai-ddtk\": {"
+    echo "    \"command\": \"node\","
+    echo "    \"args\": [\"$MCP_ENTRY\"],"
+    echo "    \"cwd\": \"$SCRIPT_DIR\""
+    echo "  }"
+    echo ""
+    echo -e "${YELLOW}Cline (VS Code > Cline > MCP Servers > Edit Config):${NC}"
+    echo "  \"ai-ddtk\": {"
+    echo "    \"command\": \"node\","
+    echo "    \"args\": [\"$MCP_ENTRY\"],"
+    echo "    \"cwd\": \"$SCRIPT_DIR\""
+    echo "  }"
+    echo ""
+    echo -e "${YELLOW}HTTP/SSE mode (for remote or multi-client use):${NC}"
+    echo "  node $MCP_ENTRY --http"
+    echo "  Bearer token stored in: ~/.ai-ddtk/mcp-token"
+    echo ""
+    echo "Reference configs available in: $MCP_DIR/mcp-configs/"
 }
 
 uninstall() {
@@ -315,6 +390,9 @@ case "${1:-}" in
         ;;
     setup-wpcc)
         setup_wpcc
+        ;;
+    setup-mcp)
+        setup_mcp
         ;;
     status)
         show_status

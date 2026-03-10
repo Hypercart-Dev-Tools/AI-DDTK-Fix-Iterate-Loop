@@ -1,0 +1,48 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "MCP Server (stdio)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/mcp-server/dist/src/index.js",
+      "outFiles": ["${workspaceFolder}/tools/mcp-server/dist/**/*.js"],
+      "sourceMaps": true,
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/tools/mcp-server",
+      "preLaunchTask": "MCP: Build"
+    },
+    {
+      "name": "MCP Server (HTTP :3100)",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/mcp-server/dist/src/index.js",
+      "args": ["--http"],
+      "outFiles": ["${workspaceFolder}/tools/mcp-server/dist/**/*.js"],
+      "sourceMaps": true,
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/tools/mcp-server",
+      "preLaunchTask": "MCP: Build"
+    },
+    {
+      "name": "MCP Server Tests",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/tools/mcp-server/dist/test/${input:testFile}",
+      "args": ["--test"],
+      "outFiles": ["${workspaceFolder}/tools/mcp-server/dist/**/*.js"],
+      "sourceMaps": true,
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}/tools/mcp-server",
+      "preLaunchTask": "MCP: Build"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "testFile",
+      "description": "Test file to debug (e.g. local-wp.test.js)",
+      "type": "promptString",
+      "default": "local-wp.test.js"
+    }
+  ]
+}

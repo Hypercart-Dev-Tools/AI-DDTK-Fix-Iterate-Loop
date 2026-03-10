@@ -139,7 +139,6 @@ Notes:
    - [ ] Are false positives still a problem?
    - [ ] Is baseline suppression working well?
    - [ ] Do users want AST-level accuracy?
-- [ ] Short-Medium Term: MCP Server - Send tasks to agents for work
 - [ ] Super Long term: Agnostic anamaoly detection and pattern library
 
 Completed (so far):

@@ -1,0 +1,38 @@
+{
+  "name": "ai-ddtk-mcp",
+  "version": "0.6.2",
+  "description": "AI-DDTK MCP server for LocalWP, pw-auth, wp-ajax-test, tmux, and WPCC tools/resources",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "bin": {
+    "ai-ddtk-mcp": "./dist/src/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "rm -rf dist",
+    "mcp": "node dist/src/index.js",
+    "mcp:http": "node dist/src/index.js --http",
+    "start": "npm run mcp",
+    "test": "npm run build && node --test dist/test/*.test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "wordpress",
+    "localwp",
+    "ai-ddtk"
+  ],
+  "author": "AI-DDTK",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
