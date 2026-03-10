@@ -37,11 +37,11 @@ parent: P1-MCP-SERVER.md (follow-up to Phase 3: pw-auth & Playwright tools)
     - [x] Validated end-to-end on `https://site-uclasacto.local` using the real `neochrome_jose` administrator account, a direct Local WP-CLI wrapper, and a verified cached auth file at `temp/playwright/.auth/neochrome_jose.json`
 
 - [ ] **Phase 2 — Authenticated DOM/HTML Inspection MVP** · Effort: Med · Risk: Low–Med
-  - [ ] Add a DOM inspection subcommand under `pw-auth` instead of introducing a new top-level binary in the MVP
-  - [ ] Support selector existence, text extraction, and `innerHTML` extraction
-  - [ ] Infer auth origin from `--url` by default, with override only for edge cases
-  - [ ] Save structured JSON results under `temp/playwright/checks/<run-id>/`
-  - [ ] Keep screenshots/traces optional later; they are not required for the first useful release
+  - [x] Add a DOM inspection subcommand under `pw-auth` instead of introducing a new top-level binary in the MVP
+  - [x] Support selector existence, text extraction, and `innerHTML` extraction
+  - [x] Infer auth origin from `--url` by default, with override only for edge cases
+  - [x] Save structured JSON results under `temp/playwright/checks/<run-id>/`
+  - [x] Keep screenshots/traces optional later; they are not required for the first useful release
   - [ ] **Pause/review**: confirm widget-area HTML inspection solves a real project need before starting Phases 3–5
 
 - [ ] **Phase 3 — MCP Agent Access to Browser Checks** · Effort: Med · Risk: Med
@@ -258,6 +258,8 @@ Current validation status (2026-03-10):
 ### Phase 2 — Authenticated DOM/HTML Inspection MVP
 
 Goal: let an agent log into wp-admin or the front end, target a selector, and read text/HTML in a repeatable way.
+
+Current status for this iteration (`v1.0.39`): the first CLI MVP slice is now implemented in `bin/pw-auth` as `pw-auth check dom`, with shell regression coverage for success + selector-failure paths plus a successful real-environment validation on `https://site-uclasacto.local/wp-admin/` using cached auth for `neochrome_jose` and HTML extraction of `#wpadminbar`. The remaining gate is real-project review/validation against an actual widget-area/admin inspection workflow before Phase 3.
 
 Suggested deliverables:
 

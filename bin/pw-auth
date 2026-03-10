@@ -15,6 +15,7 @@
 #   pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
 #   pw-auth login --site-url http://my-site.local --redirect /wp-admin/site-editor.php
 #   pw-auth doctor --site-url http://my-site.local
+#   pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract text
 #   pw-auth status
 #   pw-auth clear
 #
@@ -28,6 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_ROOT="$(dirname "$SCRIPT_DIR")"
 AUTH_DIR="$(pwd)/temp/playwright/.auth"
 DEFAULT_MAX_AGE_HOURS=12
+DEFAULT_CHECK_TIMEOUT_MS=15000
 TEMP_FILES=()
 
 # ============================================================
@@ -50,6 +52,7 @@ Usage:
 Commands:
   login    Generate login URL, authenticate via Playwright, save storageState
   doctor   Check Playwright + pw-auth readiness for a specific site/user
+  check    Inspect a page/selector using optional cached auth
   status   Show cached auth files (age, user, size, freshness)
   clear    Remove cached auth state files
 
@@ -61,6 +64,17 @@ Options (login and doctor):
 
 Options (doctor):
   --format <text|json>   Output format for readiness report (default: text)
+
+Options (check dom):
+  --url <url>            Page URL to open (required)
+  --selector <css>       CSS selector to inspect (required)
+  --extract <mode>       One of: exists, text, html (required)
+  --user <login>         Resolve default auth state from ./temp/playwright/.auth/<user>.json
+  --auth-state <path>    Explicit Playwright storageState file to use if present
+  --auth-origin <origin> Cookie origin to inspect for auth reuse (default: inferred from --url)
+  --timeout-ms <ms>      Navigation/selector timeout in milliseconds (default: 15000)
+  --format <text|json>   Output format (default: text)
+  --output-dir <dir>     Directory for result artifacts (default: temp/playwright/checks/<run-id>/)
 
 Options (login):
   --redirect <path>      WP admin path to land on after login
@@ -90,6 +104,9 @@ Examples:
 
   # Get a machine-readable readiness report
   pw-auth doctor --site-url http://my-site.local --format json
+
+  # Inspect a wp-admin surface using cached auth
+  pw-auth check dom --url http://my-site.local/wp-admin/widgets.php --selector "#widgets-right" --extract html --user admin --format json
 EOF
 }
 
@@ -553,6 +570,241 @@ PLAYWRIGHT_SCRIPT
 
     set +e
     node "$pw_script" "$mode" "$site_url" "$auth_file" "$login_url" "$headless_val"
+    exit_code=$?
+    set -e
+    cleanup_temp_file "$pw_script"
+
+    return $exit_code
+}
+
+run_playwright_dom_check() {
+    local check_url="$1"
+    local selector="$2"
+    local extract_mode="$3"
+    local auth_file="$4"
+    local auth_origin="$5"
+    local result_json="$6"
+    local extract_file="$7"
+    local timeout_ms="$8"
+    local output_format="$9"
+    local pw_script
+    local exit_code
+
+    pw_script="$(create_temp_file "pw-auth-check" ".js")" || {
+        log_error "Failed to create temporary Playwright check script file."
+        return 1
+    }
+    track_temp_file "$pw_script"
+
+    cat > "$pw_script" <<'PLAYWRIGHT_SCRIPT'
+// pw-auth: Playwright DOM inspection
+// Usage: node <script> <url> <selector> <extract> <auth_file> <auth_origin> <result_json> <extract_file> <timeout_ms> <output_format>
+
+const fs = require('node:fs');
+const path = require('node:path');
+
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch { ({ chromium } = require('playwright-core')); }
+
+const [,, targetUrl, selector, extractMode, authFile, authOrigin, resultJson, extractFile, timeoutMsRaw, outputFormat] = process.argv;
+const timeoutMs = Number.parseInt(timeoutMsRaw || '15000', 10) || 15000;
+const parsedTargetUrl = new URL(targetUrl);
+const effectiveAuthOrigin = authOrigin || parsedTargetUrl.origin;
+const host = parsedTargetUrl.hostname.toLowerCase();
+const ignoreHTTPSErrors = parsedTargetUrl.protocol === 'https:' && (
+  host === 'localhost' ||
+  host === '127.0.0.1' ||
+  host === '::1' ||
+  host.endsWith('.local') ||
+  host.endsWith('.test')
+);
+
+function displayPath(targetPath) {
+  if (!targetPath) {
+    return null;
+  }
+
+  const relative = path.relative(process.cwd(), targetPath);
+  if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+    return relative;
+  }
+
+  return targetPath;
+}
+
+async function assertNotWpErrorPage(page) {
+  const bodyText = await page.textContent('body').catch(() => '');
+  const pageTitle = await page.title().catch(() => '');
+  const bodyId = await page.getAttribute('body', 'id').catch(() => '');
+  const hasWpDieMarkup = (await page.locator('#error-page, .wp-die-message').count().catch(() => 0)) > 0;
+  const fatalMarkers = [
+    'There has been a critical error on this website.',
+    'has been a critical error on this website.',
+    'Dev login is disabled in production environments.',
+    'Dev login is not allowed on this host.',
+    'Invalid or expired login link.',
+    'Invalid user.',
+    'Error establishing a database connection'
+  ];
+
+  const looksLikeWpErrorPage =
+    bodyId === 'error-page' ||
+    hasWpDieMarkup ||
+    pageTitle.includes('WordPress › Error') ||
+    fatalMarkers.some(marker => bodyText.includes(marker));
+
+  if (looksLikeWpErrorPage) {
+    throw new Error('WordPress returned an error page. Body: ' + bodyText.substring(0, 200));
+  }
+}
+
+async function hasAuthCookie(context, origin) {
+  try {
+    const cookies = await context.cookies(origin);
+    return cookies.some(cookie => cookie.name.startsWith('wordpress_logged_in_'));
+  } catch {
+    return false;
+  }
+}
+
+function buildTextOutput(result) {
+  const lines = [
+    `[pw-auth] DOM check status: ${result.status}`,
+    `[pw-auth] URL: ${result.url}`,
+    `[pw-auth] Selector: ${result.selector}`,
+    `[pw-auth] Extract: ${result.extract}`,
+    `[pw-auth] Auth used: ${result.auth_used ? 'yes' : 'no'}`,
+    `[pw-auth] Result JSON: ${result.artifacts.result_json}`,
+  ];
+
+  if (result.artifacts.extract_file) {
+    lines.push(`[pw-auth] Extract file: ${result.artifacts.extract_file}`);
+  }
+
+  if (result.status === 'ok') {
+    if (result.extract === 'exists') {
+      lines.push('[pw-auth] Value: true');
+    } else if (typeof result.value === 'string') {
+      lines.push(`[pw-auth] Value length: ${result.value.length}`);
+    }
+  }
+
+  if (result.errors.length > 0) {
+    lines.push('[pw-auth] Errors:');
+    for (const message of result.errors) {
+      lines.push(`[pw-auth]   - ${message}`);
+    }
+  }
+
+  return lines.join('\n') + '\n';
+}
+
+async function finish(result, exitCode) {
+  fs.mkdirSync(path.dirname(resultJson), { recursive: true });
+
+  if (result.status === 'ok' && (extractMode === 'text' || extractMode === 'html') && extractFile) {
+    fs.writeFileSync(extractFile, String(result.value ?? ''), 'utf8');
+    result.artifacts.extract_file = displayPath(extractFile);
+  }
+
+  fs.writeFileSync(resultJson, JSON.stringify(result, null, 2) + '\n', 'utf8');
+
+  if (outputFormat === 'json') {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  } else {
+    process.stdout.write(buildTextOutput(result));
+  }
+
+  process.exit(exitCode);
+}
+
+(async () => {
+  let browser;
+
+  const result = {
+    status: 'error',
+    url: targetUrl,
+    selector,
+    extract: extractMode,
+    auth_used: false,
+    value: extractMode === 'exists' ? false : null,
+    artifacts: {
+      output_dir: displayPath(path.dirname(resultJson)),
+      result_json: displayPath(resultJson),
+      extract_file: null,
+    },
+    errors: [],
+  };
+
+  try {
+    const authFileExists = Boolean(authFile) && fs.existsSync(authFile);
+    const contextOptions = ignoreHTTPSErrors ? { ignoreHTTPSErrors: true } : {};
+
+    if (authFileExists) {
+      contextOptions.storageState = authFile;
+      result.auth_used = true;
+    }
+
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext(contextOptions);
+    const page = await context.newPage();
+    const authCookiePresent = authFileExists ? await hasAuthCookie(context, effectiveAuthOrigin) : false;
+
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+    await assertNotWpErrorPage(page);
+
+    if (page.url().includes('wp-login.php')) {
+      result.status = 'auth_required';
+      if (!authFileExists) {
+        result.errors.push(
+          authFile
+            ? `Auth state file not found or unreadable: ${displayPath(authFile)}`
+            : 'This page redirected to wp-login.php and requires cached auth.'
+        );
+      } else if (!authCookiePresent) {
+        result.errors.push(`Cached auth did not provide a wordpress_logged_in_ cookie for ${effectiveAuthOrigin}.`);
+      } else {
+        result.errors.push('Cached auth did not grant access to the requested URL. Refresh auth and retry.');
+      }
+      return finish(result, 4);
+    }
+
+    const matchCount = await page.locator(selector).count();
+    if (matchCount === 0) {
+      result.status = 'not_found';
+      result.errors.push(`Selector not found: ${selector}`);
+      return finish(result, 3);
+    }
+
+    const target = page.locator(selector).first();
+
+    if (extractMode === 'exists') {
+      result.value = true;
+    } else if (extractMode === 'text') {
+      result.value = (await target.innerText({ timeout: timeoutMs })).trim();
+    } else if (extractMode === 'html') {
+      result.value = await target.evaluate((element) => element.innerHTML);
+    } else {
+      throw new Error(`Unsupported extract mode: ${extractMode}`);
+    }
+
+    result.status = 'ok';
+    return finish(result, 0);
+  } catch (error) {
+    result.status = 'error';
+    result.errors.push(error && error.message ? error.message : String(error));
+    return finish(result, 5);
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+  }
+})();
+PLAYWRIGHT_SCRIPT
+
+    set +e
+    node "$pw_script" "$check_url" "$selector" "$extract_mode" "$auth_file" "$auth_origin" "$result_json" "$extract_file" "$timeout_ms" "$output_format"
     exit_code=$?
     set -e
     cleanup_temp_file "$pw_script"
@@ -1099,6 +1351,145 @@ NODE
     esac
 }
 
+do_check_dom() {
+    local check_url=""
+    local selector=""
+    local extract_mode=""
+    local wp_user="admin"
+    local auth_state=""
+    local auth_origin=""
+    local timeout_ms="$DEFAULT_CHECK_TIMEOUT_MS"
+    local output_format="text"
+    local output_dir=""
+    local auth_file=""
+    local run_id=""
+    local result_json=""
+    local extract_file=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --url)         check_url="$2"; shift 2 ;;
+            --selector)    selector="$2"; shift 2 ;;
+            --extract)     extract_mode="$2"; shift 2 ;;
+            --user)        wp_user="$2"; shift 2 ;;
+            --auth-state)  auth_state="$2"; shift 2 ;;
+            --auth-origin) auth_origin="$2"; shift 2 ;;
+            --timeout-ms)  timeout_ms="$2"; shift 2 ;;
+            --format)      output_format="$2"; shift 2 ;;
+            --output-dir)  output_dir="$2"; shift 2 ;;
+            -h|--help)     show_help; exit 0 ;;
+            *) log_error "Unknown option: $1"; exit 2 ;;
+        esac
+    done
+
+    if [ -z "$check_url" ] || [ -z "$selector" ] || [ -z "$extract_mode" ]; then
+        log_error "--url, --selector, and --extract are required"
+        echo ""
+        show_help
+        exit 2
+    fi
+
+    case "$extract_mode" in
+        exists|text|html)
+            ;;
+        *)
+            log_error "--extract must be one of: exists, text, html"
+            exit 2
+            ;;
+    esac
+
+    case "$output_format" in
+        text|json)
+            ;;
+        *)
+            log_error "--format must be 'text' or 'json'"
+            exit 2
+            ;;
+    esac
+
+    case "$timeout_ms" in
+        ''|*[!0-9]*)
+            log_error "--timeout-ms must be a positive integer"
+            exit 2
+            ;;
+    esac
+
+    if ! command -v node >/dev/null 2>&1; then
+        log_error "Node.js is required but not installed."
+        exit 5
+    fi
+
+    if ! ensure_playwright_resolvable; then
+        log_error "Playwright is not resolvable by Node.js."
+        log_error "Install globally:  npm install -g playwright"
+        log_error "Then install browsers:  npx playwright install chromium"
+        exit 5
+    fi
+
+    if [ -z "$auth_origin" ]; then
+        auth_origin="$(url_origin "$check_url" 2>/dev/null || true)"
+    else
+        auth_origin="$(url_origin "$auth_origin" 2>/dev/null || true)"
+    fi
+
+    if [ -z "$auth_origin" ]; then
+        log_error "Could not determine a valid auth origin from --url/--auth-origin"
+        exit 2
+    fi
+
+    if [ -n "$auth_state" ]; then
+        auth_file="$auth_state"
+    else
+        auth_file="$(default_auth_file_for_user "$wp_user")"
+    fi
+
+    if [ -z "$output_dir" ]; then
+        run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+        output_dir="$(pwd)/temp/playwright/checks/$run_id"
+    elif [ "${output_dir#/}" = "$output_dir" ]; then
+        output_dir="$(pwd)/$output_dir"
+    fi
+
+    mkdir -p "$output_dir"
+    result_json="$output_dir/result.json"
+
+    case "$extract_mode" in
+        text)
+            extract_file="$output_dir/extract.txt"
+            ;;
+        html)
+            extract_file="$output_dir/extract.html"
+            ;;
+        *)
+            extract_file=""
+            ;;
+    esac
+
+    run_playwright_dom_check "$check_url" "$selector" "$extract_mode" "$auth_file" "$auth_origin" "$result_json" "$extract_file" "$timeout_ms" "$output_format"
+    exit $?
+}
+
+do_check() {
+    local subcommand="${1:-}"
+    shift || true
+
+    case "$subcommand" in
+        dom)
+            do_check_dom "$@"
+            ;;
+        ""|-h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            log_error "Unknown check subcommand: $subcommand"
+            echo ""
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
 do_status() {
     mkdir -p "$AUTH_DIR"
 
@@ -1154,6 +1545,9 @@ case "$COMMAND" in
         ;;
     doctor)
         do_doctor "$@"
+        ;;
+    check)
+        do_check "$@"
         ;;
     status)
         do_status

@@ -485,6 +485,241 @@ EOF
     return 0
 }
 
+test_pw_auth_check_dom_writes_json_and_extract_artifacts_with_fake_runtime() {
+    local test_root=""
+    local fake_bin=""
+    local tmp_dir=""
+    local fake_node=""
+    local output_dir=""
+    local auth_dir=""
+    local auth_file=""
+    local output_file=""
+    local status=""
+
+    test_root="$(make_temp_dir)" || return 1
+    fake_bin="$test_root/bin"
+    tmp_dir="$test_root/tmp"
+    output_dir="$test_root/custom-output"
+    auth_dir="$test_root/temp/playwright/.auth"
+    auth_file="$auth_dir/admin.json"
+    fake_node="$fake_bin/node"
+    output_file="$test_root/pw-auth-check.json"
+
+    mkdir -p "$fake_bin" "$tmp_dir" "$output_dir" "$auth_dir"
+    printf '{"cookies":[{"name":"wordpress_logged_in_fake"}],"origins":[]}\n' > "$auth_file"
+
+    cat > "$fake_node" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-e" ]; then
+    exit 0
+fi
+
+if [ "${1:-}" = "-" ]; then
+    script="$(cat)"
+    case "$script" in
+        *"new URL(process.argv[2]).origin"*)
+            printf '%s\n' 'http://example.local'
+            exit 0
+            ;;
+    esac
+    echo 'unexpected fake node stdin payload' >&2
+    exit 98
+fi
+
+script_path="$1"
+script_contents="$(cat "$script_path")"
+
+case "$script_contents" in
+    *"pw-auth: Playwright DOM inspection"*)
+        check_url="$2"
+        selector="$3"
+        extract_mode="$4"
+        auth_file="$5"
+        auth_origin="$6"
+        result_json="$7"
+        extract_file="$8"
+        output_format="${10}"
+        mkdir -p "$(dirname "$result_json")"
+        printf '%s' '<div class="widget">Widget Area</div>' > "$extract_file"
+        cat > "$result_json" <<JSON
+{
+  "status": "ok",
+  "url": "$check_url",
+  "selector": "$selector",
+  "extract": "$extract_mode",
+  "auth_used": true,
+  "value": "<div class=\"widget\">Widget Area</div>",
+  "artifacts": {
+    "output_dir": "custom-output",
+    "result_json": "custom-output/result.json",
+    "extract_file": "custom-output/extract.html"
+  },
+  "errors": []
+}
+JSON
+        if [ "$output_format" = "json" ]; then
+            cat "$result_json"
+        else
+            printf '%s\n' '[pw-auth] DOM check status: ok'
+        fi
+        [ -f "$auth_file" ] || exit 96
+        [ "$auth_origin" = 'http://example.local' ] || exit 95
+        exit 0
+        ;;
+esac
+
+echo "unexpected fake node invocation: $*" >&2
+exit 97
+EOF
+    chmod +x "$fake_node"
+
+    (
+        cd "$test_root" || exit 1
+        TMPDIR="$tmp_dir" PATH="$fake_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            bash "$TOOLKIT_DIR/bin/pw-auth" check dom \
+                --url "http://example.local/wp-admin/widgets.php" \
+                --selector "#widgets-right" \
+                --extract html \
+                --user admin \
+                --format json \
+                --output-dir custom-output
+    ) > "$output_file" 2>&1
+    status=$?
+
+    if [ "$status" -ne 0 ]; then
+        echo "Expected pw-auth check dom to return 0, got $status"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    fi
+
+    grep -Fq '"status": "ok"' "$output_file" || {
+        echo "Expected ok status in pw-auth check dom output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '"extract_file": "custom-output/extract.html"' "$test_root/custom-output/result.json" || {
+        echo "Expected extract artifact path in result JSON"
+        cat "$test_root/custom-output/result.json"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '<div class="widget">Widget Area</div>' "$test_root/custom-output/extract.html" || {
+        echo "Expected HTML extract artifact to be written"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    cleanup_test_root "$test_root"
+    return 0
+}
+
+test_pw_auth_check_dom_returns_selector_failure_exit_code_with_fake_runtime() {
+    local test_root=""
+    local fake_bin=""
+    local tmp_dir=""
+    local fake_node=""
+    local output_file=""
+    local status=""
+
+    test_root="$(make_temp_dir)" || return 1
+    fake_bin="$test_root/bin"
+    tmp_dir="$test_root/tmp"
+    fake_node="$fake_bin/node"
+    output_file="$test_root/pw-auth-check-not-found.json"
+
+    mkdir -p "$fake_bin" "$tmp_dir"
+
+    cat > "$fake_node" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-e" ]; then
+    exit 0
+fi
+
+if [ "${1:-}" = "-" ]; then
+    script="$(cat)"
+    case "$script" in
+        *"new URL(process.argv[2]).origin"*)
+            printf '%s\n' 'http://example.local'
+            exit 0
+            ;;
+    esac
+    echo 'unexpected fake node stdin payload' >&2
+    exit 98
+fi
+
+script_path="$1"
+script_contents="$(cat "$script_path")"
+
+case "$script_contents" in
+    *"pw-auth: Playwright DOM inspection"*)
+        result_json="$7"
+        mkdir -p "$(dirname "$result_json")"
+        cat > "$result_json" <<JSON
+{
+  "status": "not_found",
+  "url": "$2",
+  "selector": "$3",
+  "extract": "$4",
+  "auth_used": false,
+  "value": false,
+  "artifacts": {
+    "output_dir": "temp/playwright/checks/fake-run",
+    "result_json": "temp/playwright/checks/fake-run/result.json",
+    "extract_file": null
+  },
+  "errors": ["Selector not found: $3"]
+}
+JSON
+        cat "$result_json"
+        exit 3
+        ;;
+esac
+
+echo "unexpected fake node invocation: $*" >&2
+exit 97
+EOF
+    chmod +x "$fake_node"
+
+    (
+        cd "$test_root" || exit 1
+        TMPDIR="$tmp_dir" PATH="$fake_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            bash "$TOOLKIT_DIR/bin/pw-auth" check dom \
+                --url "http://example.local/" \
+                --selector ".missing-widget" \
+                --extract exists \
+                --format json
+    ) > "$output_file" 2>&1
+    status=$?
+
+    if [ "$status" -ne 3 ]; then
+        echo "Expected pw-auth check dom to return 3 for selector failure, got $status"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    fi
+
+    grep -Fq '"status": "not_found"' "$output_file" || {
+        echo "Expected not_found status in pw-auth check dom output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq 'Selector not found: .missing-widget' "$output_file" || {
+        echo "Expected selector-missing error in pw-auth check dom output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    cleanup_test_root "$test_root"
+    return 0
+}
+
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   AI-DDTK Wrapper Cleanup Regression Test Suite      ║${NC}"
@@ -495,6 +730,8 @@ run_test "dev-login validates incoming request hosts" test_dev_login_request_hos
 run_test "local-wp exact-matches site config and cleans unique temp ini" test_local_wp_exact_match_lookup_and_cleanup
 run_test "pw-auth cleans temp files after validate/login failure paths" test_pw_auth_cleans_temp_files_after_validate_and_login_failures
 run_test "pw-auth doctor reports partial JSON with fake runtime" test_pw_auth_doctor_reports_partial_json_with_fake_runtime
+run_test "pw-auth check dom writes JSON + extract artifacts with fake runtime" test_pw_auth_check_dom_writes_json_and_extract_artifacts_with_fake_runtime
+run_test "pw-auth check dom returns selector failure exit code with fake runtime" test_pw_auth_check_dom_returns_selector_failure_exit_code_with_fake_runtime
 
 echo ""
 echo "============================================================"
