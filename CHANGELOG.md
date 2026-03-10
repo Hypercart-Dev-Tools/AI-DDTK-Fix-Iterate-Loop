@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.29] - 2026-03-10
+
+### Changed
+- **CLI helper recommendations** — `README.md` now recommends installing `rg` (`ripgrep`), `jq`, and `fd` as concise optional helpers for faster AI-agent and terminal workflows.
+- **Version updates**
+  - README.md updated to `1.0.29`
+  - install.sh updated to `1.0.29`
+
 ## [1.0.28] - 2026-03-09
 
 ### Changed

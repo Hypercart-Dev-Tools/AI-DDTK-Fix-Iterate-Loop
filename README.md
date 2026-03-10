@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.28
+> Version: 1.0.29
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -24,6 +24,16 @@ An early work in progress centralized toolkit for AI-driven WordPress developmen
 | **tmux** | Resilient agent terminal sessions (optional) | `brew install tmux` |
 | **Playwright** | Browser automation (optional) | `npm install -g playwright` |
 | **WP-CLI** | Playwright auth helper (`pw-auth`) requires WP-CLI | [wp-cli.org](https://wp-cli.org/) |
+
+### Recommended CLI Helpers
+
+These are not required, but they are worth installing for faster AI-agent and terminal workflows:
+
+| Tool | Why it helps | Install |
+|------|--------------|---------|
+| **rg** (`ripgrep`) | Fast repo-wide text search before deeper inspection | `brew install ripgrep` |
+| **jq** | Quick JSON parsing for `gh`, WPCC, and MCP output | `brew install jq` |
+| **fd** | Fast file discovery that pairs well with `rg` | `brew install fd` |
 
 ## Quick Start
 
