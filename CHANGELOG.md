@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.37] - 2026-03-10
+
+### Changed
+- **Playwright Phase 1 validation gate completed** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` to record the second successful real-environment validation on `site-uclasacto.local`, mark the Phase 1 stop/check gate complete at the 2-environment minimum, and note the `aiddtk-tmux` fallback used to work around flaky IDE terminal capture.
+- **Playwright README note** — updated `README.md` to note that `aiddtk-tmux` is a proven fallback when `pw-auth` needs to run through unreliable IDE terminal transports.
+- **Version updates**
+  - README.md updated to `1.0.37`
+  - install.sh updated to `1.0.37`
+
+## [1.0.36] - 2026-03-10
+
+### Changed
+- **Playwright Phase 1 validation tracking** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` to record a successful real-environment end-to-end validation on `macnerd-xyz-09-10.local`, including the production-environment guard, Local wrapper workaround, cached auth path, and the remaining 1–2 environment gate before Phase 2.
+- **Playwright README note** — updated `README.md` to note that the global npm-root / `NODE_PATH` Playwright resolution fallback has now been validated on a real Local HTTPS workflow.
+- **Version updates**
+  - README.md updated to `1.0.36`
+  - install.sh updated to `1.0.36`
+
+## [1.0.35] - 2026-03-10
+
+### Added
+- **`pw-auth doctor` readiness checks** — added a new `doctor` command to `bin/pw-auth` with human-readable and JSON output, `ready` / `partial` / `blocked` exit semantics, Node/Playwright/browser/WP-CLI/auth checks, and remediation guidance.
+- **Playwright doctor regression coverage** — extended `test/test-wrapper-cleanup.sh` with a focused shell regression test for `pw-auth doctor` JSON output using lightweight fake `node` / `wp` stubs.
+
+### Changed
+- **Playwright install convenience wrapper** — added `./install.sh doctor-playwright` as a thin delegation layer to the canonical `pw-auth doctor` command.
+- **Playwright docs and checklist** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` and `README.md` to reflect the implemented Phase 1 contract, including the actual JSON shape and convenience wrapper.
+- **Version updates**
+  - README.md updated to `1.0.35`
+  - install.sh updated to `1.0.35`
+
+## [1.0.34] - 2026-03-10
+
+### Changed
+- **Playwright plan surface cleanup** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` to make `pw-auth doctor` the canonical Phase 1 doctor command, move Phase 2 inspection under `pw-auth check`, infer auth origin from `--url` by default, consolidate the planned MCP tool surface, define a declarative preset direction, add write-operation guardrails for category actions, and turn the CLI+MCP split into an explicit architectural decision instead of an open question.
+- **Version updates**
+  - README.md updated to `1.0.34`
+  - install.sh updated to `1.0.34`
+
+## [1.0.33] - 2026-03-10
+
+### Changed
+- **Playwright lifecycle guidance** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` to document Phase 2–3 browser lifecycle strategy: fresh browser/context per check by default for safety and simplicity, with shared-context optimization noted as a future possibility so the wrapper API does not block it.
+- **Version updates**
+  - README.md updated to `1.0.33`
+  - install.sh updated to `1.0.33`
+
+## [1.0.32] - 2026-03-10
+
+### Changed
+- **Playwright MVP spec** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` with exact MVP command/tool specs for Phases 1–2, including proposed command names, arguments, exit codes, JSON output contracts, and first-use examples for authenticated DOM/HTML inspection.
+- **Version updates**
+  - README.md updated to `1.0.32`
+  - install.sh updated to `1.0.32`
+
+## [1.0.31] - 2026-03-10
+
+### Changed
+- **Playwright plan rewrite** — rewrote `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` around a more practical delivery sequence: Phase 1 readiness/auth foundation, Phase 2 authenticated DOM/HTML inspection MVP, Phase 3 MCP agent access, Phase 4 WordPress presets and safe admin actions (including categories), and Phase 5 optional guarded custom flows. The plan now treats screenshots as a later enhancement rather than an MVP requirement.
+- **Version updates**
+  - README.md updated to `1.0.31`
+  - install.sh updated to `1.0.31`
+
+## [1.0.30] - 2026-03-10
+
+### Changed
+- **Playwright plan refinement** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` to clarify the difference between current `pw-auth`-centered Playwright support and the planned robust browser-check layer, and tightened the Goals section to be more concise while staying implementation-oriented.
+- **Version updates**
+  - README.md updated to `1.0.30`
+  - install.sh updated to `1.0.30`
+
+## [1.0.29] - 2026-03-10
+
+### Added
+- **Playwright planning doc** — added `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` with a phased plan for more robust Playwright support/integration covering runtime doctor/setup, structured browser checks, MCP browser tools, WordPress-specific presets, and guarded programmable checks.
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.29`
+  - install.sh updated to `1.0.29`
+
 ## [1.0.28] - 2026-03-09
 
 ### Changed
