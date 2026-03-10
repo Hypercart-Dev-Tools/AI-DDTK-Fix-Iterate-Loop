@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.39] - 2026-03-10
+
+### Changed
+- **Phase 2 real-environment validation** — ran `pw-auth check dom` successfully against `https://site-uclasacto.local/wp-admin/` using cached auth for `neochrome_jose`, extracted `#wpadminbar` HTML, and confirmed structured artifacts under `temp/playwright/checks/20260310T035036Z-5586/` with exit code `0`.
+- **Playwright project tracking** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` to record the successful real-world Phase 2 admin-surface validation while intentionally leaving the broader Phase 2 pause/review gate open for a widget-area-specific need check.
+- **Playwright README note** — updated `README.md` to note the successful real-environment `pw-auth check dom` validation against `site-uclasacto.local`.
+- **Version updates**
+  - README.md updated to `1.0.39`
+  - install.sh updated to `1.0.39`
+
+## [1.0.38] - 2026-03-10
+
+### Added
+- **Phase 2 DOM inspection MVP (`pw-auth check dom`)** — added the first authenticated inspection slice to `bin/pw-auth`, including `exists` / `text` / `html` extraction, inferred auth origin from `--url`, structured artifact output under `temp/playwright/checks/<run-id>/`, JSON/text output modes, and exit semantics for success, selector failure, auth-required, and runtime failure paths.
+- **Phase 2 regression coverage** — extended `test/test-wrapper-cleanup.sh` with focused shell tests for successful DOM extraction artifact writing and selector-failure exit handling using lightweight fake `node` stubs.
+
+### Changed
+- **Transcript artifact hygiene** — removed the stray root-level `typescript` transcript artifact and added conservative `.gitignore` protection for root-level `script(1)` transcript files (`/typescript` and `/typescript.[0-9]*`).
+- **Playwright project tracking** — updated `PROJECT/1-INBOX/P1-PLAYWRIGHT.md` to mark the implemented Phase 2 MVP checklist items complete and record the current state of the first CLI inspection slice.
+- **Playwright README note** — updated `README.md` usage/docs to include the new `pw-auth check dom` command and its default artifact behavior.
+- **Version updates**
+  - README.md updated to `1.0.38`
+  - install.sh updated to `1.0.38`
+
 ## [1.0.37] - 2026-03-10
 
 ### Changed
