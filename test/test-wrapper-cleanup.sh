@@ -373,6 +373,118 @@ EOF
     return 0
 }
 
+test_pw_auth_doctor_reports_partial_json_with_fake_runtime() {
+    local test_root=""
+    local fake_bin=""
+    local tmp_dir=""
+    local fake_wp=""
+    local fake_node=""
+    local output_file=""
+    local status=""
+
+    test_root="$(make_temp_dir)" || return 1
+    fake_bin="$test_root/bin"
+    tmp_dir="$test_root/tmp"
+    fake_wp="$fake_bin/fake-wp"
+    fake_node="$fake_bin/node"
+    output_file="$test_root/pw-auth-doctor.json"
+
+    mkdir -p "$fake_bin" "$tmp_dir"
+
+    cat > "$fake_wp" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+
+    cat > "$fake_node" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-e" ]; then
+    exit 0
+fi
+
+if [ "${1:-}" != "-" ]; then
+    echo "unexpected fake node invocation: $*" >&2
+    exit 97
+fi
+
+script="$(cat)"
+
+case "$script" in
+    *"new URL(process.argv[2]).origin"*)
+        printf '%s\n' 'http://example.local'
+        exit 0
+        ;;
+    *"const tokens = []"*)
+        printf '%s\n' 'fake-wp'
+        exit 0
+        ;;
+    *"executablePath="*)
+        printf '%s\n' 'executablePath=/tmp/fake-chromium'
+        printf '%s\n' 'binaryExists=true'
+        printf '%s\n' 'launchOk=true'
+        printf '%s\n' 'launchMessage=Chromium launched successfully.'
+        exit 0
+        ;;
+esac
+
+echo 'unexpected fake node stdin payload' >&2
+exit 98
+EOF
+    chmod +x "$fake_wp" "$fake_node"
+
+    (
+        cd "$test_root" || exit 1
+        TMPDIR="$tmp_dir" PATH="$fake_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            bash "$TOOLKIT_DIR/bin/pw-auth" doctor --site-url "http://example.local" --wp-cli fake-wp --format json
+    ) > "$output_file" 2>&1
+    status=$?
+
+    if [ "$status" -ne 1 ]; then
+        echo "Expected pw-auth doctor to return 1 (partial), got $status"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    fi
+
+    grep -Fq '"status": "partial"' "$output_file" || {
+        echo "Expected partial status in pw-auth doctor JSON output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '"name": "playwright_module", "status": "pass"' "$output_file" || {
+        echo "Expected Playwright module check to pass"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '"name": "browser_launch", "status": "pass"' "$output_file" || {
+        echo "Expected browser launch check to pass"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '"name": "auth_file", "status": "warn"' "$output_file" || {
+        echo "Expected missing auth file warning in doctor JSON output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '"file_path": "temp/playwright/.auth/admin.json"' "$output_file" || {
+        echo "Expected relative auth file path in doctor JSON output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    cleanup_test_root "$test_root"
+    return 0
+}
+
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   AI-DDTK Wrapper Cleanup Regression Test Suite      ║${NC}"
@@ -382,6 +494,7 @@ echo ""
 run_test "dev-login validates incoming request hosts" test_dev_login_request_host_validation
 run_test "local-wp exact-matches site config and cleans unique temp ini" test_local_wp_exact_match_lookup_and_cleanup
 run_test "pw-auth cleans temp files after validate/login failure paths" test_pw_auth_cleans_temp_files_after_validate_and_login_failures
+run_test "pw-auth doctor reports partial JSON with fake runtime" test_pw_auth_doctor_reports_partial_json_with_fake_runtime
 
 echo ""
 echo "============================================================"
