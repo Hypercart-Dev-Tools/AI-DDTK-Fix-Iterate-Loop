@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.7.8 — 2026-03-07_
+_Last updated: v2.7.9 — 2026-03-09_
 
 ## Purpose
 
@@ -65,6 +65,33 @@ Use task management tools frequently for:
 - Giving user visibility
 
 Mark tasks COMPLETE immediately when done (don't batch).
+
+---
+
+## 🔌 MCP Server Usage Patterns
+
+When the AI-DDTK MCP server is available, prefer MCP tools over raw shell commands for supported workflows.
+
+### Preferred Flow
+
+1. **Establish site context first**: use `local_wp_list_sites`, then `local_wp_select_site` or pass `site` explicitly.
+2. **Use typed tools before shell**: prefer `wpcc_run_scan`, `pw_auth_login`, `wp_ajax_test`, and tmux tools over ad-hoc shell commands.
+3. **Use resources for artifacts**: read `wpcc://latest-scan`, `wpcc://latest-report`, or `auth://status/{user}` instead of re-parsing files when possible.
+4. **Use tmux for long jobs**: start/send/capture when scans or CLI tasks may outlive the current terminal session.
+
+### Example Prompts
+
+- “List Local sites, select the correct site, and verify connectivity before changing anything.”
+- “Run a WPCC JSON scan for this plugin, then summarize confirmed findings only.”
+- “Log into wp-admin with `pw-auth`, then reuse the saved state for Playwright.”
+- “Use tmux to run the long command and capture the last 200 lines when it finishes.”
+
+### Failure-Mode Guidance
+
+- **Missing site context**: run the LocalWP discovery/select tools first.
+- **HTTP MCP 401**: use the bearer token from `~/.ai-ddtk/mcp-token`; rerun `./install.sh setup-mcp` if the build/token is missing.
+- **Stale Playwright auth**: rerun `pw_auth_login` with force.
+- **Database inspection beyond direct MySQL access**: use the external **WP-DB-Toolkit** and its MCP server: https://github.com/Hypercart-Dev-Tools/WP-DB-Toolkit
 
 ---
 

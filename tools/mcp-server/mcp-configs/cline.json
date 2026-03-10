@@ -1,0 +1,10 @@
+{
+  "_comment": "Add this entry to your Cline MCP settings. In VS Code: Cline > MCP Servers > Edit Config. Adjust the path to match your AI-DDTK install location.",
+  "mcpServers": {
+    "ai-ddtk": {
+      "command": "node",
+      "args": ["tools/mcp-server/dist/src/index.js"],
+      "cwd": "/path/to/AI-DDTK"
+    }
+  }
+}

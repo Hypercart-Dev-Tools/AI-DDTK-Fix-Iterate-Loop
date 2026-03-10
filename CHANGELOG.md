@@ -7,6 +7,161 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.28] - 2026-03-09
+
+### Changed
+- **MCP README wording polish** — refined `tools/mcp-server/README.md` phrasing for clarity and consistency around Node.js dependencies, stdio launch wording, WP-DB-Toolkit wording, and `--force` usage.
+- **Version updates**
+  - README.md updated to `1.0.28`
+  - install.sh updated to `1.0.28`
+  - `tools/mcp-server/src/index.ts` updated to `0.6.2`
+  - `tools/mcp-server/package.json` updated to `0.6.2`
+
+## [1.0.27] - 2026-03-09
+
+### Added
+- **Phase 6 MCP documentation** — added `tools/mcp-server/README.md` with concise setup, client config, tool/resource catalog, usage pattern, and troubleshooting guidance.
+
+### Changed
+- **Root onboarding docs** — `README.md` now includes a short MCP server quick-start section and a reference to the external WP-DB-Toolkit MCP server for database-query workflows outside direct MySQL access.
+- **Agent guidance** — `AGENTS.md` now includes concise MCP usage patterns, example prompts, and failure-mode guidance.
+- **Project tracking** — `PROJECT/1-INBOX/P1-MCP-SERVER.md` now marks Phase 6 complete and `PROJECT/1-INBOX/ROADMAP-PERPLEXITY.md` now marks roadmap item #6 complete.
+- **Version updates**
+  - README.md updated to `1.0.27`
+  - install.sh updated to `1.0.27`
+  - `tools/mcp-server/src/index.ts` updated to `0.6.1`
+  - `tools/mcp-server/package.json` updated to `0.6.1`
+
+## [1.0.26] - 2026-03-09
+
+### Added
+- **Phase 5 VS Code integration & HTTP/SSE transport** — MCP server now supports secure localhost-only HTTP transport via `--http` flag with bearer token authentication (token stored in `~/.ai-ddtk/mcp-token`), using the MCP SDK's `StreamableHTTPServerTransport` with per-session state isolation.
+- **Per-session active-site context** — added `SessionStore` class in `tools/mcp-server/src/state.ts` so HTTP/SSE sessions each get isolated `SiteState` with no cross-client contamination.
+- **Bearer token management** — added `tools/mcp-server/src/utils/token.ts` for automatic token generation and persistence in `~/.ai-ddtk/mcp-token`.
+- **Repo-tracked VS Code integration** — added `.vscode/tasks.json` (MCP build/test/start, WPCC scan, pw-auth login, AJAX test) and `.vscode/launch.json` (stdio debug, HTTP debug, test debug) with `.gitignore` updated to whitelist these files.
+- **MCP client config files** — added `.mcp.json` for Claude Code auto-discovery, plus reference configs for Claude Desktop and Cline in `tools/mcp-server/mcp-configs/`.
+- **`install.sh setup-mcp` command** — builds the MCP server, installs dependencies, and prints client configuration snippets for Claude Code, Claude Desktop, Cline, and HTTP mode.
+- **Phase 5 regression tests** — added `tools/mcp-server/test/phase5.test.ts` covering `SessionStore` isolation, bearer token auth rejection, localhost-only binding, and server factory validation.
+
+### Changed
+- **MCP server HTTP mode** — `tools/mcp-server/src/index.ts` now accepts `--http` and `--port=N` CLI flags (default port 3100) to start a Streamable HTTP server bound to `127.0.0.1` with mandatory bearer token auth on every request.
+- **Version updates**
+  - README.md updated to `1.0.26`
+  - install.sh updated to `1.0.26`
+  - `tools/mcp-server/src/index.ts` updated to `0.6.0`
+  - `tools/mcp-server/package.json` updated to `0.6.0`
+
+## [1.0.25] - 2026-03-09
+
+### Changed
+- **Phase 4 pre-merge tmux hardening** — `tools/mcp-server/src/security/allowlist.ts` now narrows `tmux_send` to validated repo-relative `wpcc` invocations only, removes direct read-command passthrough, rejects `${...}` shell expansion syntax, and blocks unsafe `wpcc --paths` values such as absolute or out-of-workspace paths.
+- **AJAX URL scheme hardening** — `tools/mcp-server/src/index.ts` and `tools/mcp-server/src/handlers/wp-ajax-test.ts` now reject non-HTTP(S) URLs so `wp_ajax_test` cannot be used with `file://`, `ftp://`, or similar schemes.
+- **tmux parsing safety** — `tools/mcp-server/src/handlers/tmux.ts` now escapes `extractField()` labels before building a `RegExp`.
+- **Regression coverage** — `tools/mcp-server/test/tmux.test.ts` and `tools/mcp-server/test/wp-ajax-test.test.ts` now cover repo-relative `wpcc --paths` validation, blocked read commands, blocked `${...}` expansion, non-HTTP(S) AJAX URLs, and exit-0 non-JSON wrapper output.
+- **Version updates**
+  - README.md updated to `1.0.25`
+  - install.sh updated to `1.0.25`
+  - `tools/mcp-server/src/index.ts` updated to `0.5.1`
+  - `tools/mcp-server/package.json` updated to `0.5.1`
+
+## [1.0.24] - 2026-03-09
+
+### Added
+- **AI-DDTK MCP server Phase 4 tools** — added `wp_ajax_test`, `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, and `tmux_status` to `tools/mcp-server/src/index.ts` with dedicated handlers in `src/handlers/wp-ajax-test.ts` and `src/handlers/tmux.ts`.
+- **Phase 4 regression coverage** — added `tools/mcp-server/test/wp-ajax-test.test.ts` and `tools/mcp-server/test/tmux.test.ts` for JSON parsing, tmux session normalization, allowlist enforcement, wrapper output parsing, and non-zero exit preservation.
+
+### Changed
+- **tmux command hardening** — `tools/mcp-server/src/security/allowlist.ts` now enforces a Phase 4 tmux command allowlist for `wpcc`, `pw-auth`, `local-wp`, `wp-ajax-test`, and safe read commands while rejecting blocked executables and shell control operators.
+- **Phase 4 project tracking** — `PROJECT/1-INBOX/P1-MCP-SERVER.md` now marks Phase 4 complete, fixes the earlier `wp_ajax_test` checklist wording from explicit `site` to explicit `url`, and documents the concrete implementation files.
+- **Version updates**
+  - README.md updated to `1.0.24`
+  - install.sh updated to `1.0.24`
+  - `tools/mcp-server/src/index.ts` updated to `0.5.0`
+  - `tools/mcp-server/package.json` updated to `0.5.0`
+
+## [1.0.23] - 2026-03-09
+
+### Changed
+- **Phase 3 auth contract clarity** — `tools/mcp-server/src/handlers/pw-auth.ts` now returns `cacheFreshUntil` from `pw_auth_login` instead of `expiresAt` so MCP callers do not confuse cache freshness with the real WordPress session lifetime.
+- **Reduced missing-user auth resource disclosure** — `auth://status/{user}` still returns a stable `missing` payload, but missing-user reads no longer expose synthesized auth file paths.
+- **Documented authoritative pw-auth status fields** — `tools/mcp-server/src/handlers/pw-auth.ts`, `tools/mcp-server/src/index.ts`, and `PROJECT/1-INBOX/P1-MCP-SERVER.md` now clarify that structured `users[]` metadata is authoritative while `rawText` remains informational/debug passthrough from `bin/pw-auth status`.
+- **Version updates**
+  - README.md updated to `1.0.23`
+  - install.sh updated to `1.0.23`
+  - `tools/mcp-server/src/index.ts` updated to `0.4.1`
+  - `tools/mcp-server/package.json` updated to `0.4.1`
+
+## [1.0.22] - 2026-03-09
+
+### Added
+- **AI-DDTK MCP server Phase 3 pw-auth support** — added `pw_auth_login`, `pw_auth_status`, and `pw_auth_clear` to `tools/mcp-server/` so MCP clients can authenticate Playwright sessions, inspect auth-cache metadata, and clear one explicit user's cached auth safely.
+- **Auth metadata MCP resource** — added `auth://status/{user}` with metadata-only responses from `tools/mcp-server/src/handlers/pw-auth.ts`, intentionally excluding raw Playwright `storageState`, cookies, and tokens.
+- **Phase 3 regression coverage** — added `tools/mcp-server/test/pw-auth.test.ts` for retry-on-timeout login behavior, safe `--wp-cli` prefix construction, explicit-user clear semantics, and metadata-only auth resource reads.
+
+### Changed
+- **MCP server registration** — `tools/mcp-server/src/index.ts` now registers the Phase 3 `pw-auth` tools/resource and bumps the MCP server version to `0.4.0`.
+- **Phase 3 project tracking** — `PROJECT/1-INBOX/P1-MCP-SERVER.md` now marks all Phase 3 checklist items complete and updates the `pw_auth_clear` contract to explicit-user-only deletion.
+- **Version updates**
+  - README.md updated to `1.0.22`
+  - install.sh updated to `1.0.22`
+  - `tools/mcp-server/package.json` updated to `0.4.0`
+
+## [1.0.21] - 2026-03-09
+
+### Fixed
+- **MCP allowlisted `db query` hardening** — `tools/mcp-server/src/security/allowlist.ts` now rejects semicolon-delimited SQL so Phase 1/2 `db query` calls stay limited to single `SELECT` statements.
+- **`wpcc_run_scan` path validation** — `tools/mcp-server/src/handlers/wpcc.ts` now rejects empty path entries and any comma-separated `--paths` entry that begins with `-`, preventing flag-shaped argument injection into `bin/wpcc`.
+
+### Changed
+- **MCP resource error handling** — `tools/mcp-server/src/index.ts` now normalizes WPCC resource/list callback failures through a small wrapper so resource errors are surfaced consistently with sanitized messages.
+- **Package-root assumption documentation** — added an inline note in `tools/mcp-server/src/index.ts` clarifying the expected `src/` vs `dist/src/` layout used to derive `packageRoot` and `repoRoot`.
+- **Hardening regression coverage** — extended `tools/mcp-server/test/local-wp.test.ts` and `tools/mcp-server/test/wpcc.test.ts` for semicolon-rejected SQL and flag-shaped WPCC path input.
+- **Version updates**
+  - README.md updated to `1.0.21`
+  - install.sh updated to `1.0.21`
+  - `tools/mcp-server/package.json` updated to `0.3.1`
+
+## [1.0.20] - 2026-03-08
+
+### Added
+- **AI-DDTK MCP server Phase 2 WPCC resources** — added `wpcc://latest-scan`, `wpcc://latest-report`, and templated `wpcc://scan/{id}` resources to the unified `tools/mcp-server/` package so MCP clients can list and read WP Code Check artifacts directly
+- **WPCC resource regression coverage** — added targeted tests for latest scan/report resolution, specific scan reads, missing-artifact handling, and recent-scan listing limits in `tools/mcp-server/test/wpcc.test.ts`
+
+### Changed
+- **WPCC legacy MCP entrypoint** — `tools/wp-code-check/dist/bin/mcp-server.js` now acts as a compatibility shim that forwards to `tools/mcp-server/dist/src/index.js` and emits a deprecation warning
+- **Phase 2 MCP validation** — verified the unified server with `npm test` in `tools/mcp-server` plus a live stdio MCP smoke check covering `listResources` and real `readResource(...)` calls for latest scan/report and a specific scan artifact
+- **Backlog cleanup** — removed the completed WPCC MCP server follow-up item from `tools/wp-code-check/PROJECT/2-WORKING/BACKLOG.md`
+- **Version updates**
+  - README.md updated to `1.0.20`
+  - install.sh updated to `1.0.20`
+  - `tools/mcp-server/package.json` updated to `0.3.0`
+
+## [1.0.19] - 2026-03-08
+
+### Added
+- **AI-DDTK MCP server Phase 2 WPCC tool slice** — added `wpcc_list_features` and `wpcc_run_scan` to `tools/mcp-server/` so the unified MCP server can expose WP Code Check capabilities and invoke scans through `bin/wpcc`
+- **WPCC MCP regression coverage** — added targeted tests for feature parsing, JSON log-file parsing, text-mode passthrough, and non-zero exit handling in `tools/mcp-server/test/wpcc.test.ts`
+
+### Changed
+- **WPCC JSON scan handling** — `wpcc_run_scan` now treats the JSON log written to `tools/wp-code-check/dist/logs/` as the authoritative scan artifact instead of trusting mixed stdout from `bin/wpcc`
+- **Version updates**
+  - README.md updated to `1.0.19`
+  - install.sh updated to `1.0.19`
+  - `tools/mcp-server/package.json` updated to `0.2.0`
+
+## [1.0.18] - 2026-03-08
+
+### Added
+- **AI-DDTK MCP server Phase 1 scaffold** — added `tools/mcp-server/` as a standalone TypeScript MCP package with stdio transport, MCP SDK tool registration, in-memory active-site state, WP-CLI allowlist enforcement, and a safe `execFile` wrapper
+- **LocalWP MCP tool suite** — added `local_wp_list_sites`, `local_wp_select_site`, `local_wp_get_active_site`, `local_wp_test_connectivity`, `local_wp_get_site_info`, and allowlisted `local_wp_run`
+- **Targeted MCP validation** — added `tools/mcp-server/test/local-wp.test.ts` coverage for allowlist enforcement, active-site read-only fallback, site-info parsing, wrapper error handling, and server creation
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.18`
+  - install.sh updated to `1.0.18`
+- **MCP package metadata** — `tools/mcp-server/package.json` now declares a direct `zod` dependency and the npm lockfile metadata has been refreshed for `ai-ddtk-mcp`
+
 ## [1.0.17] - 2026-03-08
 
 ### Changed
