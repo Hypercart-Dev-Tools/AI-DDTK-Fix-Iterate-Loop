@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.40] - 2026-03-11
+
+### Changed
+- **AGENTS.md concise refresh** — shortened and reorganized `AGENTS.md` to reduce duplication across MCP, tmux, Playwright, WPCC, performance, PHPStan, and architecture guidance while keeping the existing AI-DDTK availability check intact.
+- **Capability-discovery guidance** — added a concise startup workflow for agents to inventory MCP tools/resources plus shell-based AI-DDTK commands once per session and prefer MCP tools when both surfaces exist.
+- **Playwright / MCP guidance refresh** — updated `AGENTS.md` to reflect current `pw-auth doctor`, `pw-auth check dom`, LocalWP wrapper usage, auth artifact paths, and the fact that `tmux_send` is intentionally allowlisted rather than a general shell bridge.
+- **Version updates**
+  - README.md updated to `1.0.40`
+  - install.sh updated to `1.0.40`
+
 ## [1.0.39] - 2026-03-10
 
 ### Changed
