@@ -34,6 +34,74 @@ This workspace uses **AI-DDTK** (AI Driven Development ToolKit) installed at `~/
    - for browser or AJAX work, confirm the target URL/origin before changing anything
 4. **Keep runtime and sensitive artifacts under `./temp`** and out of git.
 
+### MCP Server Setup and Lifecycle
+
+The **AI-DDTK MCP server** exposes all toolkit commands (WPCC, LocalWP, pw-auth, AJAX, tmux) as typed MCP tools for Claude Code, Augment Code, Claude Desktop, and Cline.
+
+#### Initial Setup (One-Time)
+
+Run from the AI-DDTK repo root:
+
+```bash
+./install.sh setup-mcp
+./install.sh status
+```
+
+This builds the server at `tools/mcp-server/dist/src/index.js` and installs Node.js dependencies.
+
+#### Wiring into Your Editor
+
+**Claude Code in VS Code:**
+- Auto-discovers `.mcp.json` in the repo root
+- No additional setup needed
+
+**Augment Code:**
+- Config file: `~/.augment/settings.json`
+- Add this entry under `mcpServers`:
+  ```json
+  {
+    "mcpServers": {
+      "ai-ddtk": {
+        "command": "node",
+        "args": ["/path/to/AI-DDTK/tools/mcp-server/dist/src/index.js"],
+        "cwd": "/path/to/AI-DDTK"
+      }
+    }
+  }
+  ```
+- Replace `/path/to/AI-DDTK` with your actual installation path (e.g., `/Users/noel/Documents/GitHub/AI-DDTK-Fix-Iterate-Loop`)
+
+**Claude Desktop:**
+- Copy the template from `tools/mcp-server/mcp-configs/claude-desktop.json`
+- Add to `~/Library/Application Support/Claude/claude_desktop_config.json` under `mcpServers`
+
+**Cline (VS Code):**
+- Copy the template from `tools/mcp-server/mcp-configs/cline.json`
+- Paste into Cline settings: VS Code → Cline → MCP Servers → Edit Config
+
+#### Server Lifecycle
+
+- **Startup**: The MCP server starts **automatically on-demand** when you open the editor (stdio mode)
+- **Runtime**: Runs only while the editor is open; terminates when you close it
+- **Reboot**: Does **not** persist across reboots — the editor restarts it automatically
+- **No manual startup needed** — the editor handles it
+
+If you need a **persistent background server** (e.g., for HTTP mode or external clients), see `tools/mcp-server/README.md` for HTTP mode setup.
+
+#### Available MCP Tools
+
+The server exposes **18 typed tools** across 5 areas:
+
+| Area | Tools |
+|------|-------|
+| **LocalWP** | `local_wp_list_sites`, `local_wp_select_site`, `local_wp_get_active_site`, `local_wp_test_connectivity`, `local_wp_get_site_info`, `local_wp_run` |
+| **WPCC** | `wpcc_run_scan`, `wpcc_list_features` |
+| **Playwright Auth** | `pw_auth_login`, `pw_auth_status`, `pw_auth_clear` |
+| **AJAX Testing** | `wp_ajax_test` |
+| **Tmux** | `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status` |
+
+See `tools/mcp-server/README.md` for detailed tool documentation and examples.
+
 ### Available Tools
 
 | Tool | Primary use |

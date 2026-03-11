@@ -80,17 +80,27 @@ local-wp my-site plugin list
 
 ## MCP Server Quick Start
 
-Use the bundled MCP server when you want Claude Code, Claude Desktop, Cline, or another MCP client to call AI-DDTK tools directly.
+Use the bundled MCP server when you want Claude Code, Augment Code, Claude Desktop, Cline, or another MCP client to call AI-DDTK tools directly.
 
 ```bash
 ./install.sh setup-mcp
 ./install.sh status
 ```
 
-- **Claude Code**: `.mcp.json` is already tracked in this repo.
-- **Claude Desktop / Cline**: copy the reference configs from `tools/mcp-server/mcp-configs/`.
-- **HTTP debug mode**: run `cd tools/mcp-server && npm run mcp:http`.
-- **More details**: see `tools/mcp-server/README.md`.
+**⚠️ For complete MCP setup instructions (including Augment Code, Claude Desktop, and Cline wiring), see [`AGENTS.md` → "MCP Server Setup and Lifecycle"`](AGENTS.md#mcp-server-setup-and-lifecycle).**
+
+That section covers:
+- Initial setup with `./install.sh setup-mcp`
+- Wiring into Claude Code, Augment Code, Claude Desktop, and Cline
+- Server lifecycle (auto-start on-demand, no reboot persistence)
+- All 18 available MCP tools
+
+**Quick reference:**
+- **Claude Code**: `.mcp.json` is already tracked in this repo (auto-discovered)
+- **Augment Code**: Add entry to `~/.augment/settings.json` (see AGENTS.md for exact format)
+- **Claude Desktop / Cline**: Copy reference configs from `tools/mcp-server/mcp-configs/`
+- **HTTP debug mode**: `cd tools/mcp-server && npm run mcp:http`
+- **Tool documentation**: `tools/mcp-server/README.md`
 
 For WordPress database queries outside direct MySQL server access, see the external **WP-DB-Toolkit** and its MCP server: https://github.com/Hypercart-Dev-Tools/WP-DB-Toolkit
 
@@ -334,9 +344,50 @@ await page.goto('http://my-site.local/wp-admin/');
 // Already authenticated — no login form needed
 ```
 
-Auth state is cached for 12 hours by default (configurable with `--max-age`). Run `pw-auth doctor --site-url <url> [--wp-cli "local-wp <site>"] [--format text|json]` first when you need a readiness check; it reports `ready`, `partial`, or `blocked` with per-check summaries for Node.js, Playwright resolution, browser availability, launch readiness, and cached auth validation. `./install.sh doctor-playwright ...` is a convenience wrapper around the same command. Then run `pw-auth login --site-url <url> [--wp-cli "local-wp <site>"]` immediately before Playwright automation to mint or reuse auth state; if the one-time URL expired or auth is stale, rerun `pw-auth login --force ...` to generate a fresh login URL. The first Phase 2 inspection slice is now available as `pw-auth check dom --url <url> --selector <selector> --extract exists|text|html [--user <user>] [--auth-state <path>] [--auth-origin <origin>] [--timeout-ms <ms>] [--format text|json] [--output-dir <dir>]`, which writes structured artifacts under `temp/playwright/checks/<run-id>/` by default and returns `ok`, `not_found`, `auth_required`, or `error` results. This DOM check has now also been validated end-to-end against a real authenticated Local admin surface on `https://site-uclasacto.local/wp-admin/`, successfully extracting `#wpadminbar` HTML with cached auth for `neochrome_jose`. Fresh cached auth files are now **live-validated before reuse**; if the saved session no longer reaches `/wp-admin/`, `pw-auth` re-authenticates instead of returning a false success. `pw-auth status` shows cache freshness/metadata only. `pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright before failing; that fallback has now been validated on real Local HTTPS workflows where plain `require.resolve('playwright')` failed but the npm-root / `NODE_PATH` path succeeded. For HTTPS local-development origins (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`), the Playwright browser context now tolerates self-signed certificates so Local-style sites can authenticate cleanly. The tool verifies login by checking for `wordpress_logged_in_` cookies, confirming `/wp-admin/` is accessible, and detecting real WordPress error pages without falsely flagging normal admin markup. When the IDE terminal transport is flaky, the `aiddtk-tmux` wrapper is also a proven fallback for running `pw-auth login` and inspecting the resulting auth artifacts without losing command output. See `pw-auth --help` for all options.
+### Auth Caching and Validation
 
-The unified MCP server now exposes structured MCP surfaces for LocalWP, `pw_auth_login`, `pw_auth_status`, `pw_auth_clear`, metadata-only `auth://status/{user}`, `wp_ajax_test`, and tmux orchestration (`tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status`). The MCP layer never exposes raw auth-state JSON. `tmux_send` remains intentionally narrow after the Phase 4 pre-merge hardening pass: it now accepts only validated repo-relative `wpcc` invocations, while direct file inspection should use `tmux_capture` and LocalWP / auth / AJAX workflows should use their dedicated MCP tools. `pw_auth_login` reports `cacheFreshUntil` as a best-effort cache freshness timestamp derived from the auth file mtime, not a guaranteed WordPress session expiry, and `pw_auth_status.users[]` is the authoritative structured status while `rawText` remains informational passthrough.
+Auth state is cached for 12 hours by default (configurable with `--max-age`). Fresh cached auth files are **live-validated before reuse**; if the saved session no longer reaches `/wp-admin/`, `pw-auth` re-authenticates instead of returning a false success.
+
+### Readiness Checks
+
+Run `pw-auth doctor` first when you need a readiness check:
+
+```bash
+pw-auth doctor --site-url <url> [--wp-cli "local-wp <site>"] [--format text|json]
+```
+
+It reports `ready`, `partial`, or `blocked` with per-check summaries for:
+- Node.js availability
+- Playwright resolution
+- Browser availability
+- Launch readiness
+- Cached auth validation
+
+Convenience wrapper: `./install.sh doctor-playwright --site-url <url>`
+
+### DOM Inspection
+
+Inspect front-end or wp-admin DOM using optional cached auth:
+
+```bash
+pw-auth check dom --url <url> --selector <selector> --extract exists|text|html \
+  [--user <user>] [--auth-state <path>] [--auth-origin <origin>] \
+  [--timeout-ms <ms>] [--format text|json] [--output-dir <dir>]
+```
+
+Writes structured artifacts under `temp/playwright/checks/<run-id>/` and returns `ok`, `not_found`, `auth_required`, or `error`.
+
+### Playwright Resolution
+
+`pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright. For HTTPS local-development origins (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`), the Playwright browser context tolerates self-signed certificates so Local-style sites can authenticate cleanly.
+
+### MCP Integration
+
+The unified MCP server exposes structured MCP tools for `pw_auth_login`, `pw_auth_status`, and `pw_auth_clear`. The MCP layer never exposes raw auth-state JSON. `pw_auth_login` reports `cacheFreshUntil` as a best-effort cache freshness timestamp derived from the auth file mtime (not a guaranteed WordPress session expiry), and `pw_auth_status.users[]` is the authoritative structured status.
+
+### Flaky Terminal Fallback
+
+When the IDE terminal transport is flaky, the `aiddtk-tmux` wrapper is a proven fallback for running `pw-auth login` and inspecting the resulting auth artifacts without losing command output.
 
 ### Troubleshooting
 
