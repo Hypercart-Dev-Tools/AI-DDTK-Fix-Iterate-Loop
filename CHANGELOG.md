@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **`local-wp` modern Local run discovery** — updated the shell wrapper to resolve current Local runtime layouts by matching nested `conf/**` content such as site root paths and `*.local` hostnames, added `--debug` discovery tracing, and preferred active MySQL sockets when stale run directories also match.
+- **LocalWP MCP parity** — updated `tools/mcp-server/src/handlers/local-wp.ts` to use the same modern nested-config discovery signals and active-socket preference so MCP-backed LocalWP workflows stay aligned with the shell wrapper.
+- **Regression coverage** — extended shell and MCP LocalWP tests to cover modern `conf/nginx/site.conf` layouts and stale-versus-active run selection.
+
 ## [1.0.40] - 2026-03-11
 
 ### Changed

@@ -295,6 +295,95 @@ EOF
     return 0
 }
 
+test_local_wp_modern_layout_prefers_active_socket() {
+    local test_root=""
+    local local_sites_dir=""
+    local local_run_dir=""
+    local tmp_dir=""
+    local site_name="modern-site"
+    local stale_id="a-stale"
+    local live_id="z-live"
+    local live_socket=""
+    local live_pid=""
+    local wp_cli_phar=""
+    local fake_php=""
+    local fake_php_ini_marker=""
+    local local_wp_log=""
+    local status=""
+
+    test_root="$(make_temp_dir)" || return 1
+    local_sites_dir="$test_root/local-sites"
+    local_run_dir="$test_root/run"
+    tmp_dir="$test_root/tmp"
+    live_socket="$local_run_dir/$live_id/mysql/mysqld.sock"
+    wp_cli_phar="$test_root/wp-cli.phar"
+    fake_php="$test_root/fake-php.sh"
+    fake_php_ini_marker="$test_root/fake-php.ini"
+    local_wp_log="$test_root/local-wp.log"
+
+    mkdir -p "$local_sites_dir/$site_name/app/public" \
+             "$tmp_dir" \
+             "$local_run_dir/$stale_id/conf/nginx" "$local_run_dir/$stale_id/mysql" \
+             "$local_run_dir/$live_id/conf/nginx" "$local_run_dir/$live_id/mysql"
+    touch "$local_sites_dir/$site_name/app/public/wp-config.php" "$wp_cli_phar"
+
+    cat > "$local_run_dir/$stale_id/conf/nginx/site.conf" <<EOF
+server {
+    root "$local_sites_dir/$site_name/app/public";
+    server_name $site_name.local *.$site_name.local;
+}
+EOF
+
+    cat > "$local_run_dir/$live_id/conf/nginx/site.conf" <<EOF
+server {
+    root "$local_sites_dir/$site_name/app/public";
+    server_name $site_name.local *.$site_name.local;
+}
+EOF
+
+    start_socket_server "$live_socket" || {
+        cleanup_test_root "$test_root"
+        echo "Failed to create expected socket at $live_socket"
+        return 1
+    }
+    live_pid="$START_SOCKET_SERVER_PID"
+
+    cat > "$fake_php" <<EOF
+#!/usr/bin/env bash
+ini_file="\$2"
+printf '%s\n' "\$ini_file" > "$fake_php_ini_marker"
+[ -f "\$ini_file" ] || exit 90
+grep -Fq "$live_socket" "\$ini_file" || exit 91
+exit 42
+EOF
+    chmod +x "$fake_php"
+
+    TMPDIR="$tmp_dir" LOCAL_SITES_DIR="$local_sites_dir" \
+    LOCAL_RUN_DIR="$local_run_dir" \
+    WP_CLI_PHAR="$wp_cli_phar" \
+    PHP_BIN="$fake_php" \
+    bash "$TOOLKIT_DIR/bin/local-wp" "$site_name" option get home >"$local_wp_log" 2>&1
+    status=$?
+
+    if [ "$status" -ne 42 ]; then
+        echo "Expected fake PHP exit status 42, got $status"
+        if [ -s "$local_wp_log" ]; then
+            cat "$local_wp_log"
+        fi
+        cleanup_test_root "$test_root" "$live_pid"
+        return 1
+    fi
+
+    if [ ! -f "$fake_php_ini_marker" ]; then
+        echo "Fake PHP stub did not record the temporary ini path"
+        cleanup_test_root "$test_root" "$live_pid"
+        return 1
+    fi
+
+    cleanup_test_root "$test_root" "$live_pid"
+    return 0
+}
+
 test_pw_auth_cleans_temp_files_after_validate_and_login_failures() {
     local test_root=""
     local fake_bin=""
@@ -728,6 +817,7 @@ echo ""
 
 run_test "dev-login validates incoming request hosts" test_dev_login_request_host_validation
 run_test "local-wp exact-matches site config and cleans unique temp ini" test_local_wp_exact_match_lookup_and_cleanup
+run_test "local-wp supports modern Local run layout and prefers the active socket" test_local_wp_modern_layout_prefers_active_socket
 run_test "pw-auth cleans temp files after validate/login failure paths" test_pw_auth_cleans_temp_files_after_validate_and_login_failures
 run_test "pw-auth doctor reports partial JSON with fake runtime" test_pw_auth_doctor_reports_partial_json_with_fake_runtime
 run_test "pw-auth check dom writes JSON + extract artifacts with fake runtime" test_pw_auth_check_dom_writes_json_and_extract_artifacts_with_fake_runtime

@@ -32,6 +32,15 @@ set -e
 LOCAL_SITES_DIR="${LOCAL_SITES_DIR:-$HOME/Local Sites}"
 LOCAL_RUN_DIR="${LOCAL_RUN_DIR:-$HOME/Library/Application Support/Local/run}"
 WP_CLI_PHAR="${WP_CLI_PHAR:-/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar}"
+DEBUG_LOCAL_WP="${LOCAL_WP_DEBUG:-0}"
+
+debug_log() {
+  if [ "$DEBUG_LOCAL_WP" != "1" ]; then
+    return 0
+  fi
+
+  printf '[local-wp debug] %s\n' "$*" >&2
+}
 
 # Auto-detect PHP binary from Local's lightning-services
 detect_php_bin() {
@@ -71,25 +80,101 @@ PHP_INI_FILE=""
 
 find_matching_site_ids() {
   local site_name="$1"
-  local conf_file=""
+  local site_path="$2"
+  local site_root_dir="$3"
+  local site_host="${site_name}.local"
+  local site_run_dir=""
   local site_id=""
+  local conf_dir=""
+  local conf_file=""
+  local score="0"
+  local active="0"
+  local candidate=""
+  local max_score="-1"
+  local -a candidates=()
+  local -a active_candidates=()
+  local -a pool=()
 
   if [ ! -d "$LOCAL_RUN_DIR" ]; then
     return 0
   fi
 
-  while IFS= read -r conf_file; do
-    [ -f "$conf_file" ] || continue
+  while IFS= read -r site_run_dir; do
+    [ -d "$site_run_dir" ] || continue
 
-    if grep -Fxq -- "$site_name" "$conf_file"; then
-      site_id="${conf_file#"$LOCAL_RUN_DIR"/}"
-      site_id="${site_id%%/*}"
+    site_id="${site_run_dir##*/}"
+    conf_dir="$site_run_dir/conf"
 
-      if [ -n "$site_id" ]; then
-        printf '%s\n' "$site_id"
-      fi
+    if [ ! -d "$conf_dir" ] || [ ! -d "$site_run_dir/mysql" ]; then
+      continue
     fi
-  done < <(find "$LOCAL_RUN_DIR" -mindepth 3 -maxdepth 3 -type f -path '*/conf/*' 2>/dev/null | sort)
+
+    score=0
+
+    while IFS= read -r conf_file; do
+      [ -f "$conf_file" ] || continue
+
+      if grep -Fq -- "$site_path" "$conf_file"; then
+        score=$((score + 100))
+      fi
+
+      if grep -Fq -- "$site_root_dir/" "$conf_file"; then
+        score=$((score + 80))
+      fi
+
+      if grep -Fq -- "$site_host" "$conf_file"; then
+        score=$((score + 40))
+      fi
+
+      if grep -Fxq -- "$site_name" "$conf_file"; then
+        score=$((score + 20))
+      fi
+    done < <(find "$conf_dir" -type f 2>/dev/null | sort)
+
+    if [ "$score" -eq 0 ]; then
+      debug_log "No runtime metadata match for site '$site_name' in $site_id"
+      continue
+    fi
+
+    active=0
+    if [ -S "$site_run_dir/mysql/mysqld.sock" ]; then
+      active=1
+    fi
+
+    debug_log "Candidate $site_id matched with score=$score active_socket=$active"
+    candidates+=("${active}"$'\t'"${score}"$'\t'"${site_id}")
+  done < <(find "$LOCAL_RUN_DIR" -mindepth 1 -maxdepth 1 -type d ! -name 'router' 2>/dev/null | sort)
+
+  if [ "${#candidates[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    IFS=$'\t' read -r active score site_id <<< "$candidate"
+    if [ "$active" = "1" ]; then
+      active_candidates+=("$candidate")
+    fi
+  done
+
+  if [ "${#active_candidates[@]}" -gt 0 ]; then
+    pool=("${active_candidates[@]}")
+  else
+    pool=("${candidates[@]}")
+  fi
+
+  for candidate in "${pool[@]}"; do
+    IFS=$'\t' read -r active score site_id <<< "$candidate"
+    if [ "$score" -gt "$max_score" ]; then
+      max_score="$score"
+    fi
+  done
+
+  for candidate in "${pool[@]}"; do
+    IFS=$'\t' read -r active score site_id <<< "$candidate"
+    if [ "$score" -eq "$max_score" ]; then
+      printf '%s\n' "$site_id"
+    fi
+  done | sort -u
 }
 
 create_php_ini_file() {
@@ -132,38 +217,54 @@ NC='\033[0m'
 show_usage() {
   echo -e "${BLUE}Local WP-CLI Wrapper${NC}"
   echo ""
-  echo "Usage: local-wp <site-name> <wp-cli-command> [args...]"
+  echo "Usage: local-wp [--debug] <site-name> <wp-cli-command> [args...]"
   echo ""
   echo "Examples:"
   echo "  local-wp neochrome-timesheets plugin list"
   echo "  local-wp neochrome-timesheets option get siteurl"
   echo "  local-wp neochrome-timesheets core version"
+  echo "  local-wp --debug neochrome-timesheets option get siteurl"
   echo ""
   echo "Available sites:"
   ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
   echo ""
 }
 
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --help|-h)
+      show_usage
+      exit 0
+      ;;
+    --list)
+      echo -e "${BLUE}Available Local sites:${NC}"
+      ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
+      exit 0
+      ;;
+    --debug)
+      DEBUG_LOCAL_WP="1"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
 if [ $# -lt 1 ]; then
   show_usage
   exit 1
-fi
-
-if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
-  show_usage
-  exit 0
-fi
-
-if [ "$1" = "--list" ]; then
-  echo -e "${BLUE}Available Local sites:${NC}"
-  ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
-  exit 0
 fi
 
 SITE_NAME="$1"
 shift
 
 SITE_PATH="$LOCAL_SITES_DIR/$SITE_NAME/app/public"
+SITE_ROOT_DIR="$LOCAL_SITES_DIR/$SITE_NAME"
+
+debug_log "Resolving Local run config for site '$SITE_NAME'"
+debug_log "Site path: $SITE_PATH"
+debug_log "Local run dir: $LOCAL_RUN_DIR"
 
 if [ ! -d "$SITE_PATH" ]; then
   echo -e "${RED}Error: Site not found: $SITE_NAME${NC}"
@@ -200,10 +301,13 @@ fi
 MATCHED_SITE_IDS=()
 while IFS= read -r matched_site_id; do
   [ -n "$matched_site_id" ] && MATCHED_SITE_IDS+=("$matched_site_id")
-done < <(find_matching_site_ids "$SITE_NAME")
+done < <(find_matching_site_ids "$SITE_NAME" "$SITE_PATH" "$SITE_ROOT_DIR")
 
 if [ "${#MATCHED_SITE_IDS[@]}" -eq 0 ]; then
   echo -e "${RED}Error: Could not find site configuration${NC}"
+  if [ "$DEBUG_LOCAL_WP" != "1" ]; then
+    echo -e "${YELLOW}Tip: Re-run with --debug to inspect Local run discovery.${NC}" >&2
+  fi
   exit 1
 fi
 
@@ -216,6 +320,8 @@ if [ "${#MATCHED_SITE_IDS[@]}" -gt 1 ]; then
 fi
 
 SITE_ID="${MATCHED_SITE_IDS[0]}"
+
+debug_log "Resolved site '$SITE_NAME' to Local run ID '$SITE_ID'"
 
 MYSQL_SOCKET="$LOCAL_RUN_DIR/$SITE_ID/mysql/mysqld.sock"
 
