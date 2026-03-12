@@ -1,6 +1,6 @@
 {
   "name": "ai-ddtk-mcp",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "AI-DDTK MCP server for LocalWP, pw-auth, wp-ajax-test, tmux, and WPCC tools/resources",
   "type": "module",
   "main": "dist/src/index.js",
