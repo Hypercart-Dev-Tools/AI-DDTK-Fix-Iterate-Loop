@@ -38,15 +38,19 @@ async function createFixture(siteName = "demo") {
   const homeDir = path.join(root, "h");
   const repoRoot = path.join(root, "r");
   const sitePath = path.join(homeDir, "Local Sites", siteName, "app", "public");
-  const runRoot = path.join(homeDir, "Library", "Application Support", "Local", "run", "s");
-  const socketPath = path.join(runRoot, "mysql", "mysqld.sock");
+  const runRoot = path.join(homeDir, "Library", "Application Support", "Local", "run");
+  const liveRunRoot = path.join(runRoot, "s-live");
+  const socketPath = path.join(liveRunRoot, "mysql", "mysqld.sock");
 
   await mkdir(sitePath, { recursive: true });
-  await mkdir(path.join(runRoot, "conf"), { recursive: true });
-  await mkdir(path.join(runRoot, "mysql"), { recursive: true });
+  await mkdir(path.join(liveRunRoot, "conf", "nginx"), { recursive: true });
+  await mkdir(path.join(liveRunRoot, "mysql"), { recursive: true });
   await mkdir(path.join(repoRoot, "bin"), { recursive: true });
   await writeFile(path.join(sitePath, "wp-config.php"), "<?php\n");
-  await writeFile(path.join(runRoot, "conf", "site.conf"), `${siteName}\n`);
+  await writeFile(
+    path.join(liveRunRoot, "conf", "nginx", "site.conf"),
+    `server {\n    root \"${sitePath}\";\n    server_name ${siteName}.local *.${siteName}.local;\n}\n`,
+  );
   await writeFile(path.join(repoRoot, "bin", "local-wp"), "#!/usr/bin/env bash\n");
 
   return {
@@ -64,6 +68,41 @@ async function createFixture(siteName = "demo") {
     },
   };
 }
+
+test("select site prefers the active Local run when stale configs also match", async () => {
+  const fixture = await createFixture();
+  const staleRunRoot = path.join(
+    fixture.homeDir,
+    "Library",
+    "Application Support",
+    "Local",
+    "run",
+    "s-stale",
+  );
+  const socketServer = await startUnixSocket(fixture.socketPath);
+
+  await mkdir(path.join(staleRunRoot, "conf", "nginx"), { recursive: true });
+  await mkdir(path.join(staleRunRoot, "mysql"), { recursive: true });
+  await writeFile(
+    path.join(staleRunRoot, "conf", "nginx", "site.conf"),
+    `server {\n    root \"${fixture.sitePath}\";\n    server_name ${fixture.siteName}.local;\n}\n`,
+  );
+
+  try {
+    const handlers = createLocalWpHandlers({
+      state: new SiteState(),
+      homeDir: fixture.homeDir,
+      repoRoot: fixture.repoRoot,
+    });
+
+    const selected = await handlers.selectSite(fixture.siteName);
+
+    assert.equal(selected.site, fixture.siteName);
+    assert.equal(selected.activeSite, fixture.siteName);
+  } finally {
+    await fixture.cleanup(socketServer);
+  }
+});
 
 test("server factory creates the MCP server without connecting transport", async () => {
   const server = createServer();

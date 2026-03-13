@@ -14,6 +14,8 @@
 #   pw-auth login --site-url http://my-site.local --user=editor
 #   pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
 #   pw-auth login --site-url http://my-site.local --redirect /wp-admin/site-editor.php
+#   pw-auth doctor --site-url http://my-site.local
+#   pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract text
 #   pw-auth status
 #   pw-auth clear
 #
@@ -27,6 +29,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TOOLKIT_ROOT="$(dirname "$SCRIPT_DIR")"
 AUTH_DIR="$(pwd)/temp/playwright/.auth"
 DEFAULT_MAX_AGE_HOURS=12
+DEFAULT_CHECK_TIMEOUT_MS=15000
 TEMP_FILES=()
 
 # ============================================================
@@ -48,14 +51,32 @@ Usage:
 
 Commands:
   login    Generate login URL, authenticate via Playwright, save storageState
+  doctor   Check Playwright + pw-auth readiness for a specific site/user
+  check    Inspect a page/selector using optional cached auth
   status   Show cached auth files (age, user, size, freshness)
   clear    Remove cached auth state files
 
-Options (login):
+Options (login and doctor):
   --site-url <url>       WordPress site URL (required)
   --user <login>         WordPress username (default: admin)
   --wp-cli <cmd>         WP-CLI command prefix (default: wp)
                          e.g., "local-wp my-site" for Local by Flywheel
+
+Options (doctor):
+  --format <text|json>   Output format for readiness report (default: text)
+
+Options (check dom):
+  --url <url>            Page URL to open (required)
+  --selector <css>       CSS selector to inspect (required)
+  --extract <mode>       One of: exists, text, html (required)
+  --user <login>         Resolve default auth state from ./temp/playwright/.auth/<user>.json
+  --auth-state <path>    Explicit Playwright storageState file to use if present
+  --auth-origin <origin> Cookie origin to inspect for auth reuse (default: inferred from --url)
+  --timeout-ms <ms>      Navigation/selector timeout in milliseconds (default: 15000)
+  --format <text|json>   Output format (default: text)
+  --output-dir <dir>     Directory for result artifacts (default: temp/playwright/checks/<run-id>/)
+
+Options (login):
   --redirect <path>      WP admin path to land on after login
   --max-age <hours>      Reuse cached auth if younger than this (default: 12)
                          Fresh cache entries are live-validated before reuse
@@ -77,6 +98,15 @@ Examples:
 
   # Check cached auth file freshness
   pw-auth status
+
+  # Check Playwright/wp-auth readiness for a site
+  pw-auth doctor --site-url http://my-site.local --wp-cli "local-wp my-site"
+
+  # Get a machine-readable readiness report
+  pw-auth doctor --site-url http://my-site.local --format json
+
+  # Inspect a wp-admin surface using cached auth
+  pw-auth check dom --url http://my-site.local/wp-admin/widgets.php --selector "#widgets-right" --extract html --user admin --format json
 EOF
 }
 
@@ -157,6 +187,8 @@ append_node_path() {
 }
 
 ensure_playwright_resolvable() {
+    local quiet="${1:-false}"
+
     if node_can_resolve_playwright; then
         return 0
     fi
@@ -178,7 +210,9 @@ ensure_playwright_resolvable() {
     if NODE_PATH="$candidate_node_path" node -e "require('playwright')" >/dev/null 2>&1 || \
        NODE_PATH="$candidate_node_path" node -e "require('playwright-core')" >/dev/null 2>&1; then
         export NODE_PATH="$candidate_node_path"
-        log_info "Auto-configured NODE_PATH for Playwright: $npm_root"
+        if [ "$quiet" != "true" ]; then
+            log_info "Auto-configured NODE_PATH for Playwright: $npm_root"
+        fi
         return 0
     fi
 
@@ -343,6 +377,46 @@ create_temp_file() {
     printf '%s\n' "$suffixed_path"
 }
 
+sanitize_auth_user_fragment() {
+    echo "$1" | tr -cd '[:alnum:]-_'
+}
+
+default_auth_file_for_user() {
+    local safe_user
+    safe_user="$(sanitize_auth_user_fragment "$1")"
+
+    if [ -z "$safe_user" ]; then
+        safe_user="user"
+    fi
+
+    printf '%s\n' "$AUTH_DIR/${safe_user}.json"
+}
+
+display_path() {
+    local target_path="$1"
+    local cwd
+    cwd="$(pwd)"
+
+    case "$target_path" in
+        "$cwd"/*)
+            printf '%s\n' "${target_path#"$cwd"/}"
+            ;;
+        *)
+            printf '%s\n' "$target_path"
+            ;;
+    esac
+}
+
+json_escape() {
+    local value="$1"
+    value=${value//\\/\\\\}
+    value=${value//\"/\\\"}
+    value=${value//$'\n'/\\n}
+    value=${value//$'\r'/\\r}
+    value=${value//$'\t'/\\t}
+    printf '%s' "$value"
+}
+
 # Check if a file is older than N hours
 file_age_hours() {
     local file="$1"
@@ -503,6 +577,241 @@ PLAYWRIGHT_SCRIPT
     return $exit_code
 }
 
+run_playwright_dom_check() {
+    local check_url="$1"
+    local selector="$2"
+    local extract_mode="$3"
+    local auth_file="$4"
+    local auth_origin="$5"
+    local result_json="$6"
+    local extract_file="$7"
+    local timeout_ms="$8"
+    local output_format="$9"
+    local pw_script
+    local exit_code
+
+    pw_script="$(create_temp_file "pw-auth-check" ".js")" || {
+        log_error "Failed to create temporary Playwright check script file."
+        return 1
+    }
+    track_temp_file "$pw_script"
+
+    cat > "$pw_script" <<'PLAYWRIGHT_SCRIPT'
+// pw-auth: Playwright DOM inspection
+// Usage: node <script> <url> <selector> <extract> <auth_file> <auth_origin> <result_json> <extract_file> <timeout_ms> <output_format>
+
+const fs = require('node:fs');
+const path = require('node:path');
+
+let chromium;
+try { ({ chromium } = require('playwright')); }
+catch { ({ chromium } = require('playwright-core')); }
+
+const [,, targetUrl, selector, extractMode, authFile, authOrigin, resultJson, extractFile, timeoutMsRaw, outputFormat] = process.argv;
+const timeoutMs = Number.parseInt(timeoutMsRaw || '15000', 10) || 15000;
+const parsedTargetUrl = new URL(targetUrl);
+const effectiveAuthOrigin = authOrigin || parsedTargetUrl.origin;
+const host = parsedTargetUrl.hostname.toLowerCase();
+const ignoreHTTPSErrors = parsedTargetUrl.protocol === 'https:' && (
+  host === 'localhost' ||
+  host === '127.0.0.1' ||
+  host === '::1' ||
+  host.endsWith('.local') ||
+  host.endsWith('.test')
+);
+
+function displayPath(targetPath) {
+  if (!targetPath) {
+    return null;
+  }
+
+  const relative = path.relative(process.cwd(), targetPath);
+  if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
+    return relative;
+  }
+
+  return targetPath;
+}
+
+async function assertNotWpErrorPage(page) {
+  const bodyText = await page.textContent('body').catch(() => '');
+  const pageTitle = await page.title().catch(() => '');
+  const bodyId = await page.getAttribute('body', 'id').catch(() => '');
+  const hasWpDieMarkup = (await page.locator('#error-page, .wp-die-message').count().catch(() => 0)) > 0;
+  const fatalMarkers = [
+    'There has been a critical error on this website.',
+    'has been a critical error on this website.',
+    'Dev login is disabled in production environments.',
+    'Dev login is not allowed on this host.',
+    'Invalid or expired login link.',
+    'Invalid user.',
+    'Error establishing a database connection'
+  ];
+
+  const looksLikeWpErrorPage =
+    bodyId === 'error-page' ||
+    hasWpDieMarkup ||
+    pageTitle.includes('WordPress › Error') ||
+    fatalMarkers.some(marker => bodyText.includes(marker));
+
+  if (looksLikeWpErrorPage) {
+    throw new Error('WordPress returned an error page. Body: ' + bodyText.substring(0, 200));
+  }
+}
+
+async function hasAuthCookie(context, origin) {
+  try {
+    const cookies = await context.cookies(origin);
+    return cookies.some(cookie => cookie.name.startsWith('wordpress_logged_in_'));
+  } catch {
+    return false;
+  }
+}
+
+function buildTextOutput(result) {
+  const lines = [
+    `[pw-auth] DOM check status: ${result.status}`,
+    `[pw-auth] URL: ${result.url}`,
+    `[pw-auth] Selector: ${result.selector}`,
+    `[pw-auth] Extract: ${result.extract}`,
+    `[pw-auth] Auth used: ${result.auth_used ? 'yes' : 'no'}`,
+    `[pw-auth] Result JSON: ${result.artifacts.result_json}`,
+  ];
+
+  if (result.artifacts.extract_file) {
+    lines.push(`[pw-auth] Extract file: ${result.artifacts.extract_file}`);
+  }
+
+  if (result.status === 'ok') {
+    if (result.extract === 'exists') {
+      lines.push('[pw-auth] Value: true');
+    } else if (typeof result.value === 'string') {
+      lines.push(`[pw-auth] Value length: ${result.value.length}`);
+    }
+  }
+
+  if (result.errors.length > 0) {
+    lines.push('[pw-auth] Errors:');
+    for (const message of result.errors) {
+      lines.push(`[pw-auth]   - ${message}`);
+    }
+  }
+
+  return lines.join('\n') + '\n';
+}
+
+async function finish(result, exitCode) {
+  fs.mkdirSync(path.dirname(resultJson), { recursive: true });
+
+  if (result.status === 'ok' && (extractMode === 'text' || extractMode === 'html') && extractFile) {
+    fs.writeFileSync(extractFile, String(result.value ?? ''), 'utf8');
+    result.artifacts.extract_file = displayPath(extractFile);
+  }
+
+  fs.writeFileSync(resultJson, JSON.stringify(result, null, 2) + '\n', 'utf8');
+
+  if (outputFormat === 'json') {
+    process.stdout.write(JSON.stringify(result, null, 2) + '\n');
+  } else {
+    process.stdout.write(buildTextOutput(result));
+  }
+
+  process.exit(exitCode);
+}
+
+(async () => {
+  let browser;
+
+  const result = {
+    status: 'error',
+    url: targetUrl,
+    selector,
+    extract: extractMode,
+    auth_used: false,
+    value: extractMode === 'exists' ? false : null,
+    artifacts: {
+      output_dir: displayPath(path.dirname(resultJson)),
+      result_json: displayPath(resultJson),
+      extract_file: null,
+    },
+    errors: [],
+  };
+
+  try {
+    const authFileExists = Boolean(authFile) && fs.existsSync(authFile);
+    const contextOptions = ignoreHTTPSErrors ? { ignoreHTTPSErrors: true } : {};
+
+    if (authFileExists) {
+      contextOptions.storageState = authFile;
+      result.auth_used = true;
+    }
+
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext(contextOptions);
+    const page = await context.newPage();
+    const authCookiePresent = authFileExists ? await hasAuthCookie(context, effectiveAuthOrigin) : false;
+
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: timeoutMs });
+    await assertNotWpErrorPage(page);
+
+    if (page.url().includes('wp-login.php')) {
+      result.status = 'auth_required';
+      if (!authFileExists) {
+        result.errors.push(
+          authFile
+            ? `Auth state file not found or unreadable: ${displayPath(authFile)}`
+            : 'This page redirected to wp-login.php and requires cached auth.'
+        );
+      } else if (!authCookiePresent) {
+        result.errors.push(`Cached auth did not provide a wordpress_logged_in_ cookie for ${effectiveAuthOrigin}.`);
+      } else {
+        result.errors.push('Cached auth did not grant access to the requested URL. Refresh auth and retry.');
+      }
+      return finish(result, 4);
+    }
+
+    const matchCount = await page.locator(selector).count();
+    if (matchCount === 0) {
+      result.status = 'not_found';
+      result.errors.push(`Selector not found: ${selector}`);
+      return finish(result, 3);
+    }
+
+    const target = page.locator(selector).first();
+
+    if (extractMode === 'exists') {
+      result.value = true;
+    } else if (extractMode === 'text') {
+      result.value = (await target.innerText({ timeout: timeoutMs })).trim();
+    } else if (extractMode === 'html') {
+      result.value = await target.evaluate((element) => element.innerHTML);
+    } else {
+      throw new Error(`Unsupported extract mode: ${extractMode}`);
+    }
+
+    result.status = 'ok';
+    return finish(result, 0);
+  } catch (error) {
+    result.status = 'error';
+    result.errors.push(error && error.message ? error.message : String(error));
+    return finish(result, 5);
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+  }
+})();
+PLAYWRIGHT_SCRIPT
+
+    set +e
+    node "$pw_script" "$check_url" "$selector" "$extract_mode" "$auth_file" "$auth_origin" "$result_json" "$extract_file" "$timeout_ms" "$output_format"
+    exit_code=$?
+    set -e
+    cleanup_temp_file "$pw_script"
+
+    return $exit_code
+}
+
 # ============================================================
 # COMMANDS
 # ============================================================
@@ -541,9 +850,7 @@ do_login() {
 
     # Determine auth file path
     if [ -z "$auth_file" ]; then
-        local safe_user
-        safe_user="$(echo "$wp_user" | tr -cd '[:alnum:]-_')"
-        auth_file="$AUTH_DIR/${safe_user}.json"
+        auth_file="$(default_auth_file_for_user "$wp_user")"
     fi
 
     # Check prerequisites
@@ -706,6 +1013,483 @@ do_login() {
     log_info "  storageState: '$auth_file'"
 }
 
+do_doctor() {
+    local site_url=""
+    local wp_user="admin"
+    local wp_cli_cmd="wp"
+    local output_format="text"
+    local auth_file=""
+    local displayed_auth_file=""
+    local overall_status="ready"
+    local auth_status="missing"
+    local auth_exists=false
+    local node_ready=false
+    local playwright_ready=false
+    local browser_launch_ready=false
+    local site_origin=""
+    local auth_age=""
+    local parsed_wp_cli_cmd=""
+    local cmd_part=""
+    local wp_prefix_display=""
+    local browser_probe_output=""
+    local browser_executable_path=""
+    local displayed_browser_path=""
+    local browser_binary_exists="false"
+    local browser_launch_ok="false"
+    local browser_launch_message=""
+    local validate_log=""
+    local validate_summary=""
+    local remediation=""
+    local detail_json=""
+    local status_label=""
+    local symbol=""
+    local i=0
+    local -a check_names=()
+    local -a check_statuses=()
+    local -a check_summaries=()
+    local -a check_details=()
+    local -a remediations=()
+    local -a wp_cmd_prefix_args=()
+
+    add_check() {
+        check_names+=("$1")
+        check_statuses+=("$2")
+        check_summaries+=("$3")
+        check_details+=("${4:-}")
+
+        case "$2" in
+            fail)
+                overall_status="blocked"
+                ;;
+            warn)
+                if [ "$overall_status" = "ready" ]; then
+                    overall_status="partial"
+                fi
+                ;;
+        esac
+    }
+
+    add_remediation() {
+        remediations+=("$1")
+    }
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --site-url)   site_url="$2"; shift 2 ;;
+            --user)       wp_user="$2"; shift 2 ;;
+            --wp-cli)     wp_cli_cmd="$2"; shift 2 ;;
+            --format)     output_format="$2"; shift 2 ;;
+            --auth-file)  auth_file="$2"; shift 2 ;;
+            -h|--help)    show_help; exit 0 ;;
+            *) log_error "Unknown option: $1"; exit 2 ;;
+        esac
+    done
+
+    case "$output_format" in
+        text|json)
+            ;;
+        *)
+            log_error "--format must be 'text' or 'json'"
+            exit 2
+            ;;
+    esac
+
+    if [ -z "$site_url" ]; then
+        log_error "--site-url is required"
+        echo ""
+        show_help
+        exit 2
+    fi
+
+    if [ -z "$auth_file" ]; then
+        auth_file="$(default_auth_file_for_user "$wp_user")"
+    fi
+    displayed_auth_file="$(display_path "$auth_file")"
+
+    if command -v node >/dev/null 2>&1; then
+        node_ready=true
+        add_check "node" "pass" "Node.js detected: $(node -v 2>/dev/null || echo installed)"
+    else
+        add_check "node" "fail" "Node.js is required but not installed or not on PATH."
+        add_remediation "Install Node.js and retry. Example: brew install node"
+    fi
+
+    if [ "$node_ready" = true ]; then
+        site_origin="$(url_origin "$site_url" 2>/dev/null || true)"
+        if [ -n "$site_origin" ]; then
+            add_check "site_url" "pass" "Site URL is valid: $site_origin"
+        else
+            add_check "site_url" "fail" "Site URL is invalid: $site_url"
+            add_remediation "Pass a valid --site-url, for example: --site-url http://my-site.local"
+        fi
+
+        parsed_wp_cli_cmd="$(parse_command_prefix "$wp_cli_cmd" 2>/dev/null || true)"
+        if [ -n "$parsed_wp_cli_cmd" ]; then
+            while IFS= read -r cmd_part || [ -n "$cmd_part" ]; do
+                wp_cmd_prefix_args+=("$cmd_part")
+            done <<< "$parsed_wp_cli_cmd"
+
+            if [ ${#wp_cmd_prefix_args[@]} -gt 0 ]; then
+                wp_prefix_display="$(join_args_for_display "${wp_cmd_prefix_args[@]}")"
+                if command -v "${wp_cmd_prefix_args[0]}" >/dev/null 2>&1; then
+                    add_check "wp_cli" "pass" "WP-CLI command prefix is available: $wp_prefix_display"
+                else
+                    add_check "wp_cli" "fail" "WP-CLI command is not available: ${wp_cmd_prefix_args[0]}"
+                    add_remediation "Install WP-CLI or pass a valid prefix via --wp-cli \"local-wp <site>\"."
+                fi
+            else
+                add_check "wp_cli" "fail" "Could not parse --wp-cli value: $wp_cli_cmd"
+                add_remediation "Pass only a command prefix, for example: --wp-cli \"local-wp my-site\""
+            fi
+        else
+            add_check "wp_cli" "fail" "Could not parse --wp-cli value: $wp_cli_cmd"
+            add_remediation "Pass only a command prefix, for example: --wp-cli \"local-wp my-site\""
+        fi
+
+        if ensure_playwright_resolvable true; then
+            playwright_ready=true
+            add_check "playwright_module" "pass" "Playwright is resolvable by Node.js."
+        else
+            add_check "playwright_module" "fail" "Playwright is not resolvable by Node.js."
+            add_remediation "Install Playwright globally: npm install -g playwright"
+            add_remediation "Install Chromium for Playwright: npx playwright install chromium"
+            add_remediation "If Playwright is installed globally but still not found, export NODE_PATH=\"\$(npm root -g)\" and retry."
+        fi
+    else
+        add_check "site_url" "skip" "Skipped URL validation because Node.js is unavailable."
+        add_check "wp_cli" "skip" "Skipped WP-CLI command validation because Node.js is unavailable."
+        add_check "playwright_module" "skip" "Skipped Playwright resolution because Node.js is unavailable."
+    fi
+
+    if [ "$playwright_ready" = true ]; then
+        browser_probe_output="$(node - <<'NODE'
+const fs = require('node:fs');
+let chromium;
+
+try {
+  ({ chromium } = require('playwright'));
+} catch {
+  ({ chromium } = require('playwright-core'));
+}
+
+const clean = (value) => String(value ?? '').replace(/\r?\n/g, ' ').trim();
+
+(async () => {
+  let browser = null;
+  let executablePath = '';
+  let binaryExists = false;
+  let launchOk = false;
+  let launchMessage = '';
+
+  try {
+    executablePath = typeof chromium.executablePath === 'function' ? chromium.executablePath() : '';
+    binaryExists = Boolean(executablePath) && fs.existsSync(executablePath);
+  } catch (error) {
+    launchMessage = error && error.message ? error.message : String(error);
+  }
+
+  try {
+    browser = await chromium.launch({ headless: true });
+    launchOk = true;
+    launchMessage = 'Chromium launched successfully.';
+  } catch (error) {
+    launchMessage = error && error.message ? error.message : String(error);
+  } finally {
+    if (browser) {
+      await browser.close().catch(() => {});
+    }
+  }
+
+  console.log(`executablePath=${clean(executablePath)}`);
+  console.log(`binaryExists=${binaryExists ? 'true' : 'false'}`);
+  console.log(`launchOk=${launchOk ? 'true' : 'false'}`);
+  console.log(`launchMessage=${clean(launchMessage)}`);
+})().catch((error) => {
+  console.error(error && error.message ? error.message : String(error));
+  process.exit(1);
+});
+NODE
+        )"
+
+        browser_executable_path="$(printf '%s\n' "$browser_probe_output" | sed -n 's/^executablePath=//p' | tail -n 1)"
+        displayed_browser_path="$(display_path "$browser_executable_path")"
+        browser_binary_exists="$(printf '%s\n' "$browser_probe_output" | sed -n 's/^binaryExists=//p' | tail -n 1)"
+        browser_launch_ok="$(printf '%s\n' "$browser_probe_output" | sed -n 's/^launchOk=//p' | tail -n 1)"
+        browser_launch_message="$(printf '%s\n' "$browser_probe_output" | sed -n 's/^launchMessage=//p' | tail -n 1)"
+
+        if [ "$browser_binary_exists" = "true" ]; then
+            add_check "browser_binary" "pass" "Chromium executable found: $displayed_browser_path"
+        else
+            add_check "browser_binary" "fail" "Chromium executable is missing for Playwright." "$displayed_browser_path"
+            add_remediation "Install Chromium for Playwright: npx playwright install chromium"
+        fi
+
+        if [ "$browser_launch_ok" = "true" ]; then
+            browser_launch_ready=true
+            add_check "browser_launch" "pass" "${browser_launch_message:-Chromium launched successfully.}"
+        else
+            add_check "browser_launch" "fail" "Chromium failed to launch." "$browser_launch_message"
+            add_remediation "Verify Playwright's browser install and local browser dependencies, then retry."
+        fi
+    else
+        add_check "browser_binary" "skip" "Skipped browser binary check because Playwright is not resolvable."
+        add_check "browser_launch" "skip" "Skipped browser launch because Playwright is not resolvable."
+    fi
+
+    if [ -f "$auth_file" ]; then
+        auth_exists=true
+        auth_status="present"
+        auth_age="$(file_age_hours "$auth_file")"
+        add_check "auth_file" "pass" "Cached auth file found: $displayed_auth_file (${auth_age}h old)"
+    else
+        add_check "auth_file" "warn" "No cached auth file found for user '$wp_user': $displayed_auth_file"
+        add_remediation "Create or refresh cached auth with: pw-auth login --site-url $site_url --wp-cli \"$wp_cli_cmd\" --user $wp_user"
+    fi
+
+    if [ "$auth_exists" = true ] && [ -n "$site_origin" ] && [ "$browser_launch_ready" = true ]; then
+        validate_log="$(create_temp_file "pw-auth-doctor" ".log")" || {
+            add_check "cached_auth" "fail" "Could not create a temporary log file for cached auth validation."
+            add_remediation "Retry the doctor command. If the problem persists, check TMPDIR permissions."
+        }
+
+        if [ -n "$validate_log" ]; then
+            track_temp_file "$validate_log"
+            if run_playwright_auth_flow "validate" "$site_url" "$auth_file" "" "true" >"$validate_log" 2>&1; then
+                cleanup_temp_file "$validate_log"
+                auth_status="valid"
+                add_check "cached_auth" "pass" "Cached auth reaches /wp-admin/ without redirecting to login."
+            else
+                if [ -s "$validate_log" ]; then
+                    validate_summary="$(tail -n 1 "$validate_log" | tr -d '\r')"
+                else
+                    validate_summary="Cached auth validation failed."
+                fi
+                cleanup_temp_file "$validate_log"
+                auth_status="invalid"
+                add_check "cached_auth" "warn" "Cached auth did not validate cleanly." "$validate_summary"
+                add_remediation "Refresh the cached session with: pw-auth login --site-url $site_url --wp-cli \"$wp_cli_cmd\" --user $wp_user --force"
+            fi
+        fi
+    elif [ "$auth_exists" != true ]; then
+        add_check "cached_auth" "skip" "Skipped cached auth validation because no auth file is present."
+    else
+        add_check "cached_auth" "skip" "Skipped cached auth validation because browser or site prerequisites were not ready."
+    fi
+
+    if [ "$output_format" = "json" ]; then
+        printf '{\n'
+        printf '  "status": "%s",\n' "$(json_escape "$overall_status")"
+        printf '  "site_url": "%s",\n' "$(json_escape "$site_url")"
+        printf '  "user": "%s",\n' "$(json_escape "$wp_user")"
+        printf '  "checks": [\n'
+        for ((i = 0; i < ${#check_names[@]}; i++)); do
+            if [ -n "${check_details[$i]}" ]; then
+                detail_json="\"$(json_escape "${check_details[$i]}")\""
+            else
+                detail_json="null"
+            fi
+
+            printf '    {"name": "%s", "status": "%s", "summary": "%s", "detail": %s}' \
+                "$(json_escape "${check_names[$i]}")" \
+                "$(json_escape "${check_statuses[$i]}")" \
+                "$(json_escape "${check_summaries[$i]}")" \
+                "$detail_json"
+
+            if [ $i -lt $((${#check_names[@]} - 1)) ]; then
+                printf ','
+            fi
+            printf '\n'
+        done
+        printf '  ],\n'
+        printf '  "auth": {"exists": %s, "file_path": "%s", "status": "%s"},\n' \
+            "$([ "$auth_exists" = true ] && echo true || echo false)" \
+            "$(json_escape "$displayed_auth_file")" \
+            "$(json_escape "$auth_status")"
+        printf '  "remediations": ['
+        for ((i = 0; i < ${#remediations[@]}; i++)); do
+            printf '"%s"' "$(json_escape "${remediations[$i]}")"
+            if [ $i -lt $((${#remediations[@]} - 1)) ]; then
+                printf ', '
+            fi
+        done
+        printf ']\n'
+        printf '}\n'
+    else
+        echo "[pw-auth] Doctor status: $overall_status"
+        echo "[pw-auth] Site URL: $site_url"
+        echo "[pw-auth] User: $wp_user"
+        echo "[pw-auth] Auth file: $displayed_auth_file"
+        echo "[pw-auth]"
+        echo "[pw-auth] Checks:"
+        for ((i = 0; i < ${#check_names[@]}; i++)); do
+            case "${check_statuses[$i]}" in
+                pass) symbol="✓" ;;
+                warn) symbol="○" ;;
+                fail) symbol="✗" ;;
+                *)    symbol="-" ;;
+            esac
+            status_label="$(printf '%s' "${check_statuses[$i]}" | tr '[:lower:]' '[:upper:]')"
+            echo "[pw-auth]   $symbol [${status_label}] ${check_names[$i]} — ${check_summaries[$i]}"
+            if [ -n "${check_details[$i]}" ]; then
+                echo "[pw-auth]       ${check_details[$i]}"
+            fi
+        done
+
+        if [ ${#remediations[@]} -gt 0 ]; then
+            echo "[pw-auth]"
+            echo "[pw-auth] Remediations:"
+            for ((i = 0; i < ${#remediations[@]}; i++)); do
+                echo "[pw-auth]   $((i + 1)). ${remediations[$i]}"
+            done
+        fi
+    fi
+
+    case "$overall_status" in
+        ready)   exit 0 ;;
+        partial) exit 1 ;;
+        *)       exit 2 ;;
+    esac
+}
+
+do_check_dom() {
+    local check_url=""
+    local selector=""
+    local extract_mode=""
+    local wp_user="admin"
+    local auth_state=""
+    local auth_origin=""
+    local timeout_ms="$DEFAULT_CHECK_TIMEOUT_MS"
+    local output_format="text"
+    local output_dir=""
+    local auth_file=""
+    local run_id=""
+    local result_json=""
+    local extract_file=""
+
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --url)         check_url="$2"; shift 2 ;;
+            --selector)    selector="$2"; shift 2 ;;
+            --extract)     extract_mode="$2"; shift 2 ;;
+            --user)        wp_user="$2"; shift 2 ;;
+            --auth-state)  auth_state="$2"; shift 2 ;;
+            --auth-origin) auth_origin="$2"; shift 2 ;;
+            --timeout-ms)  timeout_ms="$2"; shift 2 ;;
+            --format)      output_format="$2"; shift 2 ;;
+            --output-dir)  output_dir="$2"; shift 2 ;;
+            -h|--help)     show_help; exit 0 ;;
+            *) log_error "Unknown option: $1"; exit 2 ;;
+        esac
+    done
+
+    if [ -z "$check_url" ] || [ -z "$selector" ] || [ -z "$extract_mode" ]; then
+        log_error "--url, --selector, and --extract are required"
+        echo ""
+        show_help
+        exit 2
+    fi
+
+    case "$extract_mode" in
+        exists|text|html)
+            ;;
+        *)
+            log_error "--extract must be one of: exists, text, html"
+            exit 2
+            ;;
+    esac
+
+    case "$output_format" in
+        text|json)
+            ;;
+        *)
+            log_error "--format must be 'text' or 'json'"
+            exit 2
+            ;;
+    esac
+
+    case "$timeout_ms" in
+        ''|*[!0-9]*)
+            log_error "--timeout-ms must be a positive integer"
+            exit 2
+            ;;
+    esac
+
+    if ! command -v node >/dev/null 2>&1; then
+        log_error "Node.js is required but not installed."
+        exit 5
+    fi
+
+    if ! ensure_playwright_resolvable; then
+        log_error "Playwright is not resolvable by Node.js."
+        log_error "Install globally:  npm install -g playwright"
+        log_error "Then install browsers:  npx playwright install chromium"
+        exit 5
+    fi
+
+    if [ -z "$auth_origin" ]; then
+        auth_origin="$(url_origin "$check_url" 2>/dev/null || true)"
+    else
+        auth_origin="$(url_origin "$auth_origin" 2>/dev/null || true)"
+    fi
+
+    if [ -z "$auth_origin" ]; then
+        log_error "Could not determine a valid auth origin from --url/--auth-origin"
+        exit 2
+    fi
+
+    if [ -n "$auth_state" ]; then
+        auth_file="$auth_state"
+    else
+        auth_file="$(default_auth_file_for_user "$wp_user")"
+    fi
+
+    if [ -z "$output_dir" ]; then
+        run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+        output_dir="$(pwd)/temp/playwright/checks/$run_id"
+    elif [ "${output_dir#/}" = "$output_dir" ]; then
+        output_dir="$(pwd)/$output_dir"
+    fi
+
+    mkdir -p "$output_dir"
+    result_json="$output_dir/result.json"
+
+    case "$extract_mode" in
+        text)
+            extract_file="$output_dir/extract.txt"
+            ;;
+        html)
+            extract_file="$output_dir/extract.html"
+            ;;
+        *)
+            extract_file=""
+            ;;
+    esac
+
+    run_playwright_dom_check "$check_url" "$selector" "$extract_mode" "$auth_file" "$auth_origin" "$result_json" "$extract_file" "$timeout_ms" "$output_format"
+    exit $?
+}
+
+do_check() {
+    local subcommand="${1:-}"
+    shift || true
+
+    case "$subcommand" in
+        dom)
+            do_check_dom "$@"
+            ;;
+        ""|-h|--help)
+            show_help
+            exit 0
+            ;;
+        *)
+            log_error "Unknown check subcommand: $subcommand"
+            echo ""
+            show_help
+            exit 1
+            ;;
+    esac
+}
+
 do_status() {
     mkdir -p "$AUTH_DIR"
 
@@ -758,6 +1542,12 @@ shift || true
 case "$COMMAND" in
     login)
         do_login "$@"
+        ;;
+    doctor)
+        do_doctor "$@"
+        ;;
+    check)
+        do_check "$@"
         ;;
     status)
         do_status

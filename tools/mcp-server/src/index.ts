@@ -15,7 +15,7 @@ import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, c
 import { SessionStore, SiteState } from "./state.js";
 import { loadOrGenerateToken, getTokenFilePath } from "./utils/token.js";
 
-const MCP_SERVER_VERSION = "0.6.2";
+const MCP_SERVER_VERSION = "0.6.3";
 const DEFAULT_HTTP_PORT = 3100;
 const MCP_HTTP_PATH = "/mcp";
 

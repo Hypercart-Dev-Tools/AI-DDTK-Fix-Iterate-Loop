@@ -59,4 +59,8 @@ coverage/
 *.bak
 *.cache
 
+# Root-level shell transcript artifacts from script(1)
+/typescript
+/typescript.[0-9]*
+
 .DS_Store
