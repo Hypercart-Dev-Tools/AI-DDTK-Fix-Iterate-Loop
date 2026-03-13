@@ -23,6 +23,7 @@
 #   export LOCAL_RUN_DIR="$HOME/Library/Application Support/Local/run"
 #   export WP_CLI_PHAR="/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar"
 #   export PHP_BIN="/path/to/php"
+#   export LOCAL_WP_MEMORY_LIMIT="512M"   # PHP memory_limit for WP-CLI (default: 512M)
 #
 # ============================================================
 
@@ -191,9 +192,12 @@ create_php_ini_file() {
 
   chmod 600 "$PHP_INI_FILE" 2>/dev/null || true
 
+  LOCAL_WP_MEMORY_LIMIT="${LOCAL_WP_MEMORY_LIMIT:-512M}"
+
   cat > "$PHP_INI_FILE" << EOF
 mysqli.default_socket = "$MYSQL_SOCKET"
 pdo_mysql.default_socket = "$MYSQL_SOCKET"
+memory_limit = $LOCAL_WP_MEMORY_LIMIT
 EOF
 }
 

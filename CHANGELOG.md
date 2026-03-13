@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.43] - 2026-03-13
+
+### Added
+- **`LOCAL_WP_MEMORY_LIMIT` env var** — `bin/local-wp` now writes `memory_limit` into the temp PHP ini it creates, defaulting to `512M`. Set `LOCAL_WP_MEMORY_LIMIT` to override. Fixes OOM failures on heavy sites (e.g. MacNerd Production) that hit the 128M default when the system `php.ini` is bypassed by `-c`.
+
+### Changed
+- **Version updates**
+  - README.md updated to `1.0.43`
+  - install.sh updated to `1.0.43`
+
 ### Fixed
 - **`local-wp` modern Local run discovery** — updated the shell wrapper to resolve current Local runtime layouts by matching nested `conf/**` content such as site root paths and `*.local` hostnames, added `--debug` discovery tracing, and preferred active MySQL sockets when stale run directories also match.
 - **LocalWP MCP parity** — updated `tools/mcp-server/src/handlers/local-wp.ts` to use the same modern nested-config discovery signals and active-socket preference so MCP-backed LocalWP workflows stay aligned with the shell wrapper.
