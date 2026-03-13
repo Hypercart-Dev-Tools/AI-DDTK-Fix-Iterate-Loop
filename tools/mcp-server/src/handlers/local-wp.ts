@@ -82,44 +82,104 @@ async function isSocket(targetPath: string): Promise<boolean> {
   }
 }
 
-async function findMatchingSiteIds(localRunDir: string, siteName: string): Promise<string[]> {
+async function listFilesRecursive(rootDir: string): Promise<string[]> {
+  const files: string[] = [];
+  const queue = [rootDir];
+
+  while (queue.length > 0) {
+    const currentDir = queue.pop();
+
+    if (!currentDir) {
+      continue;
+    }
+
+    const entries = await readdir(currentDir, { withFileTypes: true });
+
+    for (const entry of entries) {
+      const entryPath = path.join(currentDir, entry.name);
+
+      if (entry.isDirectory()) {
+        queue.push(entryPath);
+        continue;
+      }
+
+      if (entry.isFile()) {
+        files.push(entryPath);
+      }
+    }
+  }
+
+  return files.sort();
+}
+
+async function findMatchingSiteIds(localRunDir: string, localSitesDir: string, siteName: string): Promise<string[]> {
   if (!(await pathExists(localRunDir))) {
     return [];
   }
 
+  const siteRootDir = path.join(localSitesDir, siteName);
+  const sitePath = path.join(siteRootDir, "app", "public");
+  const siteHost = `${siteName}.local`;
   const entries = await readdir(localRunDir, { withFileTypes: true });
-  const matches: string[] = [];
+  const matches: Array<{ siteId: string; score: number; active: boolean }> = [];
 
   for (const entry of entries) {
-    if (!entry.isDirectory()) {
+    if (!entry.isDirectory() || entry.name === "router") {
       continue;
     }
 
     const siteId = entry.name;
     const confDir = path.join(localRunDir, siteId, "conf");
+    const mysqlDir = path.join(localRunDir, siteId, "mysql");
 
-    if (!(await pathExists(confDir))) {
+    if (!(await pathExists(confDir)) || !(await pathExists(mysqlDir))) {
       continue;
     }
 
-    const confEntries = await readdir(confDir, { withFileTypes: true });
+    const confFiles = await listFilesRecursive(confDir);
+    let score = 0;
 
-    for (const confEntry of confEntries) {
-      if (!confEntry.isFile()) {
-        continue;
-      }
-
-      const confContents = await readFile(path.join(confDir, confEntry.name), "utf8");
+    for (const confFile of confFiles) {
+      const confContents = await readFile(confFile, "utf8");
       const lines = confContents.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
 
+      if (confContents.includes(sitePath)) {
+        score += 100;
+      }
+
+      if (confContents.includes(`${siteRootDir}${path.sep}`)) {
+        score += 80;
+      }
+
+      if (confContents.includes(siteHost)) {
+        score += 40;
+      }
+
       if (lines.includes(siteName)) {
-        matches.push(siteId);
-        break;
+        score += 20;
       }
     }
+
+    if (score === 0) {
+      continue;
+    }
+
+    matches.push({
+      siteId,
+      score,
+      active: await isSocket(path.join(mysqlDir, "mysqld.sock")),
+    });
   }
 
-  return matches.sort();
+  if (matches.length === 0) {
+    return [];
+  }
+
+  const activeMatches = matches.filter((match) => match.active);
+  const pool = activeMatches.length > 0 ? activeMatches : matches;
+  const maxScore = Math.max(...pool.map((match) => match.score));
+
+  return pool.filter((match) => match.score === maxScore).map((match) => match.siteId).sort();
 }
 
 function parseCliInfo(stdout: string): Record<string, string> {
@@ -154,16 +214,18 @@ export function createLocalWpHandlers(deps: LocalWpHandlerDeps) {
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const runExec = deps.execRunner ?? execFileText;
   const localWpBin = path.join(deps.repoRoot, "bin", "local-wp");
+  const localSitesDir = getLocalSitesDir(homeDir);
+  const localRunDir = getLocalRunDir(homeDir);
 
   async function resolveSite(siteName: string): Promise<ResolvedSite> {
-    const sitePath = path.join(getLocalSitesDir(homeDir), siteName, "app", "public");
+    const sitePath = path.join(localSitesDir, siteName, "app", "public");
     const wpConfigPath = path.join(sitePath, "wp-config.php");
 
     if (!(await pathExists(sitePath)) || !(await pathExists(wpConfigPath))) {
       throw new Error(`Local site not found or missing wp-config.php: ${siteName}`);
     }
 
-    const matchedSiteIds = await findMatchingSiteIds(getLocalRunDir(homeDir), siteName);
+    const matchedSiteIds = await findMatchingSiteIds(localRunDir, localSitesDir, siteName);
 
     if (matchedSiteIds.length === 0) {
       throw new Error(`Could not resolve Local run configuration for site: ${siteName}`);
@@ -177,7 +239,7 @@ export function createLocalWpHandlers(deps: LocalWpHandlerDeps) {
       name: siteName,
       path: sitePath,
       wpConfigPath,
-      mysqlSocketPath: path.join(getLocalRunDir(homeDir), matchedSiteIds[0], "mysql", "mysqld.sock"),
+      mysqlSocketPath: path.join(localRunDir, matchedSiteIds[0], "mysql", "mysqld.sock"),
     };
   }
 

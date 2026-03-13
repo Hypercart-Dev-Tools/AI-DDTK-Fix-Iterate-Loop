@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.0.29
+# Version: 1.0.42
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -165,6 +165,7 @@ show_usage() {
     echo "  update-wpcc   Pull latest WP Code Check"
     echo "  setup-wpcc    Initial WPCC subtree setup"
     echo "  setup-mcp     Build MCP server + show client config"
+    echo "  doctor-playwright  Run pw-auth doctor via install.sh convenience wrapper"
     echo "  status        Show versions and status"
     echo "  uninstall     Remove PATH entries"
     echo ""
@@ -347,6 +348,18 @@ setup_mcp() {
     echo "Reference configs available in: $MCP_DIR/mcp-configs/"
 }
 
+doctor_playwright() {
+    echo -e "${CYAN}Running Playwright readiness doctor...${NC}"
+    echo ""
+
+    if [ ! -x "$BIN_DIR/pw-auth" ]; then
+        echo -e "${RED}pw-auth not found or not executable at: $BIN_DIR/pw-auth${NC}"
+        return 1
+    fi
+
+    "$BIN_DIR/pw-auth" doctor "$@"
+}
+
 uninstall() {
     echo -e "${CYAN}Removing AI-DDTK from PATH...${NC}"
 
@@ -393,6 +406,10 @@ case "${1:-}" in
         ;;
     setup-mcp)
         setup_mcp
+        ;;
+    doctor-playwright)
+        shift
+        doctor_playwright "$@"
         ;;
     status)
         show_status
