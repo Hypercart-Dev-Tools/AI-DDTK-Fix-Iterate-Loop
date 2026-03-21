@@ -1,9 +1,8 @@
 {
   "mcpServers": {
     "ai-ddtk": {
-      "command": "node",
-      "args": ["tools/mcp-server/dist/src/index.js"],
-      "cwd": "."
+      "command": "bash",
+      "args": ["tools/mcp-server/start.sh"]
     }
   }
 }
