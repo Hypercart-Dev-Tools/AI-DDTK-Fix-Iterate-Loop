@@ -9,11 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Optional Valet clone-lab recipe** — added `recipes/valet-clone-lab.md` as a macOS-focused, experimental workflow for rapid throwaway WordPress cloning/testing with explicit scope and safety guardrails. This path is documented as optional and not part of the core AI-DDTK toolset.
+- **Phase 2.5: README Consolidation & AGENTS.md Expansion** — established `AGENTS.md` as the single source of truth for AI development guidelines; moved detailed pw-auth, WPCC, and troubleshooting content from `README.md` into `AGENTS.md`. Added new Navigation table to `README.md` with direct section links into `AGENTS.md`.
+- **P1-WP-MCP-ADAPTER.md project specification** — added comprehensive 6-phase implementation plan for integrating the official WordPress MCP Adapter with AI-DDTK. Includes Phase 0 technical spike results, real-world scenarios, prerequisites, and integration patterns for Local by Flywheel and Valet clone-lab environments.
 
 ### Changed
+- **Phase 0 Technical Spike (WP MCP Adapter) — COMPLETE** — all 5 sub-phases validated. Dual-server `.mcp.json` config works (AI-DDTK 18 tools + WP MCP Adapter 3 tools, zero collisions). Valet clone-lab validated with system Composer/WP-CLI. Discovered three mu-plugin registration requirements: correct hook (`wp_abilities_api_init`), required `category` field, and `meta.mcp.public` flag. Custom ability end-to-end verified on both Local and Valet. Added `.mcp.README.md` companion doc for dual-server config reference.
+- **README simplified to lightweight hub (~150 lines)** — removed verbose pw-auth, troubleshooting, and WPCC-templates sections; replaced with a Navigation table pointing into `AGENTS.md` for all detailed guidance. All content moved, not deleted.
+- **AGENTS.md expanded to comprehensive SOT (~600 lines)** — added full pw-auth prerequisites/setup/usage/troubleshooting, WPCC project templates and features table, and a new `🔧 Troubleshooting` section covering CLI, IDE, WPCC scanning, pw-auth, and MCP issues.
 - **README optional workflows section** — added an "Optional Workflows" section in `README.md` linking to the Valet clone-lab recipe and clarifying that it complements, not replaces, Local WP.
 - **Planning dashboard tracking** — added a current-week checklist item in `4X4.md` to track Valet clone-lab formalization as an optional path without promoting it to core.
 - **AGENTS optional recipe cross-link** — added a short optional-workflow note in `AGENTS.md` pointing agents to `recipes/valet-clone-lab.md` for macOS throwaway clone/testing scenarios.
+- **Version updates** — README.md and AGENTS.md updated to `1.0.44`.
 
 ### Fixed
 - **MCP server startup crash loop** — `dist/` is gitignored so the MCP server failed to start after a fresh clone or checkout, causing VS Code to restart it in a loop. Added `tools/mcp-server/start.sh` launcher that auto-builds TypeScript when `dist/` is missing, and updated `.mcp.json` to use it.
