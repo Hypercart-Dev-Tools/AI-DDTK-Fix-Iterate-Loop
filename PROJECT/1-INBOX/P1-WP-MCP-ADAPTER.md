@@ -42,11 +42,6 @@ parent: null
   - [x] Validate on a Valet clone-lab site (Composer install + STDIO via system WP-CLI)
   - [x] Document findings — update this plan with any blockers or scope changes
 
-- [ ] **Phase 0.1a — Composer via Local: AI-DDTK Tmux Wrapper Approach** · Effort: Low · Risk: Low
-  - [ ] Evaluate mismatch between Local's bundled PHP and system Composer binary (extensions, memory limits, PHP versions)
-  - [ ] Route Composer through the same PHP binary Local uses for WP-CLI using the AI-DDTK Tmux wrapper
-  - [ ] Validate `composer install` via Tmux wrapper produces an autoloader that works at runtime in Local's PHP environment
-
 - [ ] **Phase 1 — Content Scaffolding & Migration** · Effort: Med · Risk: Low
   - [ ] Register content CRUD abilities (posts, pages, CPTs, taxonomies)
   - [ ] Wire abilities into AI-DDTK agent workflows
@@ -76,6 +71,8 @@ parent: null
   - [ ] Update seed site pattern with Composer dependencies
   - [ ] Validate STDIO transport via system WP-CLI (no Local wrapper needed)
   - [ ] Update Valet clone-lab recipe with MCP Adapter provisioning steps
+  - [ ] Validate clone carry-over (does cloning preserve `vendor/` and `mu-plugins/`?)
+  - [ ] _(If needed)_ Route Composer through Local's bundled PHP via Tmux wrapper for packages with runtime deps that require PHP-version parity
 
 ---
 
@@ -178,10 +175,6 @@ All Local by Flywheel and Valet dev sites used with this project **must run Word
 **Effort: Low** · **Risk: Low**
 
 > Purpose: Validate that the WordPress MCP Adapter works with AI-DDTK's Local-by-Flywheel setup, confirm dual-server MCP configuration, and surface any blockers before committing to implementation phases. **Results from this spike should be used to update Phases 1–4 with concrete scope adjustments.**
-
-Phase 0.1a — Composer via Local: Tmux Wrapper Approach
-
-Context: Local's bundled PHP and the system composer binary may be mismatched — different extensions, memory limits, or PHP versions. Running composer install through the system binary can produce autoloaders that work on system PHP but fail at runtime inside Local's PHP environment. The Tmux wrapper provides a clean solution by routing Composer through the same PHP binary Local uses for WP-CLI.
 
 ### Real-World Justification
 
