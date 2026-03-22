@@ -23,6 +23,7 @@ parent: null
 - [Phase 4 — Live Site Diagnostics Without Browser Overhead](#phase-4--live-site-diagnostics-without-browser-overhead)
 - [Valet Clone-Lab Integration](#valet-clone-lab-integration)
 - [Open Questions](#open-questions)
+- [FAQ — Relationship to the Existing AI-DDTK MCP Server](#faq--relationship-to-the-existing-ai-ddtk-mcp-server)
 
 <!-- /TOC -->
 
@@ -505,3 +506,67 @@ No code changes needed in the AI-DDTK MCP server itself — the WordPress MCP Ad
 6. **HTTP transport** — Out of scope for now, but may be relevant if AI-DDTK ever supports remote dev environments (e.g., Codespaces, GitPod). Revisit after Phase 4.
 7. **Valet seed site Composer `vendor/` in clones** — Does a filesystem copy of `vendor/` work reliably, or do clones need `composer install` post-copy? Phase 0 spike will test this.
 8. **Valet clone-lab promotion** — If MCP Adapter integration proves smoother on Valet than Local, should Valet clone-lab be promoted from "experimental optional" to a recommended workflow for MCP Adapter testing?
+
+---
+
+## FAQ — Relationship to the Existing AI-DDTK MCP Server
+
+> The AI-DDTK MCP server (`P1-MCP-SERVER.md`) is **complete** — all 6 phases shipped, 18 tools + 4 resources, version 0.6.3. This section clarifies how the WordPress MCP Adapter project relates to it.
+
+### Q: Is this replacing the existing MCP server?
+
+**No.** The WP MCP Adapter runs as a **second, independent STDIO server** alongside the existing one. The agent gets both tool surfaces simultaneously via `.mcp.json`. No code changes are needed in the existing AI-DDTK MCP server.
+
+```
+.mcp.json
+├── "ai-ddtk":    → tools/mcp-server/start.sh     (existing, 18 tools)
+└── "wordpress":  → wp mcp-adapter serve           (new, Abilities API tools)
+```
+
+### Q: Does the existing MCP server make this project easier or faster?
+
+**Yes — significantly for infrastructure, less so for WordPress-side work.**
+
+What's already done and reusable:
+- **Dual-server MCP config** — `.mcp.json`, `start.sh`, STDIO transport, and Claude Code auto-discovery are proven. Phase 0 just adds a second server entry.
+- **`local_wp_run` bootstraps the Adapter** — Composer install, `mcp-adapter serve` verification, and ability listing are all doable through existing allowlisted WP-CLI commands without leaving MCP.
+- **`pw_auth_*` is the visual complement** — Every phase references "use MCP for data, pw-auth for visual." That visual layer is built and tested.
+- **WPCC bridge is plug-and-play** — `wpcc_run_scan` already produces structured JSON with typed issue categories. Phase 4 maps those types to diagnostic abilities — no WPCC changes needed.
+- **Security patterns are established** — Allowlist conventions, localhost-only binding, explicit-site-required rules are documented and can be referenced, not reinvented.
+
+What's genuinely new work (not helped by the existing server):
+- **PHP ability registration** — Writing the `wp_register_ability()` calls, permission callbacks, input/output schemas. This is WordPress PHP code; the existing server is Node.js.
+- **mu-plugin design** — Deciding ability scope, structuring the abilities file, handling Composer autoloading.
+- **Role-based permission testing** — Exercising WordPress's `current_user_can()` across roles is domain-specific testing that has no analog in the existing server.
+
+**Estimated impact:** Infrastructure work (Phase 0, dual-server config, `.mcp.json` wiring, Valet integration) is ~50% faster because the patterns exist. WordPress-side work (Phases 1–4 ability registration and testing) is net-new effort.
+
+### Q: Why not just expand `local_wp_run`'s allowlist instead?
+
+Three reasons:
+
+1. **No schema validation.** `local_wp_run` returns raw stdout text. MCP Adapter abilities return typed JSON with input/output schemas the agent can reason about.
+2. **No permission model.** `local_wp_run` runs as whatever `--user` WP-CLI uses. Abilities have `permission_callback` functions that enforce WordPress role capabilities per-action.
+3. **No discoverability.** The agent can't call `DiscoverAbilities` on `local_wp_run` to learn what's available. With the Adapter, the agent discovers, introspects, and chains abilities dynamically.
+
+Expanding the allowlist would give raw CLI access to more commands, but it wouldn't give structured, permission-checked, discoverable operations.
+
+### Q: What's the overlap between the two servers?
+
+Minimal, and intentionally so:
+
+| Capability | AI-DDTK MCP Server | WP MCP Adapter |
+|---|---|---|
+| List plugins/themes | `local_wp_run` (raw text) | `ai-ddtk/list-plugins` (typed JSON + capabilities) |
+| Read options | `local_wp_run option get` (single key, raw) | `ai-ddtk/get-options` (prefix/batch, typed) |
+| Content CRUD | Not supported | Full create/update/list/delete with schema |
+| Visual verification | `pw_auth_login` → Playwright | Not applicable (data only) |
+| Static analysis | `wpcc_run_scan` | Not applicable |
+| Runtime diagnostics | Not supported | `ai-ddtk/site-health`, `get-query-log`, etc. |
+| Tmux sessions | `tmux_*` (6 tools) | Not applicable |
+
+The Adapter fills the **WordPress data operations** gap. The existing server handles **dev tooling orchestration**. They overlap slightly on read-only introspection (plugin list, option get), but the Adapter's typed schemas and permission model make it the better choice for those operations once available.
+
+### Q: Can Phase 0 be done entirely through existing MCP tools?
+
+Almost. The spike's install-and-verify steps can use `local_wp_run` to run Composer and test the Adapter's STDIO server. The one exception: verifying that Claude Code discovers tools from **both** servers requires restarting the MCP client with the updated `.mcp.json` — that's a manual step outside any tool's control.
