@@ -147,6 +147,12 @@ These are complementary, not competing. The decision of which to use is clear-cu
 
 > Purpose: Validate that the WordPress MCP Adapter works with AI-DDTK's Local-by-Flywheel setup, confirm dual-server MCP configuration, and surface any blockers before committing to implementation phases. **Results from this spike should be used to update Phases 1–4 with concrete scope adjustments.**
 
+### Real-World Justification
+
+**Scenario A — "We don't know what we don't know":** A developer is evaluating whether to adopt the MCP Adapter for a client's WooCommerce build. Before investing in custom abilities, they need to know: Does Composer install cleanly on Local's bundled PHP 8.2? Does the STDIO server coexist with AI-DDTK's existing MCP server without stdout conflicts? The spike answers these in 1–2 hours instead of discovering blockers mid-sprint.
+
+**Scenario B — "Valet vs. Local cost comparison":** A macOS developer uses both Local (primary) and Valet clone-lab (throwaway testing). They want to know which environment has the smoother MCP Adapter setup path before deciding where to invest provisioning automation. The spike tests both side-by-side and produces a concrete comparison — potentially revealing that Valet's system Composer makes it the faster path, saving repeated setup friction across dozens of clone-lab cycles.
+
 ### 0.1 — Install & Verify
 
 - [ ] Install `wordpress/abilities-api` and `wordpress/mcp-adapter` on a test Local site via Composer
@@ -230,6 +236,12 @@ These are complementary, not competing. The decision of which to use is clear-cu
 
 > Use case: AI agents create, restructure, or migrate WordPress content (posts, pages, CPTs, taxonomies) through typed MCP tools instead of browser automation or raw WP-CLI.
 
+### Real-World Justification
+
+**Scenario A — WooCommerce plugin test data seeding:** A developer is building a custom WooCommerce shipping plugin and needs 50 products across 5 categories with varied weights, dimensions, and shipping classes to test rate calculations. Today this means either writing a custom WP-CLI script, importing a CSV through wp-admin (slow, manual), or hand-creating products. With MCP Adapter content abilities, the AI agent seeds the exact product matrix needed via `ai-ddtk/create-post` with structured meta — and can tear it down and re-seed with different data each fix-iterate cycle without browser overhead.
+
+**Scenario B — Content migration dry-run for a redesign:** A content editor is planning a site restructure: 200 blog posts need to move from flat categories into a hierarchical taxonomy (e.g., "Recipes > Breakfast > Quick Meals"). Before touching production, they clone the site to Valet, then ask the agent to "reclassify all posts matching these rules." The agent uses `ai-ddtk/list-posts` to audit current state, `ai-ddtk/manage-taxonomy` to build the new hierarchy, and `ai-ddtk/update-post` to reassign — all via MCP. The editor reviews the result in the browser (pw-auth), iterates on the rules, and has a validated migration plan before touching the real site.
+
 ### Who benefits
 
 - **Content editors/writers:** "Restructure my 200 blog posts into a new taxonomy" or "Generate draft landing pages from this data" — executed programmatically with permission checks, no wp-admin clicking
@@ -262,6 +274,12 @@ These are complementary, not competing. The decision of which to use is clear-cu
 **Effort: Med** · **Risk: Med**
 
 > Use case: The fix-iterate loop's "verify" step checks WordPress state (options, registered types, blocks, menus) via fast MCP calls instead of slow Playwright DOM scraping.
+
+### Real-World Justification
+
+**Scenario A — Custom Gutenberg block registration debugging:** A developer's plugin registers 3 custom blocks (`my-plugin/hero`, `my-plugin/pricing-table`, `my-plugin/testimonial`). After a refactor, one block silently fails to register — no PHP error, it just doesn't appear in the inserter. Today the agent would need to launch Playwright, navigate to the block editor, open the inserter, and search — a 10+ second round trip that's fragile to Gutenberg UI changes between WP versions. With `ai-ddtk/list-registered-blocks`, the verify step takes <100ms and returns a definitive JSON list. The agent immediately identifies the missing block and traces it to a typo in `register_block_type()`.
+
+**Scenario B — WooCommerce settings verification after plugin update:** After updating a WooCommerce extension, the agent needs to verify that 12 plugin options survived the migration (tax settings, shipping zones, payment gateway configs). Scraping 4 different wp-admin settings tabs with Playwright takes ~30 seconds and breaks whenever WooCommerce redesigns a settings panel. With `ai-ddtk/get-options`, the agent reads all 12 option values in a single MCP call, compares against expected values, and flags any that changed — completing the verify step of the fix-iterate loop in under a second.
 
 ### Who benefits
 
@@ -297,6 +315,12 @@ These are complementary, not competing. The decision of which to use is clear-cu
 **Effort: Med-High** · **Risk: Med**
 
 > Use case: AI agents orchestrate multi-step editorial workflows — draft review, category assignment, SEO metadata, scheduled publishing — respecting the site's WordPress role model.
+
+### Real-World Justification
+
+**Scenario A — Weekly content pipeline for a multi-author blog:** A managing editor oversees 8 freelance writers submitting 15–20 draft posts per week. Every Friday they spend 2+ hours: checking each draft has a featured image, verifying SEO metadata is filled in (Yoast/RankMath), assigning the correct category, and scheduling posts across the following week to avoid same-day clustering. With editorial abilities, the agent runs the full pipeline: `ai-ddtk/get-drafts` pulls the week's submissions, flags posts missing metadata via `ai-ddtk/update-seo-metadata`, assigns categories with `ai-ddtk/assign-taxonomy-terms`, and distributes publish dates with `ai-ddtk/schedule-post` — all while respecting the editor's role permissions. The editor reviews the agent's proposed schedule and approves. A Friday afternoon task becomes a 10-minute review.
+
+**Scenario B — Testing a custom editorial workflow plugin:** A developer is building a plugin that adds a "Legal Review" step between draft and publish for a compliance-heavy client (finance, healthcare). Contributors submit drafts, editors assign a legal reviewer, the reviewer approves or rejects with notes, then the editor publishes. Testing this flow manually means creating test users for each role, logging in as each one, and clicking through the full workflow — 15+ minutes per test run. With MCP Adapter abilities + pw-auth multi-user sessions, the agent exercises the entire workflow programmatically: create draft as contributor, assign reviewer as editor, approve as custom "legal_reviewer" role, publish as editor — and verifies each step's permission boundary holds. Each fix-iterate cycle tests the full 4-role workflow in seconds.
 
 ### Who benefits
 
@@ -336,6 +360,12 @@ These are complementary, not competing. The decision of which to use is clear-cu
 
 > Use case: Plugins expose diagnostic abilities (health checks, query stats, cron status, error logs) as lightweight MCP tools. Closes the loop between WPCC static analysis and runtime verification.
 
+### Real-World Justification
+
+**Scenario A — WPCC flags an N+1 query, agent confirms at runtime:** WPCC's static scan flags a `get_post_meta()` call inside a `foreach` loop in a WooCommerce order listing plugin — a classic N+1 pattern. But is it actually a problem, or does WordPress's object cache absorb it? Today the developer has to manually add `SAVEQUERIES`, load the page, and inspect `$wpdb->queries`. With `ai-ddtk/get-query-log`, the agent loads the order listing page (via pw-auth Playwright), then immediately calls the diagnostic ability to pull actual query counts and timing. If the page fires 150 queries in 800ms, the N+1 is confirmed and worth fixing. If the cache reduces it to 3 queries, the WPCC flag is triaged as a false positive. Static analysis + runtime data in one automated loop.
+
+**Scenario B — Debugging a stuck WooCommerce scheduled action:** A developer's background order processing (via Action Scheduler) silently stopped running. Orders are stuck in "processing" status. Diagnosing this normally means: SSH in, check `wp cron event list`, inspect the `wp_actionscheduler_actions` table, check PHP error logs — across 3 different tools. With `ai-ddtk/get-cron-events` + `ai-ddtk/get-error-log`, the agent pulls both in parallel via MCP. It finds that a fatal error in a hooked callback killed the scheduler 3 days ago, and the cron event is still registered but the callback is erroring. The agent surfaces the root cause (a missing dependency after a plugin update) without the developer leaving their editor.
+
 ### Who benefits
 
 - **Developers:** After WPCC flags an unbound query, call `get-query-stats` to see actual runtime query counts on the live dev site. Static analysis + runtime verification in one MCP-native workflow.
@@ -370,6 +400,12 @@ These are complementary, not competing. The decision of which to use is clear-cu
 **Effort: Low** · **Risk: Low**
 
 > The Valet clone-lab (`recipes/valet-clone-lab.md`) is AI-DDTK's rapid provisioning system for disposable WordPress sites on macOS. Because Valet sites use system PHP + Composer + WP-CLI directly (no Local wrapper), they're the **simplest path** to MCP Adapter integration — and the natural place to bake it into the provisioning pipeline.
+
+### Real-World Justification
+
+**Scenario A — Rapid regression testing across WordPress versions:** A plugin developer needs to verify their plugin works on WP 6.4, 6.5, and 6.6 before a release. With the Valet clone-lab, they spin up 3 clones from the seed site, each pinned to a different WP version via `wp core update --version=X.Y`. Because the MCP Adapter is baked into the seed, all 3 clones immediately have MCP ability access — the agent runs the same fix-iterate verification loop across all 3 in parallel, comparing option values and block registrations via MCP instead of manually clicking through each site's admin. Clone, test, teardown — 3 versions validated in the time it used to take for one.
+
+**Scenario B — Isolated plugin conflict testing:** A client reports that "Plugin X breaks when Plugin Y is active." The developer clones the seed site twice: Clone A has both plugins active, Clone B has only Plugin X. The agent uses `ai-ddtk/list-plugins` and `ai-ddtk/get-options` on both clones via MCP to compare registered settings, post types, and option values side-by-side. It identifies that Plugin Y overwrites an option key that Plugin X depends on. The disposable clones mean there's zero risk to the developer's primary Local environment, and the MCP Adapter abilities make the comparison programmatic rather than a tedious manual admin-panel diff.
 
 ### Why Valet is a natural fit
 
