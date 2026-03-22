@@ -88,6 +88,7 @@ Complete command documentation for all AI-DDTK tools:
 | **wpcc** | [WPCC Commands](docs/WPCC-COMMANDS.md) — WordPress code analysis |
 | **local-wp** | [local-wp Commands](docs/LOCAL-WP-COMMANDS.md) — Local by Flywheel WP-CLI wrapper |
 | **All Tools** | [CLI Reference](docs/CLI-REFERENCE.md) — Complete reference for all commands |
+| **Troubleshooting** | [Troubleshooting Guide](docs/TROUBLESHOOTING.md) — Common failure modes and solutions |
 
 **Quick Examples:**
 ```bash
