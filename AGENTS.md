@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.8.1 — 2026-03-22_
+_Last updated: v2.9.0 — 2026-03-22_
 
 ## Purpose
 
@@ -125,6 +125,7 @@ For detailed command syntax, parameters, examples, and troubleshooting, see:
 - **[pw-auth Commands](docs/PW-AUTH-COMMANDS.md)** — Complete pw-auth guide (login, doctor, check dom, status, clear)
 - **[WPCC Commands](docs/WPCC-COMMANDS.md)** — Complete WPCC guide (scan, baseline, severity)
 - **[local-wp Commands](docs/LOCAL-WP-COMMANDS.md)** — Complete local-wp wrapper guide
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** — Common failure modes, diagnostics, and solutions for auth, Playwright, WordPress, database, MCP server, and performance issues
 
 ### Workflow Triggers
 
@@ -229,6 +230,8 @@ const context = await browser.newContext({
 - If Playwright is still not resolvable after auto-detection, run `export NODE_PATH="$(npm root -g)"`.
 - If login fails, verify `home`, environment type, and user existence with WP-CLI before retrying.
 - If the IDE terminal is flaky, use `aiddtk-tmux` or MCP tmux tools to preserve output.
+
+For comprehensive failure-mode diagnostics covering auth state, Playwright, WordPress environment, database connectivity, MCP server, and performance issues, see **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**.
 
 ---
 
