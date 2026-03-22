@@ -1,0 +1,453 @@
+# =============================================================================
+# AI-DDTK: WordPress E2E Tests — GitHub Actions Workflow
+# =============================================================================
+#
+# This workflow demonstrates production-ready CI/CD integration for WordPress
+# E2E testing using AI-DDTK (pw-auth + Playwright).
+#
+# Key design decisions:
+#   - Auth state is NOT cached between runs (ephemeral CI environments)
+#   - pw-auth login --force is called on every run to always re-authenticate
+#   - dev-login-cli.php is installed into the WordPress Docker container
+#   - Playwright test results and screenshots are uploaded as artifacts
+#
+# Required GitHub Secrets (Settings → Secrets and variables → Actions):
+#   WP_ADMIN_USER  — WordPress admin username (e.g. "admin")
+#   WP_ADMIN_PASS  — WordPress admin password
+#   WP_SITE_URL    — WordPress site URL inside CI (e.g. "http://localhost:8080")
+#
+# =============================================================================
+
+name: WordPress E2E Tests (AI-DDTK)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# ─── ENVIRONMENT VARIABLES ───────────────────────────────────────────────────
+# These are passed to all steps. Sensitive values come from GitHub Secrets.
+env:
+  WP_SITE_URL: ${{ secrets.WP_SITE_URL || 'http://localhost:8080' }}
+  WP_ADMIN_USER: ${{ secrets.WP_ADMIN_USER || 'admin' }}
+  WP_ADMIN_PASS: ${{ secrets.WP_ADMIN_PASS || 'password' }}
+  NODE_VERSION: '20'
+  # Playwright output directory — uploaded as artifact at end of job
+  PLAYWRIGHT_OUTPUT_DIR: playwright-report
+
+# =============================================================================
+# JOB 1: E2E Tests (single shard — suitable for smaller test suites)
+# =============================================================================
+jobs:
+  e2e-tests:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+
+    # ─── SERVICE CONTAINERS ─────────────────────────────────────────────────
+    # GitHub Actions spins these up before the job steps run.
+    # Both containers share the same Docker network, so WordPress can reach MySQL
+    # via the hostname "mysql".
+    services:
+      # MySQL 8.0 database backend for WordPress
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpresspassword
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 3306:3306
+
+      # WordPress with Apache — served on port 8080 on the runner host
+      wordpress:
+        image: wordpress:latest
+        env:
+          WORDPRESS_DB_HOST: mysql:3306
+          WORDPRESS_DB_NAME: wordpress
+          WORDPRESS_DB_USER: wordpress
+          WORDPRESS_DB_PASSWORD: wordpresspassword
+          WORDPRESS_TABLE_PREFIX: wp_
+          # Set to "development" so dev-login-cli.php is permitted to run
+          WP_ENVIRONMENT_TYPE: development
+          WORDPRESS_DEBUG: '1'
+        options: >-
+          --health-cmd="curl -f http://localhost:80/ || exit 1"
+          --health-interval=15s
+          --health-timeout=10s
+          --health-retries=10
+          --health-start-period=30s
+        ports:
+          - 8080:80
+
+    steps:
+      # ── 1. Checkout repository ─────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Node.js ──────────────────────────────────────────────────
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # Cache npm dependencies for faster subsequent runs
+          cache: 'npm'
+
+      # ── 3. Install project dependencies ───────────────────────────────────
+      # Uses `npm ci` (clean install) for reproducible, locked-version installs.
+      - name: Install dependencies
+        run: npm ci
+
+      # ── 4. Cache Playwright browser binaries ──────────────────────────────
+      # Playwright browsers can be ~300 MB; caching avoids re-downloading on
+      # every run. Cache key includes the Playwright version so it
+      # auto-invalidates when you upgrade.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+
+      # ── 5. Install Playwright browsers ────────────────────────────────────
+      # `--with-deps` installs system-level OS dependencies (libnss3, etc.)
+      # that Chromium/Firefox/WebKit require in Ubuntu CI containers.
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+        # Skip download if cache hit restored the binaries
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      # Even on cache hit, system deps must be installed (they are not cached)
+      - name: Install Playwright system dependencies
+        run: npx playwright install-deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      # ── 6. Install WP-CLI ─────────────────────────────────────────────────
+      # WP-CLI is required by pw-auth to generate one-time login URLs.
+      - name: Install WP-CLI
+        run: |
+          curl -sO https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x wp-cli.phar
+          sudo mv wp-cli.phar /usr/local/bin/wp
+          wp --info
+
+      # ── 7. Wait for WordPress to be ready ────────────────────────────────
+      # The WordPress health-check above only verifies that Apache responds.
+      # WordPress itself (and the database) may still be initializing.
+      # This step polls until the WP admin login page returns HTTP 200.
+      - name: Wait for WordPress to be ready
+        run: |
+          echo "Waiting for WordPress to initialize..."
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          until curl -sf "$WP_SITE_URL/wp-login.php" -o /dev/null; do
+            ATTEMPT=$((ATTEMPT + 1))
+            if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+              echo "ERROR: WordPress did not become ready after ${MAX_ATTEMPTS} attempts"
+              exit 1
+            fi
+            echo "  Attempt $ATTEMPT/$MAX_ATTEMPTS — waiting 5s..."
+            sleep 5
+          done
+          echo "WordPress is ready at $WP_SITE_URL"
+
+      # ── 8. Complete WordPress installation via WP-CLI ─────────────────────
+      # The wordpress:latest Docker image creates the DB tables but does NOT
+      # run the WP installer. We run it here so `wp user list` works for auth.
+      - name: Run WordPress installer
+        run: |
+          # Execute wp inside the WordPress container (port 8080 → container port 80)
+          # We use `docker exec` here because WP-CLI needs filesystem access.
+          CONTAINER_ID=$(docker ps --filter "ancestor=wordpress:latest" --format "{{.ID}}" | head -1)
+          docker exec "$CONTAINER_ID" wp core install \
+            --url="$WP_SITE_URL" \
+            --title="CI Test Site" \
+            --admin_user="$WP_ADMIN_USER" \
+            --admin_password="$WP_ADMIN_PASS" \
+            --admin_email="ci@example.com" \
+            --skip-email \
+            --allow-root \
+            --path=/var/www/html
+          echo "WordPress installed successfully"
+
+      # ── 9. Install dev-login-cli.php mu-plugin ────────────────────────────
+      # This mu-plugin is required by pw-auth to generate one-time login URLs.
+      # It must be installed into wp-content/mu-plugins/ inside the container.
+      # IMPORTANT: dev-login-cli.php only works when WP_ENVIRONMENT_TYPE ≠ "production"
+      - name: Install dev-login-cli.php into WordPress container
+        run: |
+          CONTAINER_ID=$(docker ps --filter "ancestor=wordpress:latest" --format "{{.ID}}" | head -1)
+
+          # Create mu-plugins directory if it doesn't exist
+          docker exec "$CONTAINER_ID" mkdir -p /var/www/html/wp-content/mu-plugins
+
+          # Copy the mu-plugin from the AI-DDTK templates directory
+          docker cp templates/dev-login-cli.php \
+            "$CONTAINER_ID":/var/www/html/wp-content/mu-plugins/dev-login-cli.php
+
+          echo "dev-login-cli.php installed"
+
+          # Verify the plugin is visible to WordPress
+          docker exec "$CONTAINER_ID" wp mu-plugin list \
+            --allow-root \
+            --path=/var/www/html \
+            2>/dev/null || true
+
+      # ── 10. Configure pw-auth to talk to the WordPress container ──────────
+      # In CI, pw-auth runs on the runner host and WP-CLI must be executed
+      # inside the Docker container via `docker exec`. We create a wrapper
+      # script that satisfies pw-auth's `--wp-cli` option.
+      # The wrapper resolves the container ID at runtime (not at creation time)
+      # so it remains correct even if the container is recreated.
+      - name: Create WP-CLI wrapper for Docker container
+        run: |
+          # Use single-quoted heredoc (<<'EOF') to prevent shell expansion here.
+          # The wrapper will resolve the container ID dynamically each time it runs.
+          cat > /usr/local/bin/wp-docker <<'EOF'
+          #!/bin/bash
+          CONTAINER_ID=$(docker ps --filter "ancestor=wordpress:latest" --format "{{.ID}}" | head -1)
+          docker exec "$CONTAINER_ID" wp --allow-root --path=/var/www/html "$@"
+          EOF
+          chmod +x /usr/local/bin/wp-docker
+          echo "WP-CLI wrapper created: wp-docker"
+
+      # ── 11. Authenticate via pw-auth ──────────────────────────────────────
+      # In CI, ALWAYS use --force to re-authenticate on every run.
+      # Ephemeral environments have no persistent auth cache — cached files
+      # from a previous run do not exist on a fresh runner.
+      - name: Run pw-auth login
+        run: |
+          # Create auth directory
+          mkdir -p temp/playwright/.auth
+
+          # Authenticate using pw-auth with the Docker WP-CLI wrapper
+          # --force ensures we skip cache checks (required in CI)
+          # Playwright runs headlessly in CI (no --headed flag)
+          pw-auth login \
+            --site-url "$WP_SITE_URL" \
+            --user "$WP_ADMIN_USER" \
+            --wp-cli "wp-docker" \
+            --force
+
+          echo "Authentication complete"
+
+      # ── 12. Verify auth state before running tests ────────────────────────
+      - name: Validate auth state
+        run: |
+          pw-auth status
+          # Fail fast if no auth files were created
+          if [ ! -f "temp/playwright/.auth/admin.json" ]; then
+            echo "ERROR: Auth state file not found — login may have failed"
+            exit 1
+          fi
+          echo "Auth state is valid"
+
+      # ── 13. Run Playwright tests ──────────────────────────────────────────
+      # Tests reference the auth state at ./temp/playwright/.auth/admin.json.
+      # The --no-sandbox flag is required in containerized environments.
+      - name: Run Playwright tests
+        run: |
+          npx playwright test \
+            --reporter=html,list \
+            --output="$PLAYWRIGHT_OUTPUT_DIR"
+        env:
+          # Pass site URL to tests so they can construct URLs dynamically
+          WP_SITE_URL: ${{ env.WP_SITE_URL }}
+          # Chromium requires --no-sandbox in containers (no user namespace)
+          PLAYWRIGHT_CHROMIUM_LAUNCH_ARGS: '--no-sandbox --disable-setuid-sandbox'
+
+      # ── 14. Upload Playwright test report ─────────────────────────────────
+      # Artifacts are available in the GitHub Actions UI after the run.
+      # The report includes screenshots of any failed tests.
+      - name: Upload Playwright test report
+        uses: actions/upload-artifact@v4
+        if: always() # Upload even if tests failed — useful for debugging
+        with:
+          name: playwright-report
+          path: ${{ env.PLAYWRIGHT_OUTPUT_DIR }}/
+          retention-days: 14
+
+      # ── 15. Upload auth state artifact ────────────────────────────────────
+      # Uploading auth state lets downstream jobs (e.g., in a matrix or
+      # dependent workflow) reuse the session without re-authenticating.
+      # Limit retention to 1 day since auth tokens are short-lived.
+      - name: Upload auth state artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pw-auth-state
+          path: temp/playwright/.auth/
+          retention-days: 1
+
+# =============================================================================
+# JOB 2: Parallel E2E Tests with Matrix Sharding
+# =============================================================================
+# This job demonstrates running tests in parallel across multiple shards.
+# Each shard runs a subset of the test suite, reducing overall wall-clock time.
+# GitHub Actions matrix creates one runner per shard value automatically.
+#
+# To use sharding in your Playwright config:
+#   npx playwright test --shard=1/3   (shard 1 of 3)
+#   npx playwright test --shard=2/3
+#   npx playwright test --shard=3/3
+# =============================================================================
+  e2e-tests-parallel:
+    name: E2E Tests (Shard ${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    # Only run on push to main or manual dispatch — avoids doubling PR CI time
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    strategy:
+      # Don't cancel other shards if one fails — collect all failures at once
+      fail-fast: false
+      matrix:
+        # Define 3 parallel shards. Adjust to match your test suite size.
+        shard: [1, 2, 3]
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: wordpress
+          MYSQL_USER: wordpress
+          MYSQL_PASSWORD: wordpresspassword
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+        ports:
+          - 3306:3306
+
+      wordpress:
+        image: wordpress:latest
+        env:
+          WORDPRESS_DB_HOST: mysql:3306
+          WORDPRESS_DB_NAME: wordpress
+          WORDPRESS_DB_USER: wordpress
+          WORDPRESS_DB_PASSWORD: wordpresspassword
+          WP_ENVIRONMENT_TYPE: development
+          WORDPRESS_DEBUG: '1'
+        options: >-
+          --health-cmd="curl -f http://localhost:80/ || exit 1"
+          --health-interval=15s
+          --health-timeout=10s
+          --health-retries=10
+          --health-start-period=30s
+        ports:
+          - 8080:80
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+
+      - name: Install Playwright system dependencies
+        run: npx playwright install-deps
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+
+      - name: Install WP-CLI
+        run: |
+          curl -sO https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x wp-cli.phar
+          sudo mv wp-cli.phar /usr/local/bin/wp
+
+      - name: Wait for WordPress to be ready
+        run: |
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          until curl -sf "$WP_SITE_URL/wp-login.php" -o /dev/null; do
+            ATTEMPT=$((ATTEMPT + 1))
+            if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+              echo "ERROR: WordPress did not become ready"
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Run WordPress installer
+        run: |
+          CONTAINER_ID=$(docker ps --filter "ancestor=wordpress:latest" --format "{{.ID}}" | head -1)
+          docker exec "$CONTAINER_ID" wp core install \
+            --url="$WP_SITE_URL" \
+            --title="CI Test Site" \
+            --admin_user="$WP_ADMIN_USER" \
+            --admin_password="$WP_ADMIN_PASS" \
+            --admin_email="ci@example.com" \
+            --skip-email \
+            --allow-root \
+            --path=/var/www/html
+
+      - name: Install dev-login-cli.php
+        run: |
+          CONTAINER_ID=$(docker ps --filter "ancestor=wordpress:latest" --format "{{.ID}}" | head -1)
+          docker exec "$CONTAINER_ID" mkdir -p /var/www/html/wp-content/mu-plugins
+          docker cp templates/dev-login-cli.php \
+            "$CONTAINER_ID":/var/www/html/wp-content/mu-plugins/dev-login-cli.php
+
+      - name: Create WP-CLI wrapper for Docker container
+        run: |
+          cat > /usr/local/bin/wp-docker <<'EOF'
+          #!/bin/bash
+          CONTAINER_ID=$(docker ps --filter "ancestor=wordpress:latest" --format "{{.ID}}" | head -1)
+          docker exec "$CONTAINER_ID" wp --allow-root --path=/var/www/html "$@"
+          EOF
+          chmod +x /usr/local/bin/wp-docker
+
+      # In each shard, always re-authenticate — no shared state between matrix jobs
+      - name: Run pw-auth login (shard ${{ matrix.shard }})
+        run: |
+          mkdir -p temp/playwright/.auth
+          pw-auth login \
+            --site-url "$WP_SITE_URL" \
+            --user "$WP_ADMIN_USER" \
+            --wp-cli "wp-docker" \
+            --force
+
+      # Run only this shard's subset of tests
+      - name: Run Playwright tests (shard ${{ matrix.shard }}/${{ strategy.job-total }})
+        run: |
+          npx playwright test \
+            --shard="${{ matrix.shard }}/${{ strategy.job-total }}" \
+            --reporter=html,list \
+            --output="${PLAYWRIGHT_OUTPUT_DIR}-shard-${{ matrix.shard }}"
+        env:
+          WP_SITE_URL: ${{ env.WP_SITE_URL }}
+          PLAYWRIGHT_CHROMIUM_LAUNCH_ARGS: '--no-sandbox --disable-setuid-sandbox'
+
+      # Upload per-shard results — named with shard index for easy identification
+      - name: Upload shard ${{ matrix.shard }} test report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report-shard-${{ matrix.shard }}
+          path: ${{ env.PLAYWRIGHT_OUTPUT_DIR }}-shard-${{ matrix.shard }}/
+          retention-days: 14
