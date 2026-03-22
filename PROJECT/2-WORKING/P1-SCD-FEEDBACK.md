@@ -30,12 +30,13 @@ Real-world feedback from production WordPress development identified **10 critic
 
 - [x] **Phase 1**: CLI Reference Documentation (pw-auth, wpcc, local-wp) ✅ COMPLETE
 - [ ] **Phase 2**: Troubleshooting Guide & Common Errors
+- [ ] **Phase 2.5**: README Consolidation & AGENTS.md Expansion (NEW)
 - [ ] **Phase 3**: WordPress Testing Quick Start (5-min setup)
 - [ ] **Phase 4**: CI/CD Integration Examples (GitHub Actions, GitLab CI)
 - [ ] **Phase 5**: Playwright Test Runner Integration (@playwright/test)
 - [ ] **Phase 6**: Feature Enhancements (env vars, multi-auth, logging)
 
-**Overall Progress**: 1/6 phases complete (16.7%)
+**Overall Progress**: 1/7 phases complete (14.3%)
 
 ---
 
@@ -128,6 +129,40 @@ Document common failure modes and solutions:
 **Deliverables**:
 - `docs/TROUBLESHOOTING.md` (comprehensive guide)
 - Update AGENTS.md with troubleshooting section
+
+---
+
+### Phase 2.5: README Consolidation & AGENTS.md Expansion
+**Risk: LOW | Effort: MEDIUM | Duration: 2-3 days**
+
+Consolidate documentation to reduce drift and establish AGENTS.md as single source of truth:
+
+**Rationale**:
+- README.md (461 lines) and AGENTS.md (432 lines) have significant duplication
+- Detailed sections appear in both files (pw-auth, WPCC, MCP setup, troubleshooting)
+- High maintenance burden: changes must be mirrored in both files
+- Solution: README becomes lightweight hub, AGENTS.md becomes comprehensive SOT
+
+**Changes**:
+- Move detailed pw-auth section from README → AGENTS.md
+- Move detailed WPCC section from README → AGENTS.md
+- Move MCP Server details from README → AGENTS.md
+- Move troubleshooting section from README → AGENTS.md (consolidate with Phase 2)
+- Simplify README to ~150 lines (Overview, Quick Start, Links, Structure, License)
+- Add navigation table in README pointing to AGENTS.md sections
+- Update all cross-references in both files
+
+**Deliverables**:
+- Simplified `README.md` (lightweight hub, ~150 lines)
+- Expanded `AGENTS.md` (comprehensive SOT, ~600 lines)
+- Updated cross-references in both files
+- Clear navigation from README → AGENTS.md sections
+
+**Benefits**:
+- Single source of truth reduces drift risk
+- Easier maintenance (one file to update)
+- Clearer navigation (README for quick start, AGENTS.md for details)
+- Scalable (adding new tools = 1 file to update)
 
 ---
 
