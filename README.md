@@ -1,6 +1,6 @@
 # AI-DDTK - AI Driven Development ToolKit
 
-> Version: 1.0.43
+> Version: 1.0.44
 
 Testing + Automation → Bugs → Fixes → Testing → Deploy
 
@@ -44,65 +44,43 @@ source ~/.zshrc  # or ~/.bashrc
 # Verify installation
 wpcc --help
 local-wp --help
-
-# (Optional) Set up temp folder structure for credentials, reports, etc.
-# The folder structure is already created; this just shows what's available
-ls temp/
 ```
 
 **Note**: The `/temp` folder is for storing sensitive data (credentials, API keys, reports) that should never be committed to git. See [`temp/README.md`](temp/README.md) for complete usage guidelines.
 
-## Usage from Any Project
+## Navigation
 
-```bash
-# Run WPCC against a plugin
-wpcc analyze ./wp-content/plugins/my-plugin
-
-# Run WP-CLI via Local
-local-wp my-site plugin list
-```
-
-`local-wp` is now installed canonically from `bin/local-wp`. The repo-root `./local-wp` remains as a temporary compatibility shim during the migration period and now emits a deprecation notice when invoked.
+| Topic | Location |
+|-------|----------|
+| CLI Commands Reference | [AGENTS.md — Quick Reference](AGENTS.md#-quick-reference) |
+| MCP Server Setup | [AGENTS.md — MCP Server Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| Playwright Auth (`pw-auth`) | [AGENTS.md — Playwright Auth](AGENTS.md#-playwright-auth-pw-auth) |
+| WPCC Orchestration & Templates | [AGENTS.md — WPCC](AGENTS.md#wpcc-wp-code-check) |
+| WordPress Dev Guidelines | [AGENTS.md — Architecture](AGENTS.md#️-wordpress-architecture-and-delivery-rules) |
+| Troubleshooting | [AGENTS.md — Troubleshooting](AGENTS.md#-troubleshooting) |
+| Full Tool Documentation | [docs/](docs/) |
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| **AI-DDTK MCP Server** | Unified stdio MCP package for LocalWP, pw-auth, wp-ajax-test, tmux, and WPCC tools/resources |
-| **WP Code Check** | Code review + AI triage with MCP server |
-| **WP AJAX Test** | AJAX endpoint testing and validation |
-| **AI-DDTK Tmux Proxy** | Persistent tmux-backed sessions for flaky IDE terminals |
-| **Playwright Auth** | One-time WP admin login + Playwright storageState caching |
-| **[Fix-Iterate Loop](fix-iterate-loop.md)** | Autonomous test-verify-fix workflow for AI agents |
-| **local-wp** | WP-CLI wrapper for Local by Flywheel |
-| **Playwright** | Headless browser automation |
-| **PixelMatch** | Visual regression testing |
+| Tool | Description | Reference |
+|------|-------------|-----------|
+| **AI-DDTK MCP Server** | Unified stdio MCP package for LocalWP, pw-auth, wp-ajax-test, tmux, and WPCC | [AGENTS.md](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| **WP Code Check** | Code review + AI triage with MCP server | [WPCC Commands](docs/WPCC-COMMANDS.md) |
+| **WP AJAX Test** | AJAX endpoint testing and validation | [CLI Reference](docs/CLI-REFERENCE.md#wp-ajax-test) |
+| **AI-DDTK Tmux Proxy** | Persistent tmux-backed sessions for flaky IDE terminals | [CLI Reference](docs/CLI-REFERENCE.md#aiddtk-tmux) |
+| **Playwright Auth** | One-time WP admin login + Playwright storageState caching | [AGENTS.md](AGENTS.md#-playwright-auth-pw-auth) |
+| **[Fix-Iterate Loop](fix-iterate-loop.md)** | Autonomous test-verify-fix workflow for AI agents | [fix-iterate-loop.md](fix-iterate-loop.md) |
+| **local-wp** | WP-CLI wrapper for Local by Flywheel | [local-wp Commands](docs/LOCAL-WP-COMMANDS.md) |
+| **PixelMatch** | Visual regression testing | [CLI Reference](docs/CLI-REFERENCE.md) |
 
 ## MCP Server Quick Start
-
-Use the bundled MCP server when you want Claude Code, Augment Code, Claude Desktop, Cline, or another MCP client to call AI-DDTK tools directly.
 
 ```bash
 ./install.sh setup-mcp
 ./install.sh status
 ```
 
-**⚠️ For complete MCP setup instructions (including Augment Code, Claude Desktop, and Cline wiring), see [`AGENTS.md` → "MCP Server Setup and Lifecycle"`](AGENTS.md#mcp-server-setup-and-lifecycle).**
-
-That section covers:
-- Initial setup with `./install.sh setup-mcp`
-- Wiring into Claude Code, Augment Code, Claude Desktop, and Cline
-- Server lifecycle (auto-start on-demand, no reboot persistence)
-- All 18 available MCP tools
-
-**Quick reference:**
-- **Claude Code**: `.mcp.json` is already tracked in this repo (auto-discovered)
-- **Augment Code**: Add entry to `~/.augment/settings.json` (see AGENTS.md for exact format)
-- **Claude Desktop / Cline**: Copy reference configs from `tools/mcp-server/mcp-configs/`
-- **HTTP debug mode**: `cd tools/mcp-server && npm run mcp:http`
-- **Tool documentation**: `tools/mcp-server/README.md`
-
-For WordPress database queries outside direct MySQL server access, see the external **WP-DB-Toolkit** and its MCP server: https://github.com/Hypercart-Dev-Tools/WP-DB-Toolkit
+For complete MCP setup (Augment Code, Claude Desktop, Cline wiring, all 18 tools), see [AGENTS.md — MCP Server Setup](AGENTS.md#mcp-server-setup-and-lifecycle).
 
 ## Repository Structure
 
@@ -124,15 +102,9 @@ AI-DDTK/
 │   └── theme-crash-loop.sh
 ├── templates/           # Configuration templates (PHPStan, dev-login-cli mu-plugin)
 ├── temp/                # Sensitive data storage (credentials, reports, logs)
-│   ├── credentials/     # API keys, passwords, tokens
-│   ├── reports/         # WPCC, PHPStan, performance reports
-│   ├── data/            # Exports, imports, backups
-│   ├── playwright/      # Playwright auth state
-│   ├── logs/            # Debug logs and tmux session captures
-│   └── analysis/        # AI agent working files
 ├── local-wp             # Temporary compatibility shim to bin/local-wp
 ├── fix-iterate-loop.md  # Autonomous test-verify-fix pattern
-├── AGENTS.md            # AI agent guidelines
+├── AGENTS.md            # AI agent guidelines (single source of truth)
 └── CHANGELOG.md         # Version history
 ```
 
@@ -148,280 +120,13 @@ AI-DDTK/
 
 ## Optional Workflows
 
-These workflows are useful for specific teams or environments and are intentionally not part of the default install path.
-
 - **Valet Clone Lab (macOS, optional)**: Rapid throwaway WordPress cloning/testing workflow for copy detection and regression drills.
   - Recipe: [recipes/valet-clone-lab.md](recipes/valet-clone-lab.md)
   - Positioning: optional and experimental, not a Local WP replacement
 
 ## For AI Agents
 
-See `install.sh` for detailed guidance on:
-- Git subtree operations for updating WPCC
-- GitHub CLI commands for checking updates
-- Architecture and maintenance notes
-
-## WPCC: Project Templates
-
-Set up once, reuse forever. Templates save plugin/theme paths and scan settings so you can re-run audits with a single command.
-
-```bash
-# First time: auto-detects plugin name, version, and GitHub repo
-wpcc run gravityforms
-# → Template not found. Create from current directory? [y/N] y
-# ✓ Created! Detected: Gravity Forms v2.7.1
-
-# Every time after: one command runs the full workflow
-# Ask AI: "Run gravityforms end to end"
-```
-
-That single command triggers the complete pipeline:
-
-```
-Scan → AI Triage → HTML Report → GitHub Issue
-       (filters       (with AI        (with checkboxes,
-       false           summary         ready for Jira/
-       positives)      at top)         Linear/Asana too)
-```
-
-Templates handle flexible naming — `Gravity Forms`, `gravity-forms`, and `gravityforms` all resolve to the same config. See the [Template Guide](tools/wp-code-check/dist/HOWTO-TEMPLATES.md) for details.
-
-### More WPCC Features
-
-| Feature | Description | How to Use |
-|---------|-------------|------------|
-| **AI-Assisted Triage** | Automated false positive detection | Ask AI: "Triage this scan" or "Run X end to end" |
-| **GitHub Issue Creation** | Convert findings to trackable issues | Ask AI: "Create issue for scan" |
-| **IRL Audit Mode** | Annotate real code for pattern library | See [Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md) |
-| **Multi-Platform Export** | Export issues to Jira, Linear, Asana, Trello | Issues saved to `dist/issues/` for copy/paste |
-
-### Quick Examples
-
-```bash
-# Basic scan (no template needed)
-wpcc --paths ./wp-content/plugins/my-plugin --format json
-
-# Show all available features and templates
-wpcc --features
-```
-
-**Full AI Instructions:** [WPCC AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md)
-
-## WordPress Development Guidelines
-
-AI-DDTK includes comprehensive WordPress development guidelines in [`AGENTS.md`](AGENTS.md) for AI coding assistants.
-
-### 🎯 Philosophy: Works Great by Default, Customizable for Experts
-
-**For beginners**: Follow the patterns in AGENTS.md — they represent WordPress community best practices and will keep your code maintainable from day one.
-
-**For senior developers**: The guidelines are Hypercart's opinionated defaults. Fork `AGENTS.md` and customize to match your team's standards.
-
-### What's Covered
-
-| Section | Type | Description |
-|---------|------|-------------|
-| **Security** | Required | Nonces, sanitization, escaping, sensitive data handling |
-| **Performance** | Required | Caching, query optimization, resource limits |
-| **WordPress APIs** | Required | Hooks, filters, database access, WP-CLI |
-| **SOLID Principles** | Opinionated | Architecture patterns with rationale and customization guidance |
-| **DRY & State Management** | Opinionated | Helper patterns, single contract writers, FSM guidance |
-| **Scope Control** | Opinionated | When to refactor, preservation vs. optimization trade-offs |
-| **Documentation** | Opinionated | PHPDoc standards, versioning, CHANGELOG requirements |
-| **Testing** | Opinionated | Backward compatibility, Fix-Iterate Loop pattern |
-
-### Customization Examples
-
-The guide includes team-specific customization examples for:
-- **Startups** - Move fast, relax DRY requirements
-- **Enterprise** - Strict documentation, lower FSM thresholds
-- **Open Source** - Package tags, unit test requirements
-- **Agencies** - Strict scope control, detailed changelogs
-- **Maintenance** - Zero scope creep, preservation-first
-
-**See the full guide**: [`AGENTS.md`](AGENTS.md)
-
-## Troubleshooting
-
-**`wpcc: command not found`** — Reload your shell config, then retry:
-```bash
-source ~/.zshrc  # or ~/.bashrc
-```
-If that doesn't work, verify the install:
-```bash
-~/bin/ai-ddtk/install.sh status
-```
-
-**`WPCC not found` or `setup-wpcc` needed** — Run setup again:
-```bash
-cd ~/bin/ai-ddtk && ./install.sh setup-wpcc
-```
-
-**VS Code AI terminal is non-responsive** — Move the work into a tmux-backed session:
-```bash
-aiddtk-tmux start --cwd /path/to/project
-aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --format json --verbose"
-aiddtk-tmux capture --tail 200
-```
-
-If `tmux` is missing, install it first:
-```bash
-brew install tmux
-```
-
-**WPCC stalls when scanning AI-DDTK itself** — The repository includes embedded WPCC via git subtree. Use exclusions:
-```bash
-# Exclude embedded tools (recommended)
-wpcc --paths . --exclude "tools/,.git/,node_modules/" --format json
-
-# Or scan only specific directories
-wpcc --paths "bin/ recipes/ templates/" --format json
-```
-
-> **Note**: A `.wpcignore` file is included in the repository for future WPCC versions that support automatic exclusions.
-
-## Playwright Auth (`pw-auth`)
-
-Authenticate Playwright sessions into WordPress admin without hardcoded passwords. Uses a one-time login URL generated by WP-CLI, then caches the browser's `storageState` for reuse.
-
-Auth state is stored in the **current working directory** at `./temp/playwright/.auth/<user>.json`, not in the AI-DDTK installation. This means each project gets its own auth cache.
-
-### Prerequisites
-
-- **Playwright** installed globally and resolvable by Node.js:
-  ```bash
-  npm install -g playwright
-  npx playwright install chromium
-  ```
-  `pw-auth` first tries the current Node environment, then auto-attempts `npm root -g` / `NODE_PATH` recovery for global installs. If Node still cannot resolve Playwright, set `NODE_PATH` manually:
-  ```bash
-  export NODE_PATH="$(npm root -g)"
-  ```
-- **WP-CLI** accessible (directly or via `local-wp` wrapper)
-
-### Setup
-
-1. Copy the mu-plugin to your WordPress site:
-   ```bash
-   cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site-root>/wp-content/mu-plugins/
-   ```
-
-2. Set your site's environment type if browser requests would otherwise resolve as `production` (in `wp-config.php`):
-   ```php
-   define('WP_ENVIRONMENT_TYPE', 'local'); // or 'development', 'staging'
-   ```
-   Many Local by Flywheel sites work without this, but imported/proxied sites may still need it explicitly because the mu-plugin blocks `production`.
-
-### Usage
-
-```bash
-# Check readiness before trying login automation
-pw-auth doctor --site-url http://my-site.local --format json
-
-# Authenticate as admin (caches to ./temp/playwright/.auth/admin.json)
-pw-auth login --site-url http://my-site.local
-
-# With Local by Flywheel (always pass --wp-cli for Local sites)
-pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
-
-# Different user, custom redirect
-pw-auth login --site-url http://my-site.local --user=editor --redirect=/wp-admin/site-editor.php
-
-# Force re-auth (skip cache)
-pw-auth login --site-url http://my-site.local --force
-
-# Check cached auth freshness / clear cached auth
-pw-auth status
-pw-auth clear
-
-# Inspect front-end or wp-admin DOM using optional cached auth
-pw-auth check dom --url http://my-site.local/wp-admin/widgets.php --selector "#widgets-right" --extract html --user admin --format json
-
-# Convenience wrapper from the toolkit repo
-./install.sh doctor-playwright --site-url http://my-site.local
-```
-
-### In Playwright Scripts
-
-```javascript
-const context = await browser.newContext({
-  storageState: 'temp/playwright/.auth/admin.json'
-});
-const page = await context.newPage();
-await page.goto('http://my-site.local/wp-admin/');
-// Already authenticated — no login form needed
-```
-
-### Auth Caching and Validation
-
-Auth state is cached for 12 hours by default (configurable with `--max-age`). Fresh cached auth files are **live-validated before reuse**; if the saved session no longer reaches `/wp-admin/`, `pw-auth` re-authenticates instead of returning a false success.
-
-### Readiness Checks
-
-Run `pw-auth doctor` first when you need a readiness check:
-
-```bash
-pw-auth doctor --site-url <url> [--wp-cli "local-wp <site>"] [--format text|json]
-```
-
-It reports `ready`, `partial`, or `blocked` with per-check summaries for:
-- Node.js availability
-- Playwright resolution
-- Browser availability
-- Launch readiness
-- Cached auth validation
-
-Convenience wrapper: `./install.sh doctor-playwright --site-url <url>`
-
-### DOM Inspection
-
-Inspect front-end or wp-admin DOM using optional cached auth:
-
-```bash
-pw-auth check dom --url <url> --selector <selector> --extract exists|text|html \
-  [--user <user>] [--auth-state <path>] [--auth-origin <origin>] \
-  [--timeout-ms <ms>] [--format text|json] [--output-dir <dir>]
-```
-
-Writes structured artifacts under `temp/playwright/checks/<run-id>/` and returns `ok`, `not_found`, `auth_required`, or `error`.
-
-### Playwright Resolution
-
-`pw-auth` first tries the current Node environment, then auto-attempts global npm-root resolution for Playwright. For HTTPS local-development origins (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`), the Playwright browser context tolerates self-signed certificates so Local-style sites can authenticate cleanly.
-
-### MCP Integration
-
-The unified MCP server exposes structured MCP tools for `pw_auth_login`, `pw_auth_status`, and `pw_auth_clear`. The MCP layer never exposes raw auth-state JSON. `pw_auth_login` reports `cacheFreshUntil` as a best-effort cache freshness timestamp derived from the auth file mtime (not a guaranteed WordPress session expiry), and `pw_auth_status.users[]` is the authoritative structured status.
-
-### Flaky Terminal Fallback
-
-When the IDE terminal transport is flaky, the `aiddtk-tmux` wrapper is a proven fallback for running `pw-auth login` and inspecting the resulting auth artifacts without losing command output.
-
-### Troubleshooting
-
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| `Playwright is not resolvable` | Global install still isn't visible after `pw-auth` auto-tried `npm root -g` | `export NODE_PATH="$(npm root -g)"`, then retry |
-| `ERR_CERT_AUTHORITY_INVALID` on a Local/dev HTTPS site | Chromium does not trust the local certificate | Re-run on the latest `pw-auth`; it now ignores certificate errors for `localhost`, `127.0.0.1`, `::1`, `*.local`, and `*.test` HTTPS origins |
-| `WP-CLI command failed` | mu-plugin missing, host blocked, or requested user doesn't exist | Run the exact diagnostics below, then install `templates/dev-login-cli.php`, confirm `WP_ENVIRONMENT_TYPE` is not `production`, verify the `--user` exists, and ensure the site host is localhost/127.0.0.1/::1 or `*.local` / `*.test` |
-| `Login URL origin mismatch` | `--site-url` doesn't match WP `home_url()` | Check site URL in WP Settings or pass the correct URL |
-| `No wordpress_logged_in_ cookie` | Token expired or environment blocked | Re-run with `--force`, check `WP_ENVIRONMENT_TYPE` |
-
-Fastest WP-CLI diagnostics (swap `wp` for `local-wp <site>` if needed):
-
-```bash
-wp option get home
-wp eval 'echo wp_get_environment_type(), PHP_EOL;'
-wp user get admin --field=user_login
-wp eval 'echo ( file_exists( WP_CONTENT_DIR . "/mu-plugins/dev-login-cli.php" ) ? "mu-plugin present" : "mu-plugin missing" ), PHP_EOL;'
-wp dev login --user=admin --format=url
-```
-
-## Experimental Workflows
-
-Promising but not-yet-core helpers live in `experimental/`. Requires [Local by Flywheel](https://localwp.com/).
-
-- **`theme-crash-loop.sh`** — Toggles between a fallback and target theme on a Local site, probes key URLs, and captures log deltas. Useful for reproducing theme activation crashes. The same pattern works for plugin debugging (activate/deactivate instead of theme switch). Run `experimental/theme-crash-loop.sh --help` for usage.
+See [`AGENTS.md`](AGENTS.md) — the single source of truth for all AI development guidelines including security, performance, WordPress patterns, MCP setup, pw-auth workflows, troubleshooting, and tool references.
 
 ## License
 
