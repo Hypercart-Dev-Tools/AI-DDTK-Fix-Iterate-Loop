@@ -146,6 +146,14 @@ AI-DDTK/
 ./install.sh uninstall    # Remove PATH entries
 ```
 
+## Optional Workflows
+
+These workflows are useful for specific teams or environments and are intentionally not part of the default install path.
+
+- **Valet Clone Lab (macOS, optional)**: Rapid throwaway WordPress cloning/testing workflow for copy detection and regression drills.
+  - Recipe: [recipes/valet-clone-lab.md](recipes/valet-clone-lab.md)
+  - Positioning: optional and experimental, not a Local WP replacement
+
 ## For AI Agents
 
 See `install.sh` for detailed guidance on:

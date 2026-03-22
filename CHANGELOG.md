@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Optional Valet clone-lab recipe** — added `recipes/valet-clone-lab.md` as a macOS-focused, experimental workflow for rapid throwaway WordPress cloning/testing with explicit scope and safety guardrails. This path is documented as optional and not part of the core AI-DDTK toolset.
+
+### Changed
+- **README optional workflows section** — added an "Optional Workflows" section in `README.md` linking to the Valet clone-lab recipe and clarifying that it complements, not replaces, Local WP.
+- **Planning dashboard tracking** — added a current-week checklist item in `4X4.md` to track Valet clone-lab formalization as an optional path without promoting it to core.
+- **AGENTS optional recipe cross-link** — added a short optional-workflow note in `AGENTS.md` pointing agents to `recipes/valet-clone-lab.md` for macOS throwaway clone/testing scenarios.
+
 ### Fixed
 - **MCP server startup crash loop** — `dist/` is gitignored so the MCP server failed to start after a fresh clone or checkout, causing VS Code to restart it in a loop. Added `tools/mcp-server/start.sh` launcher that auto-builds TypeScript when `dist/` is missing, and updated `.mcp.json` to use it.
 
