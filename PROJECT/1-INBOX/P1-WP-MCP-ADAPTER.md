@@ -21,6 +21,7 @@ parent: null
 - [Phase 2 — Plugin/Theme Config Verification in Fix-Iterate Loops](#phase-2--plugintheme-config-verification-in-fix-iterate-loops)
 - [Phase 3 — Editorial Workflow Automation](#phase-3--editorial-workflow-automation)
 - [Phase 4 — Live Site Diagnostics Without Browser Overhead](#phase-4--live-site-diagnostics-without-browser-overhead)
+- [Valet Clone-Lab Integration](#valet-clone-lab-integration)
 - [Open Questions](#open-questions)
 
 <!-- /TOC -->
@@ -36,6 +37,7 @@ parent: null
   - [ ] Verify STDIO transport via `local-wp <site> mcp-adapter serve`
   - [ ] Register a test ability and confirm MCP tool discovery
   - [ ] Test `.mcp.json` dual-server config (AI-DDTK + WP MCP Adapter side-by-side)
+  - [ ] Validate on a Valet clone-lab site (Composer install + STDIO via system WP-CLI)
   - [ ] Document findings — update this plan with any blockers or scope changes
 
 - [ ] **Phase 1 — Content Scaffolding & Migration** · Effort: Med · Risk: Low
@@ -61,6 +63,12 @@ parent: null
   - [ ] Bridge WPCC static analysis with MCP Adapter runtime checks
   - [ ] Add diagnostic abilities to AGENTS.md workflow triggers
   - [ ] Validate performance overhead is negligible
+
+- [ ] **Valet Clone-Lab Integration** · Effort: Low · Risk: Low
+  - [ ] Auto-provision MCP Adapter + abilities mu-plugin during Valet clone creation
+  - [ ] Update seed site pattern with Composer dependencies
+  - [ ] Validate STDIO transport via system WP-CLI (no Local wrapper needed)
+  - [ ] Update Valet clone-lab recipe with MCP Adapter provisioning steps
 
 ---
 
@@ -109,7 +117,7 @@ These are complementary, not competing. The decision of which to use is clear-cu
                     ┌─────────────┴─────────────┐
                     ▼                             ▼
           AI-DDTK MCP Server              WP MCP Adapter Server
-          (stdio · 18 tools)              (stdio via local-wp)
+          (stdio · 18 tools)              (stdio via WP-CLI)
           ┌──────────────┐                ┌──────────────────┐
           │ local_wp_*   │                │ Content CRUD     │
           │ wpcc_*       │                │ Config reads     │
@@ -119,8 +127,16 @@ These are complementary, not competing. The decision of which to use is clear-cu
           └──────┬───────┘                └────────┬─────────┘
                  │                                  │
                  ▼                                  ▼
-          bin/local-wp ─────────────────► WP-CLI ──► WordPress
+          ┌─────────────────────────────── WP-CLI ──► WordPress
+          │
+          ├── Local WP: bin/local-wp <site> mcp-adapter serve ...
+          │   (routed through Local's PHP + MySQL socket)
+          │
+          └── Valet:    wp --path=<site> mcp-adapter serve ...
+              (system PHP + Homebrew MySQL, no wrapper needed)
+
           bin/pw-auth ──► Playwright ──► Browser ──► WordPress
+          (complementary — visual/UI verification layer)
 ```
 
 ---
@@ -181,12 +197,29 @@ These are complementary, not competing. The decision of which to use is clear-cu
 - [ ] Verify Claude Code discovers tools from **both** servers simultaneously
 - [ ] Test for conflicts: tool name collisions, startup race conditions, stdout interleaving
 
-### 0.4 — Document Findings
+### 0.4 — Valet Clone-Lab Validation
+
+- [ ] Install MCP Adapter on a Valet clone-lab site via Composer:
+  ```bash
+  cd ~/Valet-Sites/clone-source
+  composer require wordpress/abilities-api wordpress/mcp-adapter
+  ```
+- [ ] Confirm STDIO transport works via system WP-CLI (no `local-wp` wrapper needed):
+  ```bash
+  wp --path=~/Valet-Sites/clone-source mcp-adapter serve \
+    --server=mcp-adapter-default-server --user=admin
+  ```
+- [ ] Copy the test ability mu-plugin into the seed site and verify discovery
+- [ ] Clone the seed site using the clone-lab workflow and confirm MCP Adapter carries over
+- [ ] Document any differences between Local and Valet provisioning (Composer path, PHP version, autoloader)
+
+### 0.5 — Document Findings
 
 - [ ] Record any Local-by-Flywheel quirks (PHP version, Composer path, MySQL socket)
-- [ ] Note Composer autoloader compatibility with Local's PHP binary
-- [ ] Confirm minimum PHP/WP version requirements vs. what Local provides
-- [ ] **Update Phases 1–4** in this document based on spike findings
+- [ ] Record any Valet-specific quirks (system PHP version, Composer global vs. local)
+- [ ] Note Composer autoloader compatibility with both Local's PHP binary and Valet's system PHP
+- [ ] Confirm minimum PHP/WP version requirements vs. what Local and Valet provide
+- [ ] **Update Phases 1–4 and Valet section** in this document based on spike findings
 - [ ] Decide: mu-plugin approach vs. Composer-installed plugin for ability registration
 
 ---
@@ -332,6 +365,100 @@ These are complementary, not competing. The decision of which to use is clear-cu
 
 ---
 
+## Valet Clone-Lab Integration
+
+**Effort: Low** · **Risk: Low**
+
+> The Valet clone-lab (`recipes/valet-clone-lab.md`) is AI-DDTK's rapid provisioning system for disposable WordPress sites on macOS. Because Valet sites use system PHP + Composer + WP-CLI directly (no Local wrapper), they're the **simplest path** to MCP Adapter integration — and the natural place to bake it into the provisioning pipeline.
+
+### Why Valet is a natural fit
+
+| Factor | Local by Flywheel | Valet Clone-Lab |
+|---|---|---|
+| **Composer** | Requires Local's bundled PHP; may need path gymnastics | System Composer, already a prerequisite |
+| **WP-CLI** | Needs `local-wp` wrapper for socket/path routing | System `wp` binary, direct access |
+| **MCP STDIO** | `local-wp <site> mcp-adapter serve` | `wp --path=<site> mcp-adapter serve` |
+| **Site lifecycle** | Persistent, manually managed | Disposable, scripted clone + teardown |
+| **Provisioning hook** | Manual or per-site | Seed site pattern — install once, clone many |
+
+The key advantage: install the MCP Adapter **once in the seed site**, and every clone inherits it automatically — including the abilities mu-plugin, Composer dependencies, and autoloader.
+
+### Updated Seed Site Pattern
+
+Extend the existing seed site creation from `recipes/valet-clone-lab.md`:
+
+```bash
+# After standard seed site creation...
+cd "$HOME/Valet-Sites/clone-source"
+
+# Install MCP Adapter + Abilities API
+composer require wordpress/abilities-api wordpress/mcp-adapter
+
+# Recommended: Jetpack Autoloader for multi-plugin compatibility
+composer require automattic/jetpack-autoloader
+
+# Copy AI-DDTK abilities mu-plugin (registered abilities for agent workflows)
+cp "$HOME/bin/ai-ddtk/templates/ai-ddtk-abilities.php" \
+  "$HOME/Valet-Sites/clone-source/wp-content/mu-plugins/ai-ddtk-abilities.php"
+```
+
+After this, every `clone-lab` clone carries the full MCP Adapter stack.
+
+### Dual-Server `.mcp.json` for Valet
+
+When an agent is working in Valet clone-lab mode, the MCP config uses system `wp` instead of `local-wp`:
+
+```json
+{
+  "mcpServers": {
+    "ai-ddtk": { "...existing config..." },
+    "wordpress": {
+      "command": "wp",
+      "args": [
+        "--path=/Users/<you>/Valet-Sites/<clone-name>",
+        "mcp-adapter", "serve",
+        "--server=mcp-adapter-default-server",
+        "--user=admin"
+      ]
+    }
+  }
+}
+```
+
+### Clone Lifecycle with MCP Adapter
+
+```
+Seed Site (with MCP Adapter + abilities mu-plugin)
+     │
+     ├─► Clone A ──► Agent runs fix-iterate loop with MCP verify ──► Teardown
+     ├─► Clone B ──► Agent tests editorial workflows via abilities ──► Teardown
+     └─► Clone C ──► Agent runs WPCC + runtime diagnostics bridge ──► Teardown
+```
+
+Each clone is disposable. The agent can freely create/modify content, test role-based permissions, and run diagnostics without affecting any persistent environment.
+
+### Integration Tasks
+
+- [ ] Create `templates/ai-ddtk-abilities.php` mu-plugin (bundles all AI-DDTK registered abilities from Phases 1–4)
+- [ ] Update `recipes/valet-clone-lab.md` seed site pattern with MCP Adapter Composer install steps
+- [ ] Add Valet-specific `.mcp.json` example to the recipe
+- [ ] Update `recipes/valet-clone-lab.md` "AI Agent Usage Hint" section with MCP Adapter guidance
+- [ ] Verify cloned sites inherit Composer `vendor/` and `autoload.php` correctly after filesystem copy
+- [ ] Test teardown — confirm `wp db drop --yes && rm -rf <clone>` cleanly removes MCP Adapter artifacts
+- [ ] Add a "Valet + MCP Adapter" verification check to `pw-auth doctor` or a new `mcp-adapter doctor` helper
+
+### Coexistence with Local WP
+
+Both environments are supported in parallel:
+
+- **Local sites:** Use `local-wp <site> mcp-adapter serve` (Phase 0 validates this)
+- **Valet sites:** Use `wp --path=<site> mcp-adapter serve` (simpler, no wrapper)
+- **Agent decision:** Check the "AI Agent Usage Hint" — if target environment is Valet clone-lab, use system `wp`; if Local WP, use `local-wp` wrapper
+
+No code changes needed in the AI-DDTK MCP server itself — the WordPress MCP Adapter runs as a separate STDIO server. The agent simply has access to both tool surfaces.
+
+---
+
 ## Open Questions
 
 1. **Composer on Local by Flywheel** — Does Local's bundled PHP include Composer, or do we need to install it separately? Phase 0 spike will answer this.
@@ -340,3 +467,5 @@ These are complementary, not competing. The decision of which to use is clear-cu
 4. **WordPress Abilities API maturity** — The Abilities API is relatively new. Monitor for breaking changes and pin versions accordingly.
 5. **Scope of built-in abilities** — Does the MCP Adapter ship with any content/settings abilities out of the box, or is everything custom-registered? Phase 0 spike will clarify.
 6. **HTTP transport** — Out of scope for now, but may be relevant if AI-DDTK ever supports remote dev environments (e.g., Codespaces, GitPod). Revisit after Phase 4.
+7. **Valet seed site Composer `vendor/` in clones** — Does a filesystem copy of `vendor/` work reliably, or do clones need `composer install` post-copy? Phase 0 spike will test this.
+8. **Valet clone-lab promotion** — If MCP Adapter integration proves smoother on Valet than Local, should Valet clone-lab be promoted from "experimental optional" to a recommended workflow for MCP Adapter testing?
