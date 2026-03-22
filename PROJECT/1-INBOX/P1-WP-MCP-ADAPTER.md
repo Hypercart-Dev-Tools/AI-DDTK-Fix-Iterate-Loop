@@ -14,6 +14,7 @@ parent: null
 
 - [Phased Checklist (High-Level Progress)](#phased-checklist-high-level-progress)
 - [Overview](#overview)
+- [Prerequisites](#prerequisites)
 - [Goals & Non-Goals](#goals--non-goals)
 - [How It Complements AI-DDTK](#how-it-complements-ai-ddtk)
 - [Phase 0 — Technical Spike](#phase-0--technical-spike)
@@ -88,6 +89,31 @@ parent: null
 | **Auth model** | One-time login URL + session cookies | WP Application Passwords / WP-CLI `--user` |
 
 These are complementary, not competing. The decision of which to use is clear-cut: **if you need to see the page, use pw-auth; if you need to read/write data, use MCP Adapter.**
+
+---
+
+## Prerequisites
+
+> **The Abilities API is a WordPress 6.9 core feature.** It shipped in the WordPress 6.9 release (December 2025) — the first WordPress version to include `wp_register_ability()` and the `WP_Abilities_Registry` in core. Sites running WordPress 6.8 or earlier **cannot use the MCP Adapter.**
+
+| Requirement | Minimum Version | Notes |
+|---|---|---|
+| **WordPress** | **6.9+** | Abilities API (`wp_register_ability()`) merged into core in 6.9. Not available as a backport for 6.8. |
+| **PHP** | **7.4+** | Per `wordpress/mcp-adapter` Composer constraint (`^7.4 \|\| ^8.0`). PHP 8.1+ recommended for Local by Flywheel compatibility. |
+| **WP-CLI** | **2.9+** | Required for the `mcp-adapter serve` STDIO subcommand. |
+| **Composer** | **2.x** | For installing `wordpress/mcp-adapter` and `wordpress/abilities-api` (on pre-7.0 sites where the Abilities API is core but the Adapter is not). |
+| **AI-DDTK MCP Server** | **0.6.x+** (existing) | Not a hard dependency, but dual-server `.mcp.json` config and `local_wp_run` bootstrapping assume the existing server is operational. |
+
+### Version timeline
+
+- **WordPress 6.9** (Dec 2025) — Abilities API PHP layer merged into core. MCP Adapter available as a separate Composer package (`wordpress/mcp-adapter`).
+- **WordPress 7.0** (planned Apr 2026) — Expected to bundle the MCP Adapter and deeper Abilities API integration directly in core, removing the need for a separate Composer install.
+
+### What this means for AI-DDTK
+
+All Local by Flywheel and Valet dev sites used with this project **must run WordPress 6.9 or later**. Phase 0's spike should verify the exact WP version on each test site before proceeding. The Valet clone-lab seed site should be provisioned with WP 6.9+ from the start so that every clone inherits Abilities API support automatically.
+
+> **If upgrading to WP 7.0 before starting implementation:** The Composer install steps for `wordpress/abilities-api` may become unnecessary (already in core). Phase 0 should note whether 7.0 bundles the MCP Adapter itself or still requires `composer require wordpress/mcp-adapter`.
 
 ---
 
