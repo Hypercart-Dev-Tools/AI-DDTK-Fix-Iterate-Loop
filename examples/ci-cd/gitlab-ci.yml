@@ -1,0 +1,396 @@
+# =============================================================================
+# AI-DDTK: WordPress E2E Tests — GitLab CI Pipeline
+# =============================================================================
+#
+# This pipeline demonstrates production-ready CI/CD integration for WordPress
+# E2E testing using AI-DDTK (pw-auth + Playwright).
+#
+# Key design decisions:
+#   - Auth state is NOT cached between runs (ephemeral CI environments)
+#   - pw-auth login --force is called on every run to always re-authenticate
+#   - dev-login-cli.php is installed via a Docker service container
+#   - Test results and screenshots are uploaded as GitLab CI artifacts
+#   - node_modules is cached to speed up subsequent runs
+#
+# Required GitLab CI/CD Variables (Settings → CI/CD → Variables):
+#   WP_ADMIN_USER  — WordPress admin username (e.g. "admin")  [masked]
+#   WP_ADMIN_PASS  — WordPress admin password                  [masked]
+#   WP_SITE_URL    — WordPress site URL in CI (e.g. "http://wordpress")
+#
+# =============================================================================
+
+# ─── DEFAULT CONFIGURATION ───────────────────────────────────────────────────
+# These defaults apply to all jobs unless overridden at the job level.
+default:
+  image: node:20
+  # Retry each job once on infrastructure failures (runner lost, network hiccup)
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
+  # Limit all jobs to 30 minutes; override per-job if needed
+  timeout: 30 minutes
+  interruptible: true
+
+# ─── PIPELINE-WIDE VARIABLES ─────────────────────────────────────────────────
+# Default values; secrets override these in GitLab CI/CD variable settings.
+variables:
+  # WordPress site URL — must be reachable from the runner.
+  # Override these with masked CI/CD variables in GitLab project settings.
+  WP_SITE_URL: "http://wordpress"
+  WP_ADMIN_USER: "admin"
+  # Postgres/MySQL — used by the wordpress service container
+  MYSQL_ROOT_PASSWORD: "rootpassword"
+  MYSQL_DATABASE: "wordpress"
+  MYSQL_USER: "wordpress"
+  MYSQL_PASSWORD: "wordpresspassword"
+  # Playwright report directory
+  PLAYWRIGHT_OUTPUT_DIR: "playwright-report"
+  # Disable Playwright telemetry in CI
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "0"
+  # npm cache directory — used by the node_modules cache key
+  npm_config_cache: "$CI_PROJECT_DIR/.npm"
+
+# ─── PIPELINE STAGES ─────────────────────────────────────────────────────────
+stages:
+  - setup       # Install dependencies and browsers
+  - auth        # Authenticate via pw-auth (produces auth artifact)
+  - test        # Run Playwright tests
+  - report      # Aggregate and publish results
+
+# =============================================================================
+# CACHE CONFIGURATION
+# =============================================================================
+# GitLab CI caches node_modules so npm ci doesn't re-download packages.
+# Key includes package-lock.json hash — auto-invalidates on dependency changes.
+.node_modules_cache: &node_modules_cache
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+      - node_modules/
+    policy: pull-push
+
+# Read-only variant — used in jobs that only consume the cache
+.node_modules_cache_pull: &node_modules_cache_pull
+  cache:
+    key:
+      files:
+        - package-lock.json
+    paths:
+      - .npm/
+      - node_modules/
+    policy: pull
+
+# =============================================================================
+# SERVICE CONTAINER ANCHOR
+# =============================================================================
+# Reusable service definitions attached to jobs that need WordPress.
+# Services run as separate containers on the same Docker network.
+# All jobs on the same runner share the network and can reach services by name.
+.wordpress_services: &wordpress_services
+  services:
+    # MySQL 8.0 — WordPress database backend
+    - name: mysql:8.0
+      alias: mysql
+      variables:
+        MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+        MYSQL_DATABASE: "${MYSQL_DATABASE}"
+        MYSQL_USER: "${MYSQL_USER}"
+        MYSQL_PASSWORD: "${MYSQL_PASSWORD}"
+    # WordPress + Apache — available at http://wordpress on port 80
+    - name: wordpress:latest
+      alias: wordpress
+      variables:
+        WORDPRESS_DB_HOST: "mysql:3306"
+        WORDPRESS_DB_NAME: "${MYSQL_DATABASE}"
+        WORDPRESS_DB_USER: "${MYSQL_USER}"
+        WORDPRESS_DB_PASSWORD: "${MYSQL_PASSWORD}"
+        # Allow dev-login-cli.php (must not be "production")
+        WP_ENVIRONMENT_TYPE: "development"
+        WORDPRESS_DEBUG: "1"
+
+# =============================================================================
+# STAGE: setup
+# =============================================================================
+# Install npm dependencies and Playwright browser binaries.
+# Resulting node_modules is written to cache for downstream jobs.
+install:
+  stage: setup
+  <<: *node_modules_cache
+  script:
+    # Install Node.js dependencies (reproducible, locked-version install)
+    - npm ci --prefer-offline
+
+    # Install Playwright browsers with system-level OS dependencies.
+    # The --with-deps flag installs libnss3, libgbm1, etc. required by Chromium.
+    - npx playwright install --with-deps chromium
+
+    - echo "Dependencies and browsers installed"
+
+# =============================================================================
+# STAGE: auth
+# =============================================================================
+# Run pw-auth login to create an authenticated Playwright session.
+# The auth state JSON file is uploaded as a GitLab artifact so the `test`
+# stage can download and reuse it without re-authenticating.
+#
+# IMPORTANT: In CI, always use --force to bypass cache checks.
+# Ephemeral runners have no persistent auth files from previous runs.
+authenticate:
+  stage: auth
+  <<: [*node_modules_cache_pull, *wordpress_services]
+  needs:
+    - install
+
+  before_script:
+    # Install WP-CLI — required by pw-auth to generate one-time login URLs
+    - curl -sO https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    - chmod +x wp-cli.phar
+    - mv wp-cli.phar /usr/local/bin/wp
+    - wp --info
+
+    # Set WP_ENVIRONMENT_TYPE=development so dev-login-cli.php is allowed to run
+    - export WP_ENVIRONMENT_TYPE=development
+
+  script:
+    # Wait for WordPress to be fully initialized before attempting auth.
+    # The service container starts early but WP's init takes a few seconds.
+    - |
+      echo "Waiting for WordPress at $WP_SITE_URL..."
+      MAX_ATTEMPTS=30
+      ATTEMPT=0
+      until curl -sf "$WP_SITE_URL/wp-login.php" -o /dev/null; do
+        ATTEMPT=$((ATTEMPT + 1))
+        if [ "$ATTEMPT" -ge "$MAX_ATTEMPTS" ]; then
+          echo "ERROR: WordPress did not become ready after ${MAX_ATTEMPTS} attempts"
+          exit 1
+        fi
+        echo "  Attempt $ATTEMPT/$MAX_ATTEMPTS — waiting 5s..."
+        sleep 5
+      done
+      echo "WordPress is ready"
+
+    # Complete WordPress installation so admin user exists
+    # (the Docker image creates DB tables but does not run the WP installer)
+    - |
+      wp core install \
+        --url="$WP_SITE_URL" \
+        --title="CI Test Site" \
+        --admin_user="$WP_ADMIN_USER" \
+        --admin_password="$WP_ADMIN_PASS" \
+        --admin_email="ci@example.com" \
+        --skip-email \
+        --path=/var/www/html \
+        --allow-root \
+      || echo "WordPress already installed, continuing..."
+
+    # Install dev-login-cli.php mu-plugin into the WordPress container.
+    # This plugin is required by pw-auth to generate one-time login tokens.
+    - mkdir -p /var/www/html/wp-content/mu-plugins
+    - cp templates/dev-login-cli.php /var/www/html/wp-content/mu-plugins/dev-login-cli.php
+    - echo "dev-login-cli.php installed"
+
+    # Create auth directory for pw-auth output
+    - mkdir -p temp/playwright/.auth
+
+    # Authenticate — use --force to always re-authenticate (ephemeral CI)
+    - |
+      pw-auth login \
+        --site-url "$WP_SITE_URL" \
+        --user "$WP_ADMIN_USER" \
+        --force
+
+    # Verify auth state file was created
+    - |
+      if [ ! -f "temp/playwright/.auth/admin.json" ]; then
+        echo "ERROR: Auth state file not found — login failed"
+        exit 1
+      fi
+      echo "Auth state created: temp/playwright/.auth/admin.json"
+      pw-auth status
+
+  # Upload auth state as an artifact so the test stage can download it.
+  # Limit retention to 1 hour — auth tokens are short-lived.
+  artifacts:
+    name: "auth-state-${CI_JOB_ID}"
+    paths:
+      - temp/playwright/.auth/
+    expire_in: 1 hour
+    when: on_success
+
+# =============================================================================
+# STAGE: test
+# =============================================================================
+# Run Playwright tests using the auth state produced by the `authenticate` job.
+e2e-tests:
+  stage: test
+  <<: [*node_modules_cache_pull, *wordpress_services]
+  needs:
+    - job: authenticate
+      # Download the auth state artifact from the authenticate job
+      artifacts: true
+
+  before_script:
+    # Install WP-CLI (needed if any tests call wp commands)
+    - curl -sO https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    - chmod +x wp-cli.phar
+    - mv wp-cli.phar /usr/local/bin/wp
+
+    # Playwright in containers requires --no-sandbox.
+    # Set this via the PLAYWRIGHT_LAUNCH_OPTIONS env var or a playwright.config.js.
+    - export PLAYWRIGHT_CHROMIUM_LAUNCH_ARGS="--no-sandbox --disable-setuid-sandbox"
+
+  script:
+    # Wait for WordPress service (services restart for each job)
+    - |
+      echo "Waiting for WordPress..."
+      until curl -sf "$WP_SITE_URL/wp-login.php" -o /dev/null; do sleep 3; done
+      echo "WordPress is ready"
+
+    # Validate auth state exists before running tests
+    - |
+      if [ ! -f "temp/playwright/.auth/admin.json" ]; then
+        echo "ERROR: Auth state not found. Check the authenticate job."
+        exit 1
+      fi
+      pw-auth status
+
+    # Run Playwright tests
+    # The auth state at temp/playwright/.auth/admin.json is automatically
+    # picked up by tests that load storageState from that path.
+    - |
+      npx playwright test \
+        --reporter=html,list,junit \
+        --output="${PLAYWRIGHT_OUTPUT_DIR}"
+    env:
+      WP_SITE_URL: $WP_SITE_URL
+      PLAYWRIGHT_CHROMIUM_LAUNCH_ARGS: "--no-sandbox --disable-setuid-sandbox"
+
+  # Upload test results as artifacts
+  artifacts:
+    name: "playwright-report-${CI_JOB_ID}"
+    when: always  # Upload even if tests fail — critical for debugging
+    paths:
+      - playwright-report/
+      - test-results/       # Playwright's raw JSON results
+    reports:
+      # Parse JUnit XML for GitLab's built-in test report UI
+      junit: playwright-report/results.xml
+    expire_in: 14 days
+
+# =============================================================================
+# STAGE: test (parallel matrix)
+# =============================================================================
+# This job demonstrates running tests in parallel across multiple shards.
+# GitLab CI creates one job per matrix entry; each shard runs independently
+# on its own runner with its own WordPress service container.
+#
+# Adjust TOTAL_SHARDS to match your test suite size and runner availability.
+e2e-tests-parallel:
+  stage: test
+  <<: [*node_modules_cache_pull, *wordpress_services]
+  # Only run on default branch or tags — avoids doubling MR CI time
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+  needs:
+    - install  # Don't wait for authenticate — each shard re-auths itself
+
+  # GitLab parallel matrix: creates one job per combination of variables.
+  # With 3 shards you get e2e-tests-parallel: [1/3], [2/3], [3/3].
+  parallel:
+    matrix:
+      - SHARD_INDEX: ["1", "2", "3"]
+        TOTAL_SHARDS: ["3"]
+
+  variables:
+    # Each shard job knows its index and total shard count
+    SHARD: "${SHARD_INDEX}/${TOTAL_SHARDS}"
+
+  before_script:
+    - curl -sO https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+    - chmod +x wp-cli.phar
+    - mv wp-cli.phar /usr/local/bin/wp
+    - export WP_ENVIRONMENT_TYPE=development
+    - export PLAYWRIGHT_CHROMIUM_LAUNCH_ARGS="--no-sandbox --disable-setuid-sandbox"
+
+  script:
+    # Wait for WordPress
+    - |
+      echo "Waiting for WordPress (shard ${SHARD})..."
+      until curl -sf "$WP_SITE_URL/wp-login.php" -o /dev/null; do sleep 3; done
+
+    # Run WordPress installer
+    - |
+      wp core install \
+        --url="$WP_SITE_URL" \
+        --title="CI Test Site" \
+        --admin_user="$WP_ADMIN_USER" \
+        --admin_password="$WP_ADMIN_PASS" \
+        --admin_email="ci@example.com" \
+        --skip-email \
+        --path=/var/www/html \
+        --allow-root \
+      || true
+
+    # Install dev-login-cli.php
+    - mkdir -p /var/www/html/wp-content/mu-plugins
+    - cp templates/dev-login-cli.php /var/www/html/wp-content/mu-plugins/dev-login-cli.php
+
+    # Each shard re-authenticates independently (no shared state in matrix)
+    - mkdir -p temp/playwright/.auth
+    - |
+      pw-auth login \
+        --site-url "$WP_SITE_URL" \
+        --user "$WP_ADMIN_USER" \
+        --force
+
+    # Run this shard's subset of tests
+    - |
+      npx playwright test \
+        --shard="${SHARD}" \
+        --reporter=html,list,junit \
+        --output="${PLAYWRIGHT_OUTPUT_DIR}-shard-${SHARD_INDEX}"
+
+  artifacts:
+    name: "playwright-report-shard-${SHARD_INDEX}"
+    when: always
+    paths:
+      - playwright-report-shard-${SHARD_INDEX}/
+    reports:
+      junit: playwright-report-shard-${SHARD_INDEX}/results.xml
+    expire_in: 14 days
+
+# =============================================================================
+# STAGE: report
+# =============================================================================
+# Merge per-shard HTML reports into a single report for easy review.
+# This step is optional; remove it if you don't run the parallel job.
+merge-reports:
+  stage: report
+  needs:
+    - e2e-tests-parallel
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+  script:
+    # Merge HTML reports from all shards using the Playwright merge utility
+    - |
+      npx playwright merge-reports \
+        --reporter=html \
+        playwright-report-shard-*/blob-report/ \
+        --output=merged-playwright-report/ \
+      || echo "Merge skipped (blob reports not available in all runners)"
+
+  artifacts:
+    name: "merged-playwright-report"
+    when: always
+    paths:
+      - merged-playwright-report/
+    expire_in: 30 days
