@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v2.8.0 — 2026-03-11_
+_Last updated: v2.8.1 — 2026-03-22_
 
 ## Purpose
 
@@ -104,18 +104,27 @@ See `tools/mcp-server/README.md` for detailed tool documentation and examples.
 
 ### Available Tools
 
-| Tool | Primary use |
-|------|-------------|
-| **WPCC** | WordPress security/performance static analysis |
-| **AI-DDTK MCP Server** | Typed MCP tools for LocalWP, `pw-auth`, WPCC, AJAX, and tmux |
-| **AI-DDTK Tmux Proxy** | Resilient terminal sessions for flaky IDE/agent workflows |
-| **Playwright Auth (`pw-auth`)** | Passwordless wp-admin auth + DOM inspection helpers |
-| **WP AJAX Test** | Structured `admin-ajax.php` testing |
-| **WP Performance Timer** | Runtime profiling for suspected slow paths |
-| **PHPStan** | Type-aware static analysis for PHP/WordPress projects |
-| **Recipes / Fix-Iterate Loop** | Multi-step verification and debugging workflows |
+| Tool | Primary use | Reference |
+|------|-------------|-----------|
+| **WPCC** | WordPress security/performance static analysis | [WPCC Commands](docs/WPCC-COMMANDS.md) |
+| **AI-DDTK MCP Server** | Typed MCP tools for LocalWP, `pw-auth`, WPCC, AJAX, and tmux | [AGENTS.md § MCP Server Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| **AI-DDTK Tmux Proxy** | Resilient terminal sessions for flaky IDE/agent workflows | [CLI Reference](docs/CLI-REFERENCE.md#aiddtk-tmux) |
+| **Playwright Auth (`pw-auth`)** | Passwordless wp-admin auth + DOM inspection helpers | [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) |
+| **WP AJAX Test** | Structured `admin-ajax.php` testing | [CLI Reference](docs/CLI-REFERENCE.md#wp-ajax-test) |
+| **WP Performance Timer** | Runtime profiling for suspected slow paths | [recipes/performance-audit.md](recipes/performance-audit.md) |
+| **PHPStan** | Type-aware static analysis for PHP/WordPress projects | [recipes/phpstan-wordpress-setup.md](recipes/phpstan-wordpress-setup.md) |
+| **Recipes / Fix-Iterate Loop** | Multi-step verification and debugging workflows | [fix-iterate-loop.md](fix-iterate-loop.md) |
 
 Optional workflow note: for rapid throwaway cloning/testing on macOS, use the Valet clone-lab recipe at `recipes/valet-clone-lab.md` (experimental, not part of the core/default toolset).
+
+### CLI Reference Documentation
+
+For detailed command syntax, parameters, examples, and troubleshooting, see:
+
+- **[CLI Reference](docs/CLI-REFERENCE.md)** — Master reference for all commands
+- **[pw-auth Commands](docs/PW-AUTH-COMMANDS.md)** — Complete pw-auth guide (login, doctor, check dom, status, clear)
+- **[WPCC Commands](docs/WPCC-COMMANDS.md)** — Complete WPCC guide (scan, baseline, severity)
+- **[local-wp Commands](docs/LOCAL-WP-COMMANDS.md)** — Complete local-wp wrapper guide
 
 ### Workflow Triggers
 
