@@ -30,7 +30,7 @@ Real-world feedback from production WordPress development identified **10 critic
 
 - [x] **Phase 1**: CLI Reference Documentation (pw-auth, wpcc, local-wp) ✅ COMPLETE
 - [x] **Phase 2**: Troubleshooting Guide & Common Errors ✅ COMPLETE
-- [ ] **Phase 2.5**: README Consolidation & AGENTS.md Expansion (NEW)
+- [x] **Phase 2.5**: README Consolidation & AGENTS.md Expansion (NEW)
 - [ ] **Phase 3**: WordPress Testing Quick Start (5-min setup)
 - [ ] **Phase 4**: CI/CD Integration Examples (GitHub Actions, GitLab CI)
 - [ ] **Phase 5**: Playwright Test Runner Integration (@playwright/test)
