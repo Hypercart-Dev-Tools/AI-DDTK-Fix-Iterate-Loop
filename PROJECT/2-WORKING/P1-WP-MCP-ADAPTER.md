@@ -1,6 +1,6 @@
 ---
 title: "P1: WordPress MCP Adapter Integration"
-status: INBOX
+status: PHASE-1-2-COMPLETE
 author: noelsaw
 created: 2026-03-22
 updated: 2026-03-22
@@ -42,17 +42,17 @@ parent: null
   - [x] Validate on a Valet clone-lab site (Composer install + STDIO via system WP-CLI)
   - [x] Document findings — update this plan with any blockers or scope changes
 
-- [ ] **Phase 1 — Content Scaffolding & Migration** · Effort: Med · Risk: Low
-  - [ ] Register content CRUD abilities (posts, pages, CPTs, taxonomies)
-  - [ ] Wire abilities into AI-DDTK agent workflows
-  - [ ] Validate bulk operations with permission callbacks
-  - [ ] Add recipe/guide to docs
+- [x] **Phase 1 — Content Scaffolding & Migration** · Effort: Med · Risk: Low
+  - [x] Register content CRUD abilities (posts, pages, CPTs, taxonomies)
+  - [x] Wire abilities into AI-DDTK agent workflows
+  - [x] Validate bulk operations with permission callbacks
+  - [x] Add recipe/guide to docs
 
-- [ ] **Phase 2 — Plugin/Theme Config Verification** · Effort: Med · Risk: Med
-  - [ ] Define introspection ability patterns (get-settings, list-blocks, check-status)
-  - [ ] Integrate MCP Adapter verify step into fix-iterate loop
-  - [ ] Test against 2-3 real plugins on Local sites
-  - [ ] Document when to use MCP Adapter vs. pw-auth for verification
+- [x] **Phase 2 — Plugin/Theme Config Verification** · Effort: Med · Risk: Med
+  - [x] Define introspection ability patterns (get-settings, list-blocks, check-status)
+  - [x] Integrate MCP Adapter verify step into fix-iterate loop
+  - [x] Test against 2-3 real plugins on Local sites
+  - [x] Document when to use MCP Adapter vs. pw-auth for verification
 
 - [ ] **Phase 3 — Editorial Workflow Automation** · Effort: Med-High · Risk: Med
   - [ ] Register editorial abilities (approve, assign-reviewer, schedule, SEO metadata)
@@ -632,6 +632,66 @@ No code changes needed in the AI-DDTK MCP server itself — the WordPress MCP Ad
 3. **Permission Callbacks:** Always include `permission_callback` to enforce WordPress role-based access control
 4. **User ID over Username:** Use `--user=1` (ID) instead of `--user=admin` — admin usernames vary per site
 5. **Valet as faster path:** Valet setup is simpler (system Composer, no wrapper) — consider prioritizing for rapid iteration
+
+---
+
+## Phase 1 & 2 Implementation Notes (2026-03-22)
+
+### Abilities Mu-Plugin
+
+**Location:** `templates/ai-ddtk-abilities.php`
+
+**Install:** Copy to `wp-content/mu-plugins/ai-ddtk-abilities.php` on any WordPress 6.9+ site that has the MCP Adapter installed (`wordpress/mcp-adapter` via Composer). No configuration required — all abilities register automatically on the `wp_abilities_api_init` hook.
+
+### Registered Abilities
+
+#### Phase 1 — Content CRUD
+
+| Ability | Description |
+|---------|-------------|
+| `ai-ddtk/create-post` | Create a post, page, or CPT entry with optional meta and taxonomy terms |
+| `ai-ddtk/update-post` | Update title, content, status, meta, or terms on an existing post |
+| `ai-ddtk/list-posts` | List/filter posts by type, status, taxonomy, or date range |
+| `ai-ddtk/delete-post` | Move a post to the trash (never permanently deletes) |
+| `ai-ddtk/manage-taxonomy` | Create terms, assign terms to posts, or list terms for a taxonomy |
+| `ai-ddtk/batch-create-posts` | Bulk-create up to 100 posts in a single call |
+| `ai-ddtk/batch-update-posts` | Bulk-update up to 100 existing posts in a single call |
+
+#### Phase 2 — Introspection
+
+| Ability | Description |
+|---------|-------------|
+| `ai-ddtk/get-options` | Read WordPress options by exact key array or prefix match |
+| `ai-ddtk/list-post-types` | Return all registered post types with labels, supports, and capabilities |
+| `ai-ddtk/list-registered-blocks` | Return all Gutenberg blocks from the block registry, optionally filtered by namespace |
+| `ai-ddtk/get-active-theme` | Return active theme info; gracefully degrades to name+version for read-only users |
+| `ai-ddtk/list-plugins` | Return active and/or inactive plugins with name, version, author, and status |
+
+### `verify-via-mcp` Strategy (Phase 2.2)
+
+Use MCP Adapter introspection abilities as the **verify step** in fix-iterate loops instead of Playwright for data checks. This is 10–50× faster per cycle.
+
+**Preferred verify abilities by scenario:**
+
+| Scenario | Use Ability |
+|----------|-------------|
+| Plugin saved its settings | `ai-ddtk/get-options` with the plugin's option prefix |
+| Plugin is active after activation | `ai-ddtk/list-plugins` with `status: active` |
+| Block registered successfully | `ai-ddtk/list-registered-blocks` with the plugin's namespace |
+| Post import completed | `ai-ddtk/list-posts` with `post_type` and `status` filters |
+| Correct theme is active | `ai-ddtk/get-active-theme` |
+
+**Decision rule:** If you need to see the page → use pw-auth. If you need to read/write data → use MCP Adapter.
+
+See [docs/mcp-adapter-abilities.md](../../docs/mcp-adapter-abilities.md) for full schema contracts and the complete MCP Adapter vs. pw-auth decision tree.
+
+### Related Files
+
+| File | Description |
+|------|-------------|
+| `templates/ai-ddtk-abilities.php` | Master abilities mu-plugin (Phase 1 + Phase 2) |
+| `docs/mcp-adapter-abilities.md` | Schema contract reference for all abilities |
+| `recipes/seed-test-content.md` | Recipe: seed/verify/teardown test content via MCP |
 
 ---
 
