@@ -66,17 +66,42 @@ local-wp my-site plugin list
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| **AI-DDTK MCP Server** | Unified stdio MCP package for LocalWP, pw-auth, wp-ajax-test, tmux, and WPCC tools/resources |
-| **WP Code Check** | Code review + AI triage with MCP server |
-| **WP AJAX Test** | AJAX endpoint testing and validation |
-| **AI-DDTK Tmux Proxy** | Persistent tmux-backed sessions for flaky IDE terminals |
-| **Playwright Auth** | One-time WP admin login + Playwright storageState caching |
-| **[Fix-Iterate Loop](fix-iterate-loop.md)** | Autonomous test-verify-fix workflow for AI agents |
-| **local-wp** | WP-CLI wrapper for Local by Flywheel |
-| **Playwright** | Headless browser automation |
-| **PixelMatch** | Visual regression testing |
+| Tool | Description | Reference |
+|------|-------------|-----------|
+| **AI-DDTK MCP Server** | Unified stdio MCP package for LocalWP, pw-auth, wp-ajax-test, tmux, and WPCC tools/resources | [AGENTS.md](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| **WP Code Check** | Code review + AI triage with MCP server | [WPCC Commands](docs/WPCC-COMMANDS.md) |
+| **WP AJAX Test** | AJAX endpoint testing and validation | [CLI Reference](docs/CLI-REFERENCE.md#wp-ajax-test) |
+| **AI-DDTK Tmux Proxy** | Persistent tmux-backed sessions for flaky IDE terminals | [CLI Reference](docs/CLI-REFERENCE.md#aiddtk-tmux) |
+| **Playwright Auth** | One-time WP admin login + Playwright storageState caching | [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) |
+| **[Fix-Iterate Loop](fix-iterate-loop.md)** | Autonomous test-verify-fix workflow for AI agents | [fix-iterate-loop.md](fix-iterate-loop.md) |
+| **local-wp** | WP-CLI wrapper for Local by Flywheel | [local-wp Commands](docs/LOCAL-WP-COMMANDS.md) |
+| **Playwright** | Headless browser automation | [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) |
+| **PixelMatch** | Visual regression testing | [CLI Reference](docs/CLI-REFERENCE.md) |
+
+## CLI Reference
+
+Complete command documentation for all AI-DDTK tools:
+
+| Tool | Reference |
+|------|-----------|
+| **pw-auth** | [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) — Playwright authentication & session caching |
+| **wpcc** | [WPCC Commands](docs/WPCC-COMMANDS.md) — WordPress code analysis |
+| **local-wp** | [local-wp Commands](docs/LOCAL-WP-COMMANDS.md) — Local by Flywheel WP-CLI wrapper |
+| **All Tools** | [CLI Reference](docs/CLI-REFERENCE.md) — Complete reference for all commands |
+
+**Quick Examples:**
+```bash
+# Authenticate to WordPress
+pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
+
+# Scan code for issues
+wpcc --paths ~/wp-content/plugins/my-plugin
+
+# Run WP-CLI command
+local-wp my-site plugin list
+```
+
+---
 
 ## MCP Server Quick Start
 
