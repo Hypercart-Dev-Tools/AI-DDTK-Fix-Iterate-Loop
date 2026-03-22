@@ -115,6 +115,8 @@ See `tools/mcp-server/README.md` for detailed tool documentation and examples.
 | **PHPStan** | Type-aware static analysis for PHP/WordPress projects |
 | **Recipes / Fix-Iterate Loop** | Multi-step verification and debugging workflows |
 
+Optional workflow note: for rapid throwaway cloning/testing on macOS, use the Valet clone-lab recipe at `recipes/valet-clone-lab.md` (experimental, not part of the core/default toolset).
+
 ### Workflow Triggers
 
 | When the user mentions... | Reach for... |
