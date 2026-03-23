@@ -54,6 +54,23 @@ export interface QmProfileData {
   logger: Record<string, Array<{ message: string; stack: string[] }>> | unknown[];
   transients: unknown;
   conditionals: unknown;
+  perf_timers?: {
+    timestamp: string;
+    site: string;
+    url: string;
+    stats: Record<string, {
+      count: number;
+      total_time: number;
+      min_time: number;
+      max_time: number;
+      total_queries: number;
+      total_memory: number;
+      parents: string[];
+      depths: number[];
+    }>;
+    hierarchy: Record<string, unknown>;
+    environment: Record<string, string>;
+  };
   _meta: {
     nonce: string;
     url: string;
@@ -76,6 +93,7 @@ export type QmProfilePageResult = Record<string, unknown> & {
   logger: Record<string, unknown> | unknown[];
   transients: unknown;
   conditionals: unknown;
+  perf_timers: Record<string, unknown> | null;
 };
 
 export type QmSlowQueriesResult = Record<string, unknown> & {
@@ -313,6 +331,7 @@ export function createQmHandlers(deps: QmHandlerDeps) {
         logger: profile.logger,
         transients: profile.transients,
         conditionals: profile.conditionals,
+        perf_timers: profile.perf_timers ?? null,
       };
     },
 

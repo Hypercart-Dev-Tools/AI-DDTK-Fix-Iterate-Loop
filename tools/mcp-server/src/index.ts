@@ -666,6 +666,7 @@ export function createServer() {
         logger: z.unknown(),
         transients: z.unknown(),
         conditionals: z.unknown(),
+        perf_timers: z.record(z.string(), z.unknown()).nullable().describe("Hypercart Performance Timer data if the plugin is active on the target site"),
       },
     },
     async ({ siteUrl, path: pagePath, method, body, headers, user }) => {

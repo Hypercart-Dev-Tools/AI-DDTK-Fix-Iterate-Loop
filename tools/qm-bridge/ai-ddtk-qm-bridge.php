@@ -70,6 +70,11 @@ add_action( 'plugins_loaded', function () {
 			);
 		}
 
+		// Include Hypercart Performance Timer data if available.
+		if ( function_exists( 'perf_export_data' ) ) {
+			$data['perf_timers'] = perf_export_data();
+		}
+
 		$data['_meta'] = array(
 			'nonce'      => $nonce,
 			'url'        => home_url( $_SERVER['REQUEST_URI'] ?? '/' ),
