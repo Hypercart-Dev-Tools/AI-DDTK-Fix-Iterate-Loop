@@ -53,6 +53,27 @@ program
 
 const options = program.opts();
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findInputValueByName($, fieldName) {
+  if (!fieldName) {
+    return null;
+  }
+
+  const inputs = $('input').toArray();
+
+  for (const input of inputs) {
+    if ($(input).attr('name') === fieldName) {
+      const value = $(input).val();
+      return typeof value === 'string' && value.length > 0 ? value : null;
+    }
+  }
+
+  return null;
+}
+
 function getSiteOrigin(siteUrl) {
   return new URL(siteUrl).origin;
 }
@@ -360,7 +381,7 @@ async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '
     // Look for nonce patterns in priority order
     // 1. Check for custom nonce field name if specified
     if (customNonceUrl && nonceFieldName) {
-      let nonce = $(`input[name="${nonceFieldName}"]`).val();
+      let nonce = findInputValueByName($, nonceFieldName);
       if (nonce) {
         if (options.verbose) {
           console.log(`   Found nonce in field: ${nonceFieldName}`);
@@ -379,7 +400,7 @@ async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '
 
     // 4. Check for custom field name (if different from _wpnonce)
     if (nonceFieldName !== '_wpnonce') {
-      nonce = $(`input[name="${nonceFieldName}"]`).val();
+      nonce = findInputValueByName($, nonceFieldName);
       if (nonce) return nonce;
     }
 
@@ -389,9 +410,10 @@ async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '
       const content = $(script).html();
       if (content && content.includes('nonce')) {
         // Try to match nonce in various formats
+        const escapedNonceFieldName = escapeRegExp(nonceFieldName);
         const patterns = [
           /nonce["']?\s*:\s*["']([a-f0-9]+)["']/i,
-          new RegExp(`${nonceFieldName}["']?\\s*:\\s*["']([a-f0-9]+)["']`, 'i'),
+          new RegExp(`${escapedNonceFieldName}["']?\\s*:\\s*["']([a-f0-9]+)["']`, 'i'),
           /["']nonce["']\s*:\s*["']([a-f0-9]+)["']/i
         ];
 
