@@ -589,6 +589,66 @@ This replaces slow Playwright page loads with direct PHP execution via WP-CLI �
 
 ---
 
+## Phase 3 — Options Write Abilities (Planned)
+
+> **Status: Planned — no functional code yet.**
+>
+> This phase adds write capabilities to the `wp_options` table, closing the gap that currently requires Playwright or `local_wp_run` to change plugin/theme settings.
+> The primary design constraint is safety: certain option keys can silently break or brick a WordPress install and must be treated with extra caution.
+
+### Implementation Checklist
+
+#### Core ability — `ai-ddtk/update-options`
+
+- [ ] Register new `ai-ddtk/update-options` ability in `templates/ai-ddtk-abilities.php`
+- [ ] Input schema: accept a `updates` object (key → value pairs) and an optional `autoload` hint (`yes` / `no` / `unchanged`, default `unchanged`)
+- [ ] Require `manage_options` capability — same guard as `get-options`
+- [ ] Call `update_option()` for each key so WordPress runs all registered sanitization callbacks (do **not** bypass with raw `$wpdb->update`)
+- [ ] Return per-key results: `{ key, previous_value, new_value, changed: bool }` so callers can diff what actually changed
+- [ ] Add output schema and example call to this doc
+
+#### Blocklist — hardcoded keys that require double-confirm
+
+The following option keys are in a hardcoded **blocklist** inside the ability handler.
+Writing to any of them must be refused unless the caller passes `"confirm_dangerous": true` **and** the new value passes additional validation:
+
+- [ ] `siteurl` — changing this relocates the entire site; validate it is a well-formed URL and warn the caller that permalink flushing may be needed
+- [ ] `home` — same concerns as `siteurl`
+- [ ] `template` — changes the active parent theme directory; validate it matches an installed theme slug returned by `get-active-theme`
+- [ ] `stylesheet` — changes the active theme (child or standalone); same validation as `template`
+- [ ] `active_plugins` — direct writes can bypass activation hooks and corrupt the list; **always refuse** — callers must use WP-CLI (`local_wp_run plugin activate/deactivate`) for plugin activation state changes
+- [ ] `active_sitewide_plugins` (multisite) — same refusal as `active_plugins`
+- [ ] `admin_email` — flag as sensitive; allow with `confirm_dangerous: true` but log the change
+- [ ] Add a `_ai_ddtk_options_blocklist()` helper that returns the list so tests and the ability handler share one source of truth
+
+#### Double-confirm UX contract
+
+- [ ] When a blocklisted key is included in `updates` without `confirm_dangerous: true`, return a `400`-style error: `{ success: false, blocked_keys: [...], error: "These option keys require confirm_dangerous: true — see docs for risks." }`
+- [ ] When `confirm_dangerous: true` is present, log the override to the WordPress error log (`error_log`) with the calling user ID and timestamp
+- [ ] Document the `confirm_dangerous` parameter in the input schema table in this doc
+- [ ] Add a `dangerous_keys_present` boolean to every response so callers can surface a warning even on success
+
+#### Prefix allowlist (optional, configurable)
+
+- [ ] Add a `_ai_ddtk_options_safe_prefix()` filter so site owners can restrict `update-options` to only keys matching approved prefixes (e.g., `woocommerce_`, `mytheme_`, `myplugin_`)
+- [ ] When the filter is active and a key falls outside every allowed prefix (and is not in the blocklist path), return a descriptive error rather than silently skipping
+
+#### Update the decision tree and rule-of-thumb table in this doc
+
+- [ ] Add `ai-ddtk/update-options` row to the Rule of Thumb table: _"Write safe plugin/theme settings that live in `wp_options`"_
+- [ ] Update the decision tree branch: `Is the data writable via a registered ability?` → add `update-options` as the first option before falling through to `local_wp_run`
+- [ ] Add a Phase 3 verify-via-mcp scenario table row: _"Did the settings page save correctly?"_ → `get-options` after `update-options`
+
+#### Tests
+
+- [ ] Unit test: non-blocklisted key writes succeed and return previous/new values
+- [ ] Unit test: blocklisted key without `confirm_dangerous` returns error and does **not** call `update_option()`
+- [ ] Unit test: blocklisted key with `confirm_dangerous: true` calls `update_option()` and logs to error log
+- [ ] Unit test: `active_plugins` is always refused even with `confirm_dangerous: true`
+- [ ] Integration test: write a WooCommerce option prefix key on a local site and verify with `get-options`
+
+---
+
 ## Related
 
 - [templates/ai-ddtk-abilities.php](../templates/ai-ddtk-abilities.php) — The mu-plugin source
