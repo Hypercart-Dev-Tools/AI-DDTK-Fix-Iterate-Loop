@@ -85,6 +85,26 @@ add_action( 'plugins_loaded', function () {
 }, 20 );
 
 /**
+ * Verify QM cookie directly — bypasses WordPress REST nonce requirement.
+ *
+ * Cookie-based REST auth requires X-WP-Nonce which the MCP handler can't
+ * obtain without a prior authenticated request. QM's own cookie verification
+ * (wp_validate_auth_cookie on the QM cookie value) is sufficient and matches
+ * the same security gate QM uses for its own dispatchers.
+ */
+function aiddtk_qm_verify_cookie(): bool {
+	if ( current_user_can( 'view_query_monitor' ) ) {
+		return true;
+	}
+
+	if ( ! class_exists( 'QM_Dispatcher' ) ) {
+		return false;
+	}
+
+	return QM_Dispatcher::user_can_view();
+}
+
+/**
  * REST endpoint to retrieve captured QM profile data.
  */
 add_action( 'rest_api_init', function () {
@@ -117,9 +137,7 @@ add_action( 'rest_api_init', function () {
 
 			return rest_ensure_response( $data );
 		},
-		'permission_callback' => function () {
-			return current_user_can( 'view_query_monitor' );
-		},
+		'permission_callback' => 'aiddtk_qm_verify_cookie',
 		'args'                => array(
 			'nonce' => array(
 				'required'          => true,
@@ -140,8 +158,6 @@ add_action( 'rest_api_init', function () {
 				'bridge_version' => '1.0.0',
 			) );
 		},
-		'permission_callback' => function () {
-			return current_user_can( 'view_query_monitor' );
-		},
+		'permission_callback' => 'aiddtk_qm_verify_cookie',
 	) );
 } );
