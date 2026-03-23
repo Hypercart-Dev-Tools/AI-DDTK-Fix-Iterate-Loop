@@ -84,6 +84,23 @@ local-wp --help
 
 For complete MCP setup (Augment Code, Claude Desktop, Cline wiring, all 18 tools), see [AGENTS.md — MCP Server Setup](AGENTS.md#mcp-server-setup-and-lifecycle).
 
+## Local MCP Workflow
+
+Keep the checked-in `.mcp.json` generic and public-safe.
+
+For local dual-server work:
+- store real site-specific adapter snippets under `temp/mcp/local-snippets/`
+- use [examples/mcp/local-snippet.example.json](examples/mcp/local-snippet.example.json) as the format reference
+- generate a merged local config with `./bin/mcp-local-config --write .mcp.local.json`
+
+If you intentionally need to overwrite the repo-root `.mcp.json` for local-only work, use the helper's guarded mode:
+
+```bash
+printf 'OVERWRITE\n' | ./bin/mcp-local-config --write-root
+```
+
+Do not commit generated site-specific MCP configs containing real site names, internal domains, local filesystem paths, user IDs, tokens, or auth artifacts.
+
 ## Repository Structure
 
 ```

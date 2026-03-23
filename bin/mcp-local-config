@@ -16,17 +16,22 @@ stored under temp/mcp/local-snippets/ and prints the result.
 Usage:
   ./bin/mcp-local-config
   ./bin/mcp-local-config --write .mcp.local.json
+  ./bin/mcp-local-config --write-root
+  printf 'OVERWRITE\n' | ./bin/mcp-local-config --write-root
 
 Notes:
   - Snippet files must be JSON.
   - A snippet can be either { "mcpServers": { ... } } or { "server-name": { ... } }.
   - Do not commit generated local MCP configs containing real site names.
+  - Writing directly to .mcp.json requires an explicit warning confirmation.
 `);
 }
 
 function parseArguments(argv) {
   const args = argv.slice(2);
   let outputPath = null;
+  let writeRoot = false;
+  let force = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -45,10 +50,24 @@ function parseArguments(argv) {
       continue;
     }
 
+    if (arg === '--write-root') {
+      writeRoot = true;
+      continue;
+    }
+
+    if (arg === '--force') {
+      force = true;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${arg}`);
   }
 
-  return { outputPath };
+  if (writeRoot && outputPath) {
+    throw new Error('Use either --write <path> or --write-root, not both');
+  }
+
+  return { outputPath, writeRoot, force };
 }
 
 function readJsonFile(filePath) {
@@ -86,8 +105,28 @@ function loadLocalSnippets() {
   return mergedServers;
 }
 
+function readConfirmationToken() {
+  return fs.readFileSync(0, 'utf8').trim();
+}
+
+function assertRootWriteConfirmed(force) {
+  if (force) {
+    return;
+  }
+
+  console.error('WARNING: This will overwrite the checked-in .mcp.json with local-only MCP server entries.');
+  console.error('This can leak real site names, internal domains, local paths, or user mappings if you commit it.');
+  console.error('Type OVERWRITE and press Enter to continue.');
+
+  const confirmationToken = readConfirmationToken();
+
+  if (confirmationToken !== 'OVERWRITE') {
+    throw new Error('Aborted .mcp.json overwrite. Confirmation token did not match OVERWRITE.');
+  }
+}
+
 function main() {
-  const { outputPath } = parseArguments(process.argv);
+  const { outputPath, writeRoot, force } = parseArguments(process.argv);
   const baseConfig = readJsonFile(baseConfigPath);
 
   if (!baseConfig.mcpServers || typeof baseConfig.mcpServers !== 'object' || Array.isArray(baseConfig.mcpServers)) {
@@ -106,11 +145,23 @@ function main() {
   const formatted = `${JSON.stringify(mergedConfig, null, 2)}\n`;
 
   if (!outputPath) {
-    process.stdout.write(formatted);
+    if (!writeRoot) {
+      process.stdout.write(formatted);
+      return;
+    }
+
+    assertRootWriteConfirmed(force);
+    fs.writeFileSync(baseConfigPath, formatted, 'utf8');
+    console.error('Wrote merged MCP config to .mcp.json');
     return;
   }
 
   const resolvedOutputPath = path.resolve(repoRoot, outputPath);
+
+  if (resolvedOutputPath === baseConfigPath) {
+    assertRootWriteConfirmed(force);
+  }
+
   fs.writeFileSync(resolvedOutputPath, formatted, 'utf8');
   console.error(`Wrote merged MCP config to ${path.relative(repoRoot, resolvedOutputPath) || resolvedOutputPath}`);
 }
