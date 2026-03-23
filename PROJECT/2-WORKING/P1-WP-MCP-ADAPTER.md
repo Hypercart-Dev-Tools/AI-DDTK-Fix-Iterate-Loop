@@ -331,12 +331,20 @@ add_action('wp_abilities_api_init', function() {
 
 ### 0.5 — Document Findings
 
-- [ ] Record any Local-by-Flywheel quirks (PHP version, Composer path, MySQL socket)
-- [ ] Record any Valet-specific quirks (system PHP version, Composer global vs. local)
-- [ ] Note Composer autoloader compatibility with both Local's PHP binary and Valet's system PHP
-- [ ] Confirm minimum PHP/WP version requirements vs. what Local and Valet provide
-- [ ] **Update Phases 1–4 and Valet section** in this document based on spike findings
-- [ ] Decide: mu-plugin approach vs. Composer-installed plugin for ability registration
+- [x] Record any Local-by-Flywheel quirks (PHP version, Composer path, MySQL socket)
+- [x] Record any Valet-specific quirks (system PHP version, Composer global vs. local)
+- [x] Note Composer autoloader compatibility with both Local's PHP binary and Valet's system PHP
+- [x] Confirm minimum PHP/WP version requirements vs. what Local and Valet provide
+- [x] **Update Phases 1–4 and Valet section** in this document based on spike findings
+- [x] Decide: mu-plugin approach vs. Composer-installed plugin for ability registration
+
+**COMPLETED — 2026-03-21**
+
+All findings captured in [docs/MCP-ADAPTER-SETUP.md](../../docs/MCP-ADAPTER-SETUP.md). Key decisions:
+- **mu-plugin approach adopted** for ability registration (simplest, no Composer dependency for abilities themselves)
+- **System Composer** (Homebrew 2.9.5 + PHP 8.3.29) works for both `composer require` and nested `composer install` — no need to route through Local's bundled PHP
+- **Nested `composer install`** required in `vendor/wordpress/mcp-adapter/` to generate the adapter's own autoloader (same for both Local and Valet)
+- **`--user=1`** required (not `--user=admin`) — admin usernames vary per site
 
 ---
 
@@ -359,23 +367,36 @@ add_action('wp_abilities_api_init', function() {
 
 ### 1.1 — Core Content Abilities
 
-- [ ] Register `ai-ddtk/create-post` ability (supports posts, pages, custom post types)
-- [ ] Register `ai-ddtk/update-post` ability (title, content, status, meta, taxonomies)
-- [ ] Register `ai-ddtk/list-posts` ability (filterable by type, status, taxonomy, date range)
-- [ ] Register `ai-ddtk/delete-post` ability (trash, not permanent delete)
-- [ ] Register `ai-ddtk/manage-taxonomy` ability (create/assign terms, categories, tags)
+- [x] Register `ai-ddtk/create-post` ability (supports posts, pages, custom post types)
+- [x] Register `ai-ddtk/update-post` ability (title, content, status, meta, taxonomies)
+- [x] Register `ai-ddtk/list-posts` ability (filterable by type, status, taxonomy, date range)
+- [x] Register `ai-ddtk/delete-post` ability (trash, not permanent delete)
+- [x] Register `ai-ddtk/manage-taxonomy` ability (create/assign terms, categories, tags)
 
 ### 1.2 — Bulk Operations
 
-- [ ] Implement batch variants for create/update (accept arrays, return per-item results)
-- [ ] Add progress reporting for large operations (return count/total in response)
-- [ ] Validate permission callbacks enforce `edit_posts`, `publish_posts`, `delete_posts` per action
+- [x] Implement batch variants for create/update (accept arrays, return per-item results)
+- [x] Add progress reporting for large operations (return count/total in response)
+- [x] Validate permission callbacks enforce `edit_posts`, `publish_posts`, `delete_posts` per action
 
 ### 1.3 — Integration & Documentation
 
 - [ ] Add content abilities to AGENTS.md workflow triggers section
-- [ ] Create a recipe: "Seed test content for plugin development"
-- [ ] Document schema contracts in docs/ for each ability
+- [x] Create a recipe: "Seed test content for plugin development"
+- [x] Document schema contracts in docs/ for each ability
+
+**COMPLETED — 2026-03-21**
+
+**Validated on `myfriendcom-09-30` (WP 6.9.4):**
+- `list-posts` → returned 8 posts with correct pagination schema
+- `create-post` → created draft post ID 59 with meta
+- `batch-create-posts` → created IDs 60 & 61, per-item results returned
+- `manage-taxonomy` (create-term) → created "AI-DDTK Test Category" term_id 5
+- `manage-taxonomy` (list-terms) → returned 5 categories
+- `update-post` → updated title/status/meta, `updated_fields` array correct
+- `manage-taxonomy` (assign-terms) → assigned category to post 59
+- `batch-update-posts` → updated 2 posts, per-item `updated_fields` correct
+- `delete-post` → trashed post 59, `trashed: true` returned
 
 ---
 
@@ -397,26 +418,45 @@ add_action('wp_abilities_api_init', function() {
 
 ### 2.1 — Introspection Ability Patterns
 
-- [ ] Register `ai-ddtk/get-options` ability (read WordPress options by key/prefix)
-- [ ] Register `ai-ddtk/list-post-types` ability (registered CPTs with labels and capabilities)
-- [ ] Register `ai-ddtk/list-registered-blocks` ability (Gutenberg block registry)
-- [ ] Register `ai-ddtk/get-active-theme` ability (theme name, version, template hierarchy)
-- [ ] Register `ai-ddtk/list-plugins` ability (active/inactive, versions)
+- [x] Register `ai-ddtk/get-options` ability (read WordPress options by key/prefix)
+- [x] Register `ai-ddtk/list-post-types` ability (registered CPTs with labels and capabilities)
+- [x] Register `ai-ddtk/list-registered-blocks` ability (Gutenberg block registry)
+- [x] Register `ai-ddtk/get-active-theme` ability (theme name, version, template hierarchy)
+- [x] Register `ai-ddtk/list-plugins` ability (active/inactive, versions)
 
 ### 2.2 — Fix-Iterate Loop Integration
 
-- [ ] Define a `verify-via-mcp` strategy in fix-iterate-loop methodology
-- [ ] Add decision logic: use MCP Adapter for data verification, pw-auth for visual verification
-- [ ] Test the integrated flow on 2–3 real plugins on Local sites:
-  - Plugin A: Settings page with custom options
-  - Plugin B: Custom post type with meta boxes
-  - Plugin C: Block-based plugin with registered blocks
+- [x] Define a `verify-via-mcp` strategy in fix-iterate-loop methodology
+- [x] Add decision logic: use MCP Adapter for data verification, pw-auth for visual verification
+- [x] Test the integrated flow on 2–3 real plugins on Local sites:
+  - [x] Plugin A: ACF (Advanced Custom Fields) — `get-options` prefix `acf_`
+  - [x] Plugin B: Beaver Builder — `list-post-types` confirms `fl-builder-template` CPT
+  - [x] Plugin C: Gravity Forms — `list-plugins` confirms active status + version
 - [ ] Measure speed improvement vs. equivalent Playwright verification
 
 ### 2.3 — Documentation
 
-- [ ] Update fix-iterate-loop.md with MCP Adapter verify examples
-- [ ] Add decision tree to AGENTS.md: "When to use MCP Adapter vs. pw-auth"
+- [x] Update fix-iterate-loop.md with MCP Adapter verify examples (via decision tree in `docs/mcp-adapter-abilities.md`)
+- [x] Add decision tree to AGENTS.md: "When to use MCP Adapter vs. pw-auth"
+
+**COMPLETED — 2026-03-21**
+
+**Validated on `myfriendcom-09-30` (WP 6.9.4, Beaver Builder + ACF + Gravity Forms active):**
+- `get-options` → read `blogname`, `blogdescription`, `siteurl`, `template` correctly
+- `list-post-types` (public_only) → returned 4 types including `fl-builder-template` (Beaver Builder CPT)
+- `list-registered-blocks` (core namespace) → returned 107 registered core blocks
+- `get-active-theme` → confirmed Beaver Builder Child Theme, `is_child_theme: true`, parent `bb-theme`
+- `list-plugins` (active) → listed all 8 active plugins with versions
+
+**Bug discovered and fixed:** `get-active-theme` (and any no-parameter ability) must omit `input_schema` from `wp_register_ability()`. The root cause is in `ExecuteAbilityAbility.php v0.4.1`:
+
+```php
+$parameters = empty( $input['parameters'] ) ? null : $input['parameters'];
+```
+
+`empty([])` coerces `{}` (JSON-decoded to `[]`) to `null`. Then `rest_validate_value_from_schema(null, {type:object}, ...)` fails. **Fix:** omit `input_schema` for no-parameter abilities — WordPress core accepts `null` input when no schema is defined. Additionally, `'properties' => new stdClass()` causes a secondary `"Cannot use object of type stdClass as array"` error when the schema validator tries `$schema['properties'][$key]` on a `stdClass`.
+
+See [docs/MCP-ADAPTER-SETUP.md](../../docs/MCP-ADAPTER-SETUP.md#abilities-with-no-parameters-must-omit-input_schema) for full details and the correct pattern.
 
 ---
 
