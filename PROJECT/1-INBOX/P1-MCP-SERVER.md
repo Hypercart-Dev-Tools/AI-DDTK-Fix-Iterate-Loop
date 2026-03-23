@@ -1,9 +1,9 @@
 ---
 title: "P1: AI-DDTK MCP Server"
-status: complete
+status: active
 author: noelsaw
 created: 2026-03-07
-updated: 2026-03-09
+updated: 2026-03-22
 project: AI-DDTK
 category: feature
 priority: P1
@@ -25,6 +25,7 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
 - [Phase 6 — Documentation & Onboarding](#phase-6--documentation--onboarding)
 - [Tool Reference](#tool-reference)
 - [Resource Reference](#resource-reference)
+- [Phase 7 — Query Monitor MCP Integration](#phase-7--query-monitor-mcp-integration)
 - [Open Questions](#open-questions)
 
 <!-- /TOC -->
@@ -85,6 +86,16 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [x] Update AGENTS.md with MCP tool usage patterns
   - [x] Update ROADMAP-PERPLEXITY.md — mark #6 complete
   - [x] Add reference to external WP DB Toolkit and it's MCP server that can be used for database queries outside of MySQL server. https://github.com/Hypercart-Dev-Tools/WP-DB-Toolkit
+
+- [ ] **Phase 7 — Query Monitor MCP Integration** · Effort: Med · Risk: Med
+  - [x] Spike: validate QM envelope dispatcher on Local site (2026-03-22)
+  - [ ] Auth cookie extraction from pw-auth storageState
+  - [ ] `qm_profile` tool (full QM envelope for any REST route)
+  - [ ] `qm_slow_queries` tool (threshold-filtered query report)
+  - [ ] `qm_duplicate_queries` tool (N+1 detection from dupes collector)
+  - [ ] Unit tests with mocked QM envelope responses
+  - [ ] Tool registration in index.ts + tool/resource reference update
+  - [ ] Optional follow-up: mu-plugin companion for frontend page profiling
 
 ---
 
@@ -534,6 +545,139 @@ Ship repo-tracked integration files plus secure localhost-only HTTP/SSE transpor
 | `wpcc://latest-report` | Most recent WPCC report (HTML) | `text/html` |
 | `wpcc://scan/{id}` | Specific scan by timestamp | `application/json` |
 | `auth://status/{user}` | Auth metadata only (no credentials) | `application/json` |
+
+---
+
+## Phase 7 — Query Monitor MCP Integration
+
+> Effort: **Med** · Risk: **Med** · Status: **Spike complete, not started**
+
+Expose Query Monitor profiling data through the existing MCP server, enabling agents to profile WordPress pages and query: "show me all queries over 50ms on the checkout page."
+
+### Spike Findings (2026-03-22)
+
+Validated on `myfriendcom-09-30.local` running QM 3.20.4, WordPress 6.9.4.
+
+#### Finding 1: QM has no REST API — use the envelope dispatcher instead
+
+QM does not register `/wp-json/query-monitor/v1/` endpoints. Instead, it injects a `qm` property into REST envelope responses when `?_envelope=1` is appended to any `/wp-json/` route. This is actually **better** than a standalone API — you get QM profiling data for the request you're making in a single HTTP call.
+
+**Confirmed working:**
+```
+GET /?rest_route=/wp/v2/posts&per_page=5&_envelope=1
+→ { body: [...], status: 200, headers: {...}, qm: { db_queries, cache, http, ... } }
+```
+
+#### Finding 2: Only 6 of 27 collectors expose raw JSON
+
+The envelope dispatcher loads outputters from `output/raw/`. Only these 6 collectors are available:
+
+| Collector | Data | Value |
+|-----------|------|-------|
+| `db_queries` | All SQL queries with timing, stack traces, duplicate detection | **High** |
+| `cache` | Object cache hit/miss ratios | **High** |
+| `http` | External HTTP API requests with timing | **High** |
+| `logger` | Logged messages (`error_log`, etc.) | Medium |
+| `conditionals` | WordPress conditional tag results | Low |
+| `transients` | Transients usage | Medium |
+
+The top 3 (db_queries, cache, http) cover the most valuable profiling use cases.
+
+#### Finding 3: `db_queries` structure is rich and well-typed
+
+```json
+{
+  "total": 49,
+  "time": 0.0032,
+  "queries": [
+    {
+      "i": 1,
+      "sql": "SELECT option_name, option_value FROM wp_options WHERE autoload IN (...)",
+      "time": 0.0004,
+      "stack": ["wp_load_alloptions()", "is_blog_installed()", "wp_not_installed()"],
+      "result": 196
+    }
+  ],
+  "dupes": { ... }
+}
+```
+
+Fields per query: `i` (index), `sql`, `time` (seconds), `stack` (call trace array), `result` (row count or error).
+
+#### Finding 4: Application passwords DO NOT work — session cookies required
+
+**Root cause:** QM's `Dispatcher::init()` runs at WordPress's `init` hook, which fires **before** `rest_api_init`. Application passwords authenticate at `rest_api_init`, so `user_can_view()` returns false at init time and QM fires `qm/cease`, stopping all data collection for the entire request.
+
+**What works:** WordPress session cookies (`wordpress_logged_in_*`) + QM auth cookie (`wp-query_monitor_*`). These are validated at `init` time via `$_COOKIE` and `wp_validate_auth_cookie()`.
+
+**Implication:** The handler must obtain valid WordPress session cookies. pw-auth's storageState files may contain these cookies (needs verification), or a thin mu-plugin can generate them on demand.
+
+#### Finding 5: `_envelope=1` only works on REST routes, not frontend URLs
+
+Frontend URLs (`/`, `/product/some-slug/`) return HTML with QM's full HTML debug panel embedded (~937KB). The envelope dispatcher hooks into `rest_envelope_response`, which is a REST-layer-only filter.
+
+**Implication for frontend profiling:** Two options:
+
+- **Option A (REST-only):** Profile REST endpoints like `/wp/v2/posts?per_page=10` — captures the same core queries (WP_Query, options, cron) but misses theme template queries and frontend-specific hooks. Good enough for API-layer profiling.
+- **Option B (mu-plugin companion):** A thin mu-plugin (~50 lines) that hooks `shutdown`, serializes QM collector data to a transient, and exposes a REST endpoint to retrieve it. Enables true frontend page profiling. More stable long-term than parsing HTML output.
+
+### Architecture Decision
+
+**Use Option A first (REST-only profiling), defer Option B (frontend profiling) to a follow-up.**
+
+REST endpoint profiling covers the primary use case (database query analysis, cache efficiency, external HTTP profiling) without any WordPress-side code. Frontend profiling via mu-plugin can be added later as a separate deliverable.
+
+### Auth Strategy
+
+The handler will:
+1. Read pw-auth's storageState file (`temp/playwright/.auth/<user>.json`) to extract WordPress session cookies
+2. Construct the QM auth cookie value from the `logged_in` cookie in the storageState
+3. Pass both cookies in the REST request to the target site
+
+If pw-auth storageState doesn't contain the needed cookies, fall back to a mu-plugin endpoint (similar to the spike's `qm-spike-cookie-gen.php`) that generates cookies via application password auth.
+
+### Proposed Tools
+
+1. **`qm_profile`**
+   - Profile any REST endpoint with QM data collection
+   - Inputs: `siteUrl` (string, required), `route` (string, required — e.g. `/wp/v2/posts`), `params` (object, optional — query params like `per_page`), `user` (string, default "admin")
+   - Returns: `{ site, route, overview: { time, memory }, db_queries: { total, time, queries, dupes }, cache, http, logger }`
+   - Auth: Uses pw-auth session cookies + QM cookie
+
+2. **`qm_slow_queries`**
+   - Convenience tool: profile a REST endpoint and filter to queries above a threshold
+   - Inputs: `siteUrl`, `route`, `params`, `threshold_ms` (number, default 50), `user`
+   - Returns: `{ site, route, total_queries, slow_queries: [...], total_time }`
+
+3. **`qm_duplicate_queries`**
+   - Convenience tool: profile and return only duplicate queries (N+1 detection)
+   - Inputs: `siteUrl`, `route`, `params`, `user`
+   - Returns: `{ site, route, duplicates: [{ sql, count, total_time, callers }] }`
+
+### Deliverables
+
+1. `tools/mcp-server/src/handlers/qm.ts` — QM handler (~200-250 lines)
+2. `tools/mcp-server/test/qm.test.ts` — Unit tests with mocked HTTP responses
+3. `tools/mcp-server/src/index.ts` — Register 3 new tools (~60 lines)
+4. Update tool reference table and changelog
+
+### Risks & Mitigations
+
+| Risk | Level | Mitigation |
+|------|-------|------------|
+| QM envelope format is not a stable API | Medium | Pin QM version in docs, add integration test that validates envelope structure |
+| pw-auth storageState may not contain WP cookies | Medium | Verify during implementation; fall back to mu-plugin cookie generator |
+| QM data collection stopped by `qm/cease` race | Low | Session cookies authenticate at `init` time, avoiding the app-password timing issue |
+| REST-only profiling misses frontend-specific queries | Low | Acceptable for Phase 7; Option B mu-plugin is a natural follow-up |
+
+### Acceptance Criteria
+
+- `qm_profile` returns structured QM data (db_queries, cache, http) for a REST endpoint on a Local site
+- `qm_slow_queries` correctly filters queries by threshold
+- `qm_duplicate_queries` identifies N+1 patterns from the `dupes` collector
+- All tools require auth and fail cleanly when pw-auth state is missing or stale
+- `npm test` passes with mocked QM envelope responses
+- No WordPress-side code required (REST-only mode)
 
 ---
 
