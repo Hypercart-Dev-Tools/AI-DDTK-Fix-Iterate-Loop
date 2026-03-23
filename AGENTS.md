@@ -115,7 +115,7 @@ See `tools/mcp-server/README.md` for detailed tool documentation and examples.
 | **PHPStan** | Type-aware static analysis for PHP/WordPress projects | [recipes/phpstan-wordpress-setup.md](recipes/phpstan-wordpress-setup.md) |
 | **Recipes / Fix-Iterate Loop** | Multi-step verification and debugging workflows | [fix-iterate-loop.md](fix-iterate-loop.md) |
 
-Optional workflow note: for rapid throwaway cloning/testing on macOS, use the Valet clone-lab recipe at `recipes/valet-clone-lab.md` (experimental, not part of the core/default toolset).
+Optional workflow note: for rapid throwaway cloning/testing on macOS, use the Valet clone-lab recipe at `recipes/valet-clone-lab.md` and the helper script `tools/valet-site-copy.sh` (experimental, not part of the core/default toolset).
 
 ### CLI Reference Documentation
 

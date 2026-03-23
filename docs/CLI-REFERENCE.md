@@ -1,6 +1,6 @@
 # AI-DDTK CLI Reference
 
-Complete command reference for all AI-DDTK tools: `pw-auth`, `wpcc`, `local-wp`, `wp-ajax-test`, `aiddtk-tmux`.
+Complete command reference for all AI-DDTK tools: `pw-auth`, `wpcc`, `local-wp`, `wp-ajax-test`, `aiddtk-tmux`, `tools/valet-site-copy.sh`.
 
 **Last Updated:** 2026-03-22  
 **Version:** 1.0.0
@@ -14,8 +14,9 @@ Complete command reference for all AI-DDTK tools: `pw-auth`, `wpcc`, `local-wp`,
 3. [local-wp](#local-wp) — Local by Flywheel WP-CLI wrapper
 4. [wp-ajax-test](#wp-ajax-test) — AJAX endpoint testing
 5. [aiddtk-tmux](#aiddtk-tmux) — Resilient terminal sessions
-6. [Exit Codes](#exit-codes)
-7. [Common Patterns](#common-patterns)
+6. [valet-site-copy.sh (Optional)](#valet-site-copysh-optional)
+7. [Exit Codes](#exit-codes)
+8. [Common Patterns](#common-patterns)
 
 ---
 
@@ -509,6 +510,47 @@ aiddtk-tmux capture --tail 100
 
 # Stop session
 aiddtk-tmux stop
+```
+
+---
+
+## valet-site-copy.sh (Optional)
+
+**Purpose:** Create and tear down disposable Valet WordPress clone sites.
+
+**Location:** `tools/valet-site-copy.sh`
+
+```bash
+tools/valet-site-copy.sh clone <source-site> <target-site> [options]
+tools/valet-site-copy.sh teardown <target-site> [options]
+
+# shorthand clone form
+tools/valet-site-copy.sh <source-site> <target-site> [options]
+```
+
+**Options:**
+- `--root <path>` — Clone root directory (default: `~/Valet-Sites`)
+- `--source-url <url>` — Source URL for search/replace (default: `http://<source>.test`)
+- `--target-url <url>` — Target URL for search/replace (default: `http://<target>.test`)
+- `--db-host <host>` — MySQL host (default: `127.0.0.1`)
+- `--db-user <user>` — MySQL user (default: `root`)
+- `--db-pass <pass>` — MySQL password (default: empty)
+- `--force` — Overwrite existing target clone/database during clone
+- `--yes` — Skip teardown confirmation prompt
+
+**Examples:**
+```bash
+# Create clone from seed
+tools/valet-site-copy.sh clone clone-source clone-test-01
+
+# Equivalent shorthand
+tools/valet-site-copy.sh clone-source clone-test-01
+
+# Overwrite existing target clone
+tools/valet-site-copy.sh clone clone-source clone-test-01 --force
+
+# Teardown clone
+tools/valet-site-copy.sh teardown clone-test-01 --yes
 ```
 
 ---

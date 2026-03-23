@@ -234,7 +234,7 @@ Beyond initial setup: `doctor-playwright` (diagnose Playwright issues), `setup-w
 | [Performance Audit](recipes/performance-audit.md) | WPCC scan + WP Performance Timer runtime confirmation |
 | [PHPStan Setup](recipes/phpstan-wordpress-setup.md) | Type-checking with baseline strategy for WordPress |
 | [Seed Test Content](recipes/seed-test-content.md) | Batch content creation via MCP Adapter for fix-iterate loops |
-| [Valet Clone Lab](recipes/valet-clone-lab.md) | Rapid throwaway WP cloning on macOS (optional, experimental) |
+| [Valet Clone Lab](recipes/valet-clone-lab.md) | Rapid throwaway WP cloning on macOS with `tools/valet-site-copy.sh` (optional, experimental) |
 
 ---
 

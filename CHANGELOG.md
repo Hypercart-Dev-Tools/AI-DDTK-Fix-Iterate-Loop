@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Repo-level PHPStan setup** — added a root `composer.json` for PHP static-analysis dependencies and a focused `phpstan.neon` that targets AI-DDTK's first-party WordPress PHP files under `templates/` and `tools/qm-bridge/` while excluding vendored/generated subtrees.
 - **Local MCP workflow helpers** — added `.mcp.local.example.json`, `examples/mcp/local-snippet.example.json`, and a new `bin/mcp-local-config` helper for merging the checked-in generic `.mcp.json` with local-only snippets from `temp/mcp/local-snippets/`. The helper now supports guarded root writes, dry-run previews, and tracked `temp/mcp/local-snippets/` plus `temp/mcp/notes/` scaffolds for fresh clones.
+- **Valet clone helper script** — added `tools/valet-site-copy.sh` as a canonical optional helper for Valet clone-lab workflows with `clone` and `teardown` commands, `~/Valet-Sites` defaults, `valet_` database naming, and explicit `--dbhost=127.0.0.1`-aligned behavior for local MySQL operations.
 
 ### Fixed
 - **`wp-ajax-test` authenticated nonce fetch hardening** — custom `--nonce-url` values now must resolve to the same origin as `--url`, and nonce fetch redirects are followed manually only when they stay on the same origin. This prevents authenticated WordPress cookies from being forwarded to arbitrary external hosts during nonce discovery.
@@ -17,6 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`wp-ajax-test` cookie and `--nopriv` handling** — cookie values from `Set-Cookie` headers are now preserved intact even when they contain `=` characters, and `--nopriv` now means an actual unauthenticated request flow by skipping auth loading and nonce discovery instead of acting as a no-op flag.
 - **`bin/mcp-local-config` snippet validation** — local MCP snippets are now validated per server entry so malformed values fail fast with a direct error when a server entry is not an object or is missing the required `command` field.
 - **Query Monitor MCP TLS verification scope** — the QM handler now disables HTTPS certificate verification only for explicit local-development hosts (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`) instead of all HTTPS targets.
+
+### Changed
+- **Valet clone-lab documentation now points to helper script** — updated `recipes/valet-clone-lab.md`, `README.md`, `AGENTS.md`, and `docs/CLI-REFERENCE.md` to treat `tools/valet-site-copy.sh` as the canonical optional entry point for Valet clone creation/teardown.
 
 ## [1.1.0-rc.1] - 2026-03-22
 
