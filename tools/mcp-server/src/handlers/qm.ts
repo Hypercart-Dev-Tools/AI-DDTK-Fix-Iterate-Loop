@@ -165,8 +165,9 @@ function extractDomain(siteUrl: string): string {
   return new URL(siteUrl).hostname;
 }
 
+/** Playwright stores cookie values URL-encoded; WordPress expects decoded values. */
 function buildCookieHeader(cookies: Array<{ name: string; value: string }>): string {
-  return cookies.map((c) => `${c.name}=${c.value}`).join("; ");
+  return cookies.map((c) => `${c.name}=${decodeURIComponent(c.value)}`).join("; ");
 }
 
 /**
