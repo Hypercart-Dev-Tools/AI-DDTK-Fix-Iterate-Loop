@@ -112,6 +112,13 @@ async function listFilesRecursive(rootDir: string): Promise<string[]> {
   return files.sort();
 }
 
+/**
+ * Resolve Local runtime directories that most likely belong to a site name.
+ *
+ * Local can leave behind multiple run directories over time, so this scorer
+ * prefers configs that mention the exact site path or hostname and then biases
+ * toward sessions with an active MySQL socket.
+ */
 async function findMatchingSiteIds(localRunDir: string, localSitesDir: string, siteName: string): Promise<string[]> {
   if (!(await pathExists(localRunDir))) {
     return [];

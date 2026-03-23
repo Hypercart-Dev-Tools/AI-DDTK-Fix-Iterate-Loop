@@ -79,6 +79,12 @@ function sanitizeAuthUser(user: string): string {
   return user.replace(/[^A-Za-z0-9_-]/g, "");
 }
 
+/**
+ * Normalize a user identifier before using it in auth-state paths.
+ *
+ * The wrapper stores Playwright state as temp/playwright/.auth/<user>.json, so
+ * this rejects path-like or empty values before any filesystem operation.
+ */
 function normalizeRequestedUser(user: string): string {
   const safeUser = sanitizeAuthUser(user);
 
@@ -140,6 +146,12 @@ function buildWpCliPrefix(site: string): string {
   return ["local-wp", site].map(quoteCommandPrefixArg).join(" ");
 }
 
+/**
+ * Derive structured auth metadata from the cached Playwright auth file.
+ *
+ * MCP responses use this instead of exposing raw auth-state content so callers
+ * can reason about freshness and file presence without reading credentials.
+ */
 async function getAuthStatusEntry(
   workingDir: string,
   requestedUser: string,
