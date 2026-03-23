@@ -556,7 +556,7 @@ scan_log_delta() {
         return 0
     fi
 
-    grep -Ein 'fatal error|parse error|uncaught .*error|allowed memory size|critical error|error establishing a database connection' "$file_path" > "$alerts_file" || true
+    grep -Ein 'fatal error|parse error|uncaught .*error|allowed memory size|critical error|error establishing a database connection|segmentation fault|segfault|core dumped' "$file_path" > "$alerts_file" || true
     if [ -s "$alerts_file" ]; then
         count="$(wc -l < "$alerts_file" | tr -d ' ')"
         LOG_ALERT_COUNT=$((LOG_ALERT_COUNT + count))
