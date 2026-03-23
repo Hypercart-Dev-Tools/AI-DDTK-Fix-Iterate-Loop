@@ -58,6 +58,7 @@ local-wp --help
 | WPCC Orchestration & Templates | [AGENTS.md — WPCC](AGENTS.md#wpcc-wp-code-check) |
 | WordPress Dev Guidelines | [AGENTS.md — Architecture](AGENTS.md#️-wordpress-architecture-and-delivery-rules) |
 | Troubleshooting | [AGENTS.md — Troubleshooting](AGENTS.md#-troubleshooting) |
+| WordPress MCP Adapter Setup | [docs/MCP-ADAPTER-SETUP.md](docs/MCP-ADAPTER-SETUP.md) |
 | Full Tool Documentation | [docs/](docs/) |
 
 ## Tools
@@ -71,6 +72,7 @@ local-wp --help
 | **Playwright Auth** | One-time WP admin login + Playwright storageState caching | [AGENTS.md](AGENTS.md#-playwright-auth-pw-auth) |
 | **[Fix-Iterate Loop](fix-iterate-loop.md)** | Autonomous test-verify-fix workflow for AI agents | [fix-iterate-loop.md](fix-iterate-loop.md) |
 | **local-wp** | WP-CLI wrapper for Local by Flywheel | [local-wp Commands](docs/LOCAL-WP-COMMANDS.md) |
+| **WP MCP Adapter** | WordPress Abilities API → MCP tools bridge (content CRUD + config introspection, no browser) | [MCP Adapter Setup](docs/MCP-ADAPTER-SETUP.md) |
 | **PixelMatch** | Visual regression testing | [CLI Reference](docs/CLI-REFERENCE.md) |
 
 ## MCP Server Quick Start
