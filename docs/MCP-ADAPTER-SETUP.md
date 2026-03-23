@@ -133,6 +133,14 @@ If you want to keep your real adapter entries out of the tracked `.mcp.json`, st
 ./bin/mcp-local-config --write .mcp.local.json
 ```
 
+See `examples/mcp/local-snippet.example.json` for the exact snippet format.
+
+If you deliberately want to write the merged local config back into the repo-root `.mcp.json`, use the helper's guarded mode and acknowledge the warning prompt:
+
+```bash
+printf 'OVERWRITE\n' | ./bin/mcp-local-config --write-root
+```
+
 ---
 
 ### Step 7 — Restart Claude Code

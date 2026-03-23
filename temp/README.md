@@ -153,6 +153,9 @@ await page.context().storageState({ path: 'temp/playwright/.auth/admin.json' });
 - copy those snippets into your local `.mcp.json` when needed, but do not commit them
 - or generate a local merged config with `./bin/mcp-local-config --write .mcp.local.json`
 
+**Snippet format reference**:
+- See `examples/mcp/local-snippet.example.json` for the exact JSON shape expected in `temp/mcp/local-snippets/`.
+
 ### `/temp/logs/` - Debug & Temporary Logs
 **Store**:
 - Debug output
