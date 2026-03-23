@@ -15,6 +15,7 @@ stored under temp/mcp/local-snippets/ and prints the result.
 
 Usage:
   ./bin/mcp-local-config
+  ./bin/mcp-local-config --dry-run --write .mcp.local.json
   ./bin/mcp-local-config --write .mcp.local.json
   ./bin/mcp-local-config --write-root
   printf 'OVERWRITE\n' | ./bin/mcp-local-config --write-root
@@ -23,6 +24,7 @@ Notes:
   - Snippet files must be JSON.
   - A snippet can be either { "mcpServers": { ... } } or { "server-name": { ... } }.
   - Do not commit generated local MCP configs containing real site names.
+  - --dry-run previews the merged config for a write target without modifying files.
   - Writing directly to .mcp.json requires an explicit warning confirmation.
 `);
 }
@@ -32,6 +34,7 @@ function parseArguments(argv) {
   let outputPath = null;
   let writeRoot = false;
   let force = false;
+  let dryRun = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const arg = args[index];
@@ -60,6 +63,11 @@ function parseArguments(argv) {
       continue;
     }
 
+    if (arg === '--dry-run') {
+      dryRun = true;
+      continue;
+    }
+
     throw new Error(`Unknown argument: ${arg}`);
   }
 
@@ -67,7 +75,7 @@ function parseArguments(argv) {
     throw new Error('Use either --write <path> or --write-root, not both');
   }
 
-  return { outputPath, writeRoot, force };
+  return { outputPath, writeRoot, force, dryRun };
 }
 
 function readJsonFile(filePath) {
@@ -126,7 +134,7 @@ function assertRootWriteConfirmed(force) {
 }
 
 function main() {
-  const { outputPath, writeRoot, force } = parseArguments(process.argv);
+  const { outputPath, writeRoot, force, dryRun } = parseArguments(process.argv);
   const baseConfig = readJsonFile(baseConfigPath);
 
   if (!baseConfig.mcpServers || typeof baseConfig.mcpServers !== 'object' || Array.isArray(baseConfig.mcpServers)) {
@@ -150,6 +158,12 @@ function main() {
       return;
     }
 
+    if (dryRun) {
+      console.error('Dry run: would write merged MCP config to .mcp.json');
+      process.stdout.write(formatted);
+      return;
+    }
+
     assertRootWriteConfirmed(force);
     fs.writeFileSync(baseConfigPath, formatted, 'utf8');
     console.error('Wrote merged MCP config to .mcp.json');
@@ -157,6 +171,12 @@ function main() {
   }
 
   const resolvedOutputPath = path.resolve(repoRoot, outputPath);
+
+  if (dryRun) {
+    console.error(`Dry run: would write merged MCP config to ${path.relative(repoRoot, resolvedOutputPath) || resolvedOutputPath}`);
+    process.stdout.write(formatted);
+    return;
+  }
 
   if (resolvedOutputPath === baseConfigPath) {
     assertRootWriteConfirmed(force);

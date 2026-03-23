@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Repo-level PHPStan setup** — added a root `composer.json` for PHP static-analysis dependencies and a focused `phpstan.neon` that targets AI-DDTK's first-party WordPress PHP files under `templates/` and `tools/qm-bridge/` while excluding vendored/generated subtrees.
-- **Local MCP config example + helper** — added `.mcp.local.example.json` as a tracked dual-server placeholder and a new `bin/mcp-local-config` helper that merges the checked-in generic `.mcp.json` with local-only snippets from `temp/mcp/local-snippets/`.
-- **MCP local snippet example + guarded root-write mode** — added `examples/mcp/local-snippet.example.json` to show the exact snippet format expected under `temp/mcp/local-snippets/`, documented a short Local MCP Workflow section in `README.md`, and extended `bin/mcp-local-config` with a guarded `--write-root` mode that requires an explicit overwrite confirmation before replacing the repo-root `.mcp.json`.
+- **Local MCP workflow helpers** — added `.mcp.local.example.json`, `examples/mcp/local-snippet.example.json`, and a new `bin/mcp-local-config` helper for merging the checked-in generic `.mcp.json` with local-only snippets from `temp/mcp/local-snippets/`. The helper now supports guarded root writes, dry-run previews, and tracked `temp/mcp/local-snippets/` plus `temp/mcp/notes/` scaffolds for fresh clones.
 
 ### Fixed
 - **`wp-ajax-test` authenticated nonce fetch hardening** — custom `--nonce-url` values now must resolve to the same origin as `--url`, and nonce fetch redirects are followed manually only when they stay on the same origin. This prevents authenticated WordPress cookies from being forwarded to arbitrary external hosts during nonce discovery.

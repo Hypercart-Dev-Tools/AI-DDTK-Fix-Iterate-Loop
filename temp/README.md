@@ -156,6 +156,10 @@ await page.context().storageState({ path: 'temp/playwright/.auth/admin.json' });
 **Snippet format reference**:
 - See `examples/mcp/local-snippet.example.json` for the exact JSON shape expected in `temp/mcp/local-snippets/`.
 
+**Scaffold**:
+- `temp/mcp/local-snippets/.gitkeep` keeps the snippet folder present in fresh clones.
+- `temp/mcp/notes/.gitkeep` keeps a place for local-only MCP setup notes.
+
 ### `/temp/logs/` - Debug & Temporary Logs
 **Store**:
 - Debug output
@@ -237,7 +241,7 @@ fs.writeFileSync('scan-results.json', JSON.stringify(results));
 
 ```bash
 # Create recommended folder structure
-mkdir -p temp/{credentials,reports/{wpcc,phpstan,performance},data/{exports,imports,backups},playwright/.auth,logs/tmux,analysis/{notes,drafts}}
+mkdir -p temp/{credentials,reports/{wpcc,phpstan,performance},data/{exports,imports,backups},playwright/.auth,mcp/{local-snippets,notes},logs/tmux,analysis/{notes,drafts}}
 
 # Check what's in temp (without showing contents)
 find temp -type f | head -20
