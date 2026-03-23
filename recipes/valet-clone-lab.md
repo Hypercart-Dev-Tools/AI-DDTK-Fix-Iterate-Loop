@@ -95,17 +95,19 @@ cp "$HOME/bin/ai-ddtk/templates/dev-login-cli.php" \
 
 ## Clone and Teardown
 
-If your repo includes a Valet clone helper script, use it as the canonical entry point.
+Use the repo helper script as the canonical entry point:
 
 ```bash
-# Example clone (script name may vary by repo)
+# Clone from seed site
 ./tools/valet-site-copy.sh clone-source clone-test-01
 
-# Teardown
-cd "$HOME/Valet-Sites/clone-test-01" && wp db drop --yes && rm -rf "$HOME/Valet-Sites/clone-test-01"
+# Teardown (drop DB + remove files)
+./tools/valet-site-copy.sh teardown clone-test-01 --yes
 ```
 
-If no helper script is present, clone manually by copying files, creating a new database with a `valet_` prefix, and running a search/replace for the target URL.
+The helper defaults to `~/Valet-Sites`, `--dbhost=127.0.0.1`, and a `valet_` database prefix. Use `--force` to overwrite an existing clone.
+
+Manual clone steps are still available for debugging or one-off edge cases:
 
 ```bash
 mkdir -p "$HOME/Valet-Sites/clone-test-01"
