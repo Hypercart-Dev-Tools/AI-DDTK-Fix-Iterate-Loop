@@ -5,9 +5,15 @@ All notable changes to AI-DDTK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0-rc.1] - 2026-03-22
 
 ### Added
+- **Phase 7 — Query Monitor frontend page profiling** — 3 new MCP tools (`qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries`) that profile any WordPress page via a QM bridge mu-plugin. The bridge captures QM's 6 raw JSON collectors (db_queries, cache, http, logger, conditionals, transients) plus overview timing/memory at shutdown, stores in a transient, and exposes a REST retrieval endpoint. Profiles are persisted to `temp/qm-profiles/<domain>_<timestamp>.json`.
+- **Hypercart Performance Timer integration** — the QM bridge automatically detects the [Hypercart Performance Timer plugin](https://github.com/Hypercart-Dev-Tools/hypercart-wp-performance-timer-plugin) (currently private, planned for public OSS release) and includes its hierarchical timer stats, hierarchy tree, and environment data in profile output as `perf_timers`. This gives a single profile result with both QM's automatic discovery (queries, cache, HTTP calls) and targeted instrumentation (per-callback timing, parent/child hierarchy). No changes required to the performance timer plugin.
+- **QM bridge mu-plugin** (`tools/qm-bridge/ai-ddtk-qm-bridge.php`) — thin WordPress mu-plugin for QM data capture. Uses QM's own cookie verification for REST auth, supports profile nonce headers for on-demand capture.
+- **Test delays fixture plugin** (`tools/qm-bridge/ai-ddtk-test-delays.php`) — mu-plugin with 4 simulated delay types (SELECT SLEEP, external HTTP via httpbin, CPU-bound md5 loop, N+1 get_post_meta pattern) for validating QM profiling. Triggered via `?aiddtk_test_delays=1` query param or `[aiddtk_test_delays]` shortcode.
+- **pw-auth cookie extraction** — `getCookiesForSite(user, domain)` method on the pw-auth handler, enabling cross-handler cookie sharing without exposing storageState internals.
+- **GitHub Actions CI for MCP server** (`.github/workflows/ci-mcp-server.yml`) — runs build + tests on Node 18/20/22 for pushes and PRs touching `tools/mcp-server/`.
 - **MCP Adapter Phase 1 & 2 — 12 abilities implemented and validated** — all content CRUD and introspection abilities are live in `templates/ai-ddtk-abilities.php` and validated end-to-end on a WP 6.9.4 Local site (`myfriendcom-09-30`). Phase 1 abilities: `create-post`, `update-post`, `list-posts`, `delete-post`, `manage-taxonomy` (create/assign/list), `batch-create-posts`, `batch-update-posts`. Phase 2 abilities: `get-options`, `list-post-types`, `list-registered-blocks`, `get-active-theme`, `list-plugins`.
 - **`docs/MCP-ADAPTER-SETUP.md`** — new step-by-step setup guide covering Composer install, nested autoloader workaround, mu-plugin deployment, `.mcp.json` dual-server config, known bugs, and verification checklist. Based on real provisioning session on `myfriendcom-09-30`.
 - **MCP Adapter now provisioned on `myfriendcom-09-30`** — `wordpress/mcp-adapter` v0.4.1 installed, abilities mu-plugin deployed, `.mcp.json` updated with `wordpress-myfriendcom-09-30` server entry. Requires Claude Code restart to activate.
