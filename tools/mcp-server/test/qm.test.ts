@@ -61,7 +61,7 @@ const MOCK_COOKIES = [
 // ---------------------------------------------------------------------------
 
 test("createQmHandlers throws when no cookies found for domain", async () => {
-  const handlers = createQmHandlers({ getCookiesForSite: createMockCookieGetter([]) });
+  const handlers = createQmHandlers({ repoRoot: "/tmp", getCookiesForSite: createMockCookieGetter([]) });
 
   await assert.rejects(
     () => handlers.profilePage("https://example.local", "/", "GET", undefined, undefined, "admin"),
@@ -73,7 +73,7 @@ test("createQmHandlers throws when no logged_in cookie found", async () => {
   const cookiesWithoutLoggedIn = [
     { name: "wordpress_sec_abc123", value: "val", domain: "example.local" },
   ];
-  const handlers = createQmHandlers({ getCookiesForSite: createMockCookieGetter(cookiesWithoutLoggedIn) });
+  const handlers = createQmHandlers({ repoRoot: "/tmp", getCookiesForSite: createMockCookieGetter(cookiesWithoutLoggedIn) });
 
   await assert.rejects(
     () => handlers.profilePage("https://example.local", "/", "GET", undefined, undefined, "admin"),
