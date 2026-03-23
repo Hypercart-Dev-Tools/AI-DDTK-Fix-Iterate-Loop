@@ -58,6 +58,7 @@ local-wp --help
 | WPCC Orchestration & Templates | [AGENTS.md — WPCC](AGENTS.md#wpcc-wp-code-check) |
 | WordPress Dev Guidelines | [AGENTS.md — Architecture](AGENTS.md#️-wordpress-architecture-and-delivery-rules) |
 | Troubleshooting | [AGENTS.md — Troubleshooting](AGENTS.md#-troubleshooting) |
+| WordPress MCP Adapter Setup | [docs/MCP-ADAPTER-SETUP.md](docs/MCP-ADAPTER-SETUP.md) |
 | Full Tool Documentation | [docs/](docs/) |
 
 ## Tools
@@ -71,6 +72,7 @@ local-wp --help
 | **Playwright Auth** | One-time WP admin login + Playwright storageState caching | [AGENTS.md](AGENTS.md#-playwright-auth-pw-auth) |
 | **[Fix-Iterate Loop](fix-iterate-loop.md)** | Autonomous test-verify-fix workflow for AI agents | [fix-iterate-loop.md](fix-iterate-loop.md) |
 | **local-wp** | WP-CLI wrapper for Local by Flywheel | [local-wp Commands](docs/LOCAL-WP-COMMANDS.md) |
+| **WP MCP Adapter** | WordPress Abilities API → MCP tools bridge (content CRUD + config introspection, no browser) | [MCP Adapter Setup](docs/MCP-ADAPTER-SETUP.md) |
 | **PixelMatch** | Visual regression testing | [CLI Reference](docs/CLI-REFERENCE.md) |
 
 ## MCP Server Quick Start
@@ -134,7 +136,14 @@ Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
 
 The [Fix-Iterate Loop](fix-iterate-loop.md) methodology is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-## Links
+## Other Useful & Recommended Tools
+For runtime observability alongside WPCC's static analysis, two plugins are worth keeping in your dev environment. [Query Monitor](https://github.com/johnbillion/query-monitor) is the essential WordPress dev dashboard — covering database queries, HTTP requests, hooks, and more in a single admin panel.
+
+For deeper hook-specific debugging, [HookTrace](https://wordpress.org/plugins/hooktrace/) goes further, recording per-callback execution order, timing, and source file for every hook that fires during a page request — ideal for validating hook-related fixes or diagnosing conflicts that only surface at runtime.
+
+## Other Links
 
 - [WP Code Check](https://github.com/Hypercart-Dev-Tools/WP-Code-Check)
 - [IRL Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md)
+
+

@@ -12,6 +12,7 @@ const TMUX_ALLOWED_BIN_COMMANDS = new Set(["wpcc"]);
 
 const TMUX_BLOCKED_COMMANDS = new Set(["rm", "sudo", "curl", "wget", "eval", "sh", "bash", "node", "python", "pip", "npm"]);
 
+/** Reject shell control operators and expansion syntax to prevent command chaining/injection. */
 const TMUX_BLOCKED_OPERATOR_PATTERN = /&&|\|\||;|\||>|<|`|\$\(|\$\{|\r|\n/;
 
 const ALLOWED_PREFIXES = [
@@ -63,6 +64,10 @@ function firstNonFlagArg(args: string[]): string | undefined {
   return args.find((arg) => !arg.startsWith("-"));
 }
 
+/**
+ * Only allow single SELECT statements — the semicolon ban prevents
+ * stacked queries (e.g. `SELECT 1; DROP TABLE ...`) from reaching wpdb.
+ */
 function isAllowedSelectQuery(sql: string): boolean {
   const normalizedSql = sql.trim();
 
@@ -156,6 +161,7 @@ function normalizeTmuxBaseCommand(command: string): string {
   return command;
 }
 
+/** Guard against directory traversal — only paths that resolve inside repoRoot pass. */
 function isRepoRelativePath(repoRoot: string, candidate: string): boolean {
   const normalized = candidate.trim();
 
@@ -169,6 +175,7 @@ function isRepoRelativePath(repoRoot: string, candidate: string): boolean {
   return relativePath === "" || (!relativePath.startsWith("..") && !path.isAbsolute(relativePath));
 }
 
+/** Validate that a tmux wpcc invocation only targets repo-relative paths with known flags. */
 function validateTmuxWpccCommand(tokens: string[], repoRoot: string): string | null {
   if (tokens.length === 2 && (tokens[1] === "--features" || tokens[1] === "--help")) {
     return null;

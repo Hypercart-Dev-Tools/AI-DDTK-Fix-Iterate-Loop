@@ -88,6 +88,13 @@ function parseFeatureSections(text: string): WpccFeatureSection[] {
   return sections;
 }
 
+/**
+ * Recover an artifact path printed by WPCC from stdout or stderr.
+ *
+ * When the CLI reports the generated JSON log or HTML report explicitly, that
+ * path is preferred over directory diffing because it is resilient to preexisting
+ * files in the dist output directories.
+ */
 function extractArtifactPath(output: string, artifactDirName: "logs" | "reports", extension: ".json" | ".html"): string | null {
   for (const line of stripAnsi(output).split(/\r?\n/)) {
     const match = line.match(new RegExp(`(/.*dist/${artifactDirName}/.*\\${extension})`));
@@ -156,6 +163,12 @@ export function createWpccHandlers(deps: WpccHandlerDeps) {
   const logsDir = path.join(deps.repoRoot, "tools", "wp-code-check", "dist", "logs");
   const reportsDir = path.join(deps.repoRoot, "tools", "wp-code-check", "dist", "reports");
 
+  /**
+   * Execute WPCC and preserve captured output even when the process exits non-zero.
+   *
+   * A failed scan is still useful to MCP callers because stdout/stderr can contain
+   * partial findings, artifact paths, or remediation guidance.
+   */
   async function executeWpcc(args: string[]): Promise<ExecResult> {
     try {
       return await runExec(wpccBin, args, { timeoutMs, maxBuffer: DEFAULT_MAX_BUFFER });
