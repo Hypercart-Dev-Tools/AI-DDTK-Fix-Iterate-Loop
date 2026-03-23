@@ -387,7 +387,7 @@ All findings captured in [docs/MCP-ADAPTER-SETUP.md](../../docs/MCP-ADAPTER-SETU
 
 **COMPLETED — 2026-03-21**
 
-**Validated on `myfriendcom-09-30` (WP 6.9.4):**
+**Validated on a Local WordPress 6.9.4 site:**
 - `list-posts` → returned 8 posts with correct pagination schema
 - `create-post` → created draft post ID 59 with meta
 - `batch-create-posts` → created IDs 60 & 61, per-item results returned
@@ -441,7 +441,7 @@ All findings captured in [docs/MCP-ADAPTER-SETUP.md](../../docs/MCP-ADAPTER-SETU
 
 **COMPLETED — 2026-03-21**
 
-**Validated on `myfriendcom-09-30` (WP 6.9.4, Beaver Builder + ACF + Gravity Forms active):**
+**Validated on a Local WordPress 6.9.4 site (Beaver Builder + ACF + Gravity Forms active):**
 - `get-options` → read `blogname`, `blogdescription`, `siteurl`, `template` correctly
 - `list-post-types` (public_only) → returned 4 types including `fl-builder-template` (Beaver Builder CPT)
 - `list-registered-blocks` (core namespace) → returned 107 registered core blocks

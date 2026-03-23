@@ -572,7 +572,7 @@ Expose Query Monitor profiling data through the existing MCP server, enabling ag
 
 ### Spike Findings (2026-03-22)
 
-Validated on `myfriendcom-09-30.local` running QM 3.20.4, WordPress 6.9.4.
+Validated on a Local test site running QM 3.20.4 and WordPress 6.9.4.
 
 #### Finding 1: QM has no REST API — use the envelope dispatcher instead
 
@@ -670,7 +670,7 @@ Flow:
 1. **`qm_profile_page`**
    - Profile any WordPress URL (frontend, admin, or checkout flow) with QM data collection
    - Inputs:
-     - `siteUrl` (string, required) — e.g. `https://myfriendcom-09-30.local`
+   - `siteUrl` (string, required) — e.g. `https://local-test-site.local`
      - `path` (string, required) — e.g. `/checkout/`, `/wp-admin/edit.php`, `/product/hoodie/`
      - `method` (string, default "GET") — HTTP method (GET, POST)
      - `body` (object, optional) — form data or JSON body for POST requests
