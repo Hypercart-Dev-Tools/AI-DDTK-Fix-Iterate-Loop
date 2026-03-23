@@ -5,7 +5,7 @@ All notable changes to AI-DDTK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0-rc.1] - 2026-03-22
 
 ### Added
 - **Phase 7 — Query Monitor frontend page profiling** — 3 new MCP tools (`qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries`) that profile any WordPress page via a QM bridge mu-plugin. The bridge captures QM's 6 raw JSON collectors (db_queries, cache, http, logger, conditionals, transients) plus overview timing/memory at shutdown, stores in a transient, and exposes a REST retrieval endpoint. Profiles are persisted to `temp/qm-profiles/<domain>_<timestamp>.json`.
