@@ -387,6 +387,7 @@ Write one or more WordPress options to `wp_options` using `update_option()` so a
 | `updates` | object | ✅ | — | Key/value pairs of option names and new values |
 | `autoload` | string | — | `unchanged` | `"yes"`, `"no"`, or `"unchanged"` — applied to every key in the call |
 | `confirm_dangerous` | boolean | — | `false` | Must be `true` to write keys in the `require_confirm` blocklist (see below) |
+| `redact_values` | boolean | — | `false` | When `true`, `previous_value` and `new_value` are replaced with `"[REDACTED]"` in the response. Use when writing options that may contain secrets (API keys, SMTP credentials, license keys) to prevent leaking sensitive values into MCP transcripts or agent context. |
 
 #### Dangerous-Key Blocklist
 
@@ -395,7 +396,7 @@ Two-tier safety system enforced inside the ability handler (also extensible via 
 | Tier | Keys | Behaviour |
 |------|------|-----------|
 | **Always refused** | `active_plugins`, `active_sitewide_plugins` | Returned as a `blocked_keys` error regardless of `confirm_dangerous`. Use `local_wp_run plugin activate/deactivate` instead. |
-| **Require confirm** | `siteurl`, `home`, `template`, `stylesheet`, `admin_email` | Blocked unless `confirm_dangerous: true`. URL keys (`siteurl`, `home`) are validated via `esc_url_raw()` + `wp_http_validate_url()`; theme keys (`template`, `stylesheet`) are validated against `wp_get_themes()`. Override is written to PHP error log with user ID + timestamp for audit. |
+| **Require confirm** | `siteurl`, `home`, `template`, `stylesheet`, `admin_email` | Blocked unless `confirm_dangerous: true`. URL keys (`siteurl`, `home`) are validated via `esc_url_raw()` + `wp_http_validate_url()`; theme keys (`template`, `stylesheet`) are validated against `wp_get_themes()`; `admin_email` is validated via `sanitize_email()` + `is_email()`. Override is written to PHP error log with user ID + timestamp for audit. |
 
 #### Output Schema
 
@@ -720,7 +721,7 @@ Writing to any of them must be refused unless the caller passes `"confirm_danger
 - [x] `stylesheet` — changes the active theme (child or standalone); same theme validation as `template`
 - [x] `active_plugins` — direct writes can bypass activation hooks and corrupt the list; **always refuse** — callers must use WP-CLI (`local_wp_run plugin activate/deactivate`) for plugin activation state changes
 - [x] `active_sitewide_plugins` (multisite) — same refusal as `active_plugins`
-- [x] `admin_email` — flag as sensitive; allow with `confirm_dangerous: true` but log the change
+- [x] `admin_email` — flag as sensitive; value validated via `sanitize_email()` + `is_email()`; allow with `confirm_dangerous: true` but log the change
 - [x] Add a `_ai_ddtk_options_blocklist()` helper that returns the list so tests and the ability handler share one source of truth
 
 #### Double-confirm UX contract

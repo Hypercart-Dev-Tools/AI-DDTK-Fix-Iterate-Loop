@@ -74,6 +74,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 		return filter_var( $url, FILTER_VALIDATE_URL ) ? $url : false;
 	}
 
+	function sanitize_email( string $email ): string {
+		$clean = filter_var( $email, FILTER_SANITIZE_EMAIL );
+		return is_string( $clean ) ? $clean : '';
+	}
+
+	function is_email( string $email ) {
+		return filter_var( $email, FILTER_VALIDATE_EMAIL ) ? $email : false;
+	}
+
 	function wp_get_themes(): array {
 		$themes = [];
 		foreach ( $GLOBALS['_test_installed_themes'] as $slug => $_v ) {
@@ -481,6 +490,65 @@ it( 'rejects stylesheet with non-installed theme slug', function () {
 	] );
 	assert_false( $result['success'] );
 	assert_contains( 'does not match any installed theme', $result['error'] );
+} );
+
+it( 'rejects admin_email with an invalid email address', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'           => [ 'admin_email' => 'not-an-email' ],
+		'confirm_dangerous' => true,
+	] );
+	assert_false( $result['success'] );
+	assert_contains( 'not a valid email', $result['error'] );
+} );
+
+it( 'accepts admin_email with a valid email address', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'           => [ 'admin_email' => 'admin@example.com' ],
+		'confirm_dangerous' => true,
+	] );
+	assert_true( $result['success'] );
+} );
+
+// ── Value redaction ─────────────────────────────────────────────────────────
+
+echo "\nValue redaction\n";
+
+it( 'redacts previous_value and new_value when redact_values is true', function () {
+	reset_state();
+	$GLOBALS['_test_options']['secret_key'] = 'sk_live_abc123';
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'       => [ 'secret_key' => 'sk_live_xyz789' ],
+		'redact_values' => true,
+	] );
+	assert_true( $result['success'] );
+	assert_equals( '[REDACTED]', $result['results'][0]['previous_value'] );
+	assert_equals( '[REDACTED]', $result['results'][0]['new_value'] );
+	assert_true( $result['results'][0]['changed'] );
+} );
+
+it( 'does NOT redact values when redact_values is false', function () {
+	reset_state();
+	$GLOBALS['_test_options']['blogname'] = 'Old Name';
+	$cb     = get_execute_cb();
+	$result = $cb( [ 'updates' => [ 'blogname' => 'New Name' ] ] );
+	assert_equals( 'Old Name', $result['results'][0]['previous_value'] );
+	assert_equals( 'New Name', $result['results'][0]['new_value'] );
+} );
+
+it( 'still reports changed: true when redacting', function () {
+	reset_state();
+	$GLOBALS['_test_options']['api_key'] = 'old';
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'       => [ 'api_key' => 'new' ],
+		'redact_values' => true,
+	] );
+	assert_true( $result['results'][0]['changed'] );
 } );
 
 // ── Post-sanitize key validation ────────────────────────────────────────────

@@ -1303,6 +1303,11 @@ add_action( 'wp_abilities_api_init', function () {
 					'description' => 'Must be true to write blocklisted-but-writable keys (siteurl, home, template, stylesheet, admin_email). Has no effect on always-refused keys (active_plugins, active_sitewide_plugins).',
 					'default'     => false,
 				],
+				'redact_values' => [
+					'type'        => 'boolean',
+					'description' => 'When true, previous_value and new_value in each result are replaced with "[REDACTED]". Use when writing options that may contain secrets (API keys, SMTP credentials, license keys) to prevent leaking sensitive values into MCP transcripts or agent context.',
+					'default'     => false,
+				],
 			],
 		],
 		'output_schema' => [
@@ -1335,6 +1340,7 @@ add_action( 'wp_abilities_api_init', function () {
 			}
 
 			$confirm_dangerous = ! empty( $params['confirm_dangerous'] );
+			$redact_values     = ! empty( $params['redact_values'] );
 			$autoload_hint     = isset( $params['autoload'] ) ? $params['autoload'] : 'unchanged';
 
 			$blocklist       = _ai_ddtk_options_blocklist();
@@ -1389,6 +1395,7 @@ add_action( 'wp_abilities_api_init', function () {
 				$validation_errors = [];
 				$url_keys          = [ 'siteurl', 'home' ];
 				$theme_keys        = [ 'template', 'stylesheet' ];
+				$email_keys        = [ 'admin_email' ];
 
 				foreach ( $params['updates'] as $raw_key => $new_value ) {
 					$key = sanitize_text_field( (string) $raw_key );
@@ -1413,6 +1420,14 @@ add_action( 'wp_abilities_api_init', function () {
 								$theme_slug,
 								implode( ', ', array_slice( $valid_slugs, 0, 10 ) )
 							);
+						}
+					}
+
+					// Email keys must be valid email addresses.
+					if ( in_array( $key, $email_keys, true ) ) {
+						$sanitized_email = sanitize_email( (string) $new_value );
+						if ( empty( $sanitized_email ) || ! is_email( $sanitized_email ) ) {
+							$validation_errors[] = sprintf( '"%s" value "%s" is not a valid email address.', $key, (string) $new_value );
 						}
 					}
 				}
@@ -1467,8 +1482,8 @@ add_action( 'wp_abilities_api_init', function () {
 
 				$results[] = [
 					'key'            => $key,
-					'previous_value' => $previous_value,
-					'new_value'      => get_option( $key ),
+					'previous_value' => $redact_values ? '[REDACTED]' : $previous_value,
+					'new_value'      => $redact_values ? '[REDACTED]' : get_option( $key ),
 					'changed'        => (bool) $updated,
 				];
 			}
