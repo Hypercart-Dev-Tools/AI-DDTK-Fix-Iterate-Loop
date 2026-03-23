@@ -136,7 +136,14 @@ Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
 
 The [Fix-Iterate Loop](fix-iterate-loop.md) methodology is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-## Links
+## Other Useful & Recommended Tools
+For runtime observability alongside WPCC's static analysis, two plugins are worth keeping in your dev environment. [Query Monitor](https://github.com/johnbillion/query-monitor) is the essential WordPress dev dashboard — covering database queries, HTTP requests, hooks, and more in a single admin panel.
+
+For deeper hook-specific debugging, [HookTrace](https://wordpress.org/plugins/hooktrace/) goes further, recording per-callback execution order, timing, and source file for every hook that fires during a page request — ideal for validating hook-related fixes or diagnosing conflicts that only surface at runtime.
+
+## Other Links
 
 - [WP Code Check](https://github.com/Hypercart-Dev-Tools/WP-Code-Check)
 - [IRL Audit Guide](tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md)
+
+
