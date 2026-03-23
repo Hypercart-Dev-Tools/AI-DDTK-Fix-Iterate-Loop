@@ -59,6 +59,29 @@ if ( ! defined( 'ABSPATH' ) ) {
 		return $value;
 	}
 
+	// Stubs for URL/theme validation used by dangerous-key value checks.
+	$GLOBALS['_test_installed_themes'] = [ 'twentytwentyfive' => true, 'storefront' => true ];
+
+	function esc_url_raw( string $url ): string {
+		// Minimal stub: reject obviously invalid URLs.
+		if ( ! preg_match( '#^https?://#', $url ) ) {
+			return '';
+		}
+		return $url;
+	}
+
+	function wp_http_validate_url( string $url ) {
+		return filter_var( $url, FILTER_VALIDATE_URL ) ? $url : false;
+	}
+
+	function wp_get_themes(): array {
+		$themes = [];
+		foreach ( $GLOBALS['_test_installed_themes'] as $slug => $_v ) {
+			$themes[ $slug ] = (object) [ 'Name' => ucfirst( $slug ) ];
+		}
+		return $themes;
+	}
+
 	// Load helpers & ability registration without triggering add_action.
 	function _ai_ddtk_load_abilities(): void {
 		// no-op: we include the file which defines the functions we need.
@@ -390,6 +413,98 @@ it( 'returns error when updates is an empty array', function () {
 	$cb     = get_execute_cb();
 	$result = $cb( [ 'updates' => [] ] );
 	assert_false( $result['success'] );
+} );
+
+// ── Value validation for dangerous keys ─────────────────────────────────────
+
+echo "\nDangerous-key value validation\n";
+
+it( 'rejects siteurl with an invalid URL even with confirm_dangerous', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'           => [ 'siteurl' => 'not-a-url' ],
+		'confirm_dangerous' => true,
+	] );
+	assert_false( $result['success'] );
+	assert_contains( 'not a valid URL', $result['error'] );
+} );
+
+it( 'rejects home with an invalid URL even with confirm_dangerous', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'           => [ 'home' => 'ftp://nope' ],
+		'confirm_dangerous' => true,
+	] );
+	assert_false( $result['success'] );
+	assert_contains( 'not a valid URL', $result['error'] );
+} );
+
+it( 'accepts siteurl with a valid URL and confirm_dangerous', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'           => [ 'siteurl' => 'https://mysite.local' ],
+		'confirm_dangerous' => true,
+	] );
+	assert_true( $result['success'] );
+} );
+
+it( 'rejects template with non-installed theme slug', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'           => [ 'template' => 'nonexistent-theme' ],
+		'confirm_dangerous' => true,
+	] );
+	assert_false( $result['success'] );
+	assert_contains( 'does not match any installed theme', $result['error'] );
+} );
+
+it( 'accepts template with an installed theme slug', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'           => [ 'template' => 'twentytwentyfive' ],
+		'confirm_dangerous' => true,
+	] );
+	assert_true( $result['success'] );
+} );
+
+it( 'rejects stylesheet with non-installed theme slug', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [
+		'updates'           => [ 'stylesheet' => 'bad-theme' ],
+		'confirm_dangerous' => true,
+	] );
+	assert_false( $result['success'] );
+	assert_contains( 'does not match any installed theme', $result['error'] );
+} );
+
+// ── Post-sanitize key validation ────────────────────────────────────────────
+
+echo "\nPost-sanitize key validation\n";
+
+it( 'skips keys that sanitize to empty string', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	// HTML tags sanitize to empty via strip_tags in our sanitize_text_field stub.
+	$result = $cb( [ 'updates' => [ '<script>' => 'evil' ] ] );
+	assert_true( $result['success'] );
+	assert_equals( 0, count( $result['results'] ) );
+	assert_true( in_array( '<script>', $result['skipped_keys'], true ) );
+} );
+
+it( 'processes valid keys and skips invalid ones in the same call', function () {
+	reset_state();
+	$cb     = get_execute_cb();
+	$result = $cb( [ 'updates' => [ 'blogname' => 'Valid', '<br>' => 'invalid' ] ] );
+	assert_true( $result['success'] );
+	assert_equals( 1, count( $result['results'] ) );
+	assert_equals( 'blogname', $result['results'][0]['key'] );
+	assert_true( isset( $result['skipped_keys'] ) );
 } );
 
 // ── Summary ─────────────────────────────────────────────────────────────────
