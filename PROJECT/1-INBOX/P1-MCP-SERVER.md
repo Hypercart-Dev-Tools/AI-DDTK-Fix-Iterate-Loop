@@ -25,7 +25,7 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
 - [Phase 6 — Documentation & Onboarding](#phase-6--documentation--onboarding)
 - [Tool Reference](#tool-reference)
 - [Resource Reference](#resource-reference)
-- [Phase 7 — Query Monitor MCP Integration](#phase-7--query-monitor-mcp-integration)
+- [Phase 7 — Query Monitor REST Route Profiling](#phase-7--query-monitor-rest-route-profiling)
 - [Open Questions](#open-questions)
 
 <!-- /TOC -->
@@ -87,15 +87,20 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [x] Update ROADMAP-PERPLEXITY.md — mark #6 complete
   - [x] Add reference to external WP DB Toolkit and it's MCP server that can be used for database queries outside of MySQL server. https://github.com/Hypercart-Dev-Tools/WP-DB-Toolkit
 
-- [ ] **Phase 7 — Query Monitor MCP Integration** · Effort: Med · Risk: Med
+- [ ] **Phase 7 — Query Monitor REST Route Profiling** · Effort: Med · Risk: Med
   - [x] Spike: validate QM envelope dispatcher on Local site (2026-03-22)
-  - [ ] Auth cookie extraction from pw-auth storageState
-  - [ ] `qm_profile` tool (full QM envelope for any REST route)
+  - [x] Spike: confirm pw-auth storageState contains `wordpress_logged_in_*` cookies (2026-03-22)
+  - [ ] Add `getCookiesForSite(user, domain)` to pw-auth handler (cookie extraction owned by pw-auth, not qm.ts)
+  - [ ] `qm_profile` tool (full QM envelope for any REST route, with method/body/header controls)
   - [ ] `qm_slow_queries` tool (threshold-filtered query report)
   - [ ] `qm_duplicate_queries` tool (N+1 detection from dupes collector)
   - [ ] Unit tests with mocked QM envelope responses
   - [ ] Tool registration in index.ts + tool/resource reference update
-  - [ ] Optional follow-up: mu-plugin companion for frontend page profiling
+
+- [ ] **Phase 7b — Query Monitor Frontend Page Profiling** · Effort: Med · Risk: Med
+  - [ ] Thin mu-plugin: hook `shutdown`, serialize QM collectors to transient, expose REST retrieval endpoint
+  - [ ] `qm_profile_page` tool (hit frontend URL, then read QM data from transient via REST)
+  - [ ] Integration tests against Local site with mu-plugin installed
 
 Key Discoveries from Spike:
 QM envelope works — ?_envelope=1 on REST routes returns a qm property with all 6 raw collectors (db_queries, cache, http, logger, conditionals, transients)
@@ -559,11 +564,11 @@ Ship repo-tracked integration files plus secure localhost-only HTTP/SSE transpor
 
 ---
 
-## Phase 7 — Query Monitor MCP Integration
+## Phase 7 — Query Monitor REST Route Profiling
 
 > Effort: **Med** · Risk: **Med** · Status: **Spike complete, not started**
 
-Expose Query Monitor profiling data through the existing MCP server, enabling agents to profile WordPress pages and query: "show me all queries over 50ms on the checkout page."
+Expose Query Monitor profiling data through the existing MCP server, enabling agents to profile WordPress REST routes and query: "show me all queries over 50ms on the posts endpoint."
 
 ### Spike Findings (2026-03-22)
 
@@ -634,43 +639,60 @@ Frontend URLs (`/`, `/product/some-slug/`) return HTML with QM's full HTML debug
 
 ### Architecture Decision
 
-**Use Option A first (REST-only profiling), defer Option B (frontend profiling) to a follow-up.**
+**Phase 7 is REST route profiling only. Frontend page profiling is Phase 7b — a separate deliverable.**
 
-REST endpoint profiling covers the primary use case (database query analysis, cache efficiency, external HTTP profiling) without any WordPress-side code. Frontend profiling via mu-plugin can be added later as a separate deliverable.
+REST route profiling covers the primary use case (database query analysis, cache efficiency, external HTTP profiling) without any WordPress-side code. Phase 7b (mu-plugin companion for frontend page profiling) requires WordPress-side code with different risks (plugin compatibility, QM version coupling, transient storage) and should not be conflated with Phase 7.
 
 ### Auth Strategy
 
-The handler will:
-1. Read pw-auth's storageState file (`temp/playwright/.auth/<user>.json`) to extract WordPress session cookies
-2. Construct the QM auth cookie value from the `logged_in` cookie in the storageState
-3. Pass both cookies in the REST request to the target site
+**Spike confirmed:** pw-auth storageState files contain `wordpress_logged_in_*` cookies (verified 2026-03-22). The QM auth cookie (`wp-query_monitor_*`) uses the same `COOKIEHASH` suffix and accepts the `logged_in` cookie value.
 
-If pw-auth storageState doesn't contain the needed cookies, fall back to a mu-plugin endpoint (similar to the spike's `qm-spike-cookie-gen.php`) that generates cookies via application password auth.
+**Cookie extraction is owned by pw-auth, not qm.ts.** The pw-auth handler will expose a new method:
+
+```typescript
+getCookiesForSite(user: string, domain: string): Promise<{ name: string; value: string }[]>
+```
+
+This keeps storageState parsing inside pw-auth's domain boundary. The QM handler calls this method and constructs the QM auth cookie from the returned `logged_in` cookie.
+
+Flow:
+1. QM handler calls `pwAuthHandlers.getCookiesForSite(user, siteDomain)` to get WordPress session cookies
+2. Finds the `wordpress_logged_in_*` cookie, derives the QM cookie name by replacing the prefix
+3. Passes `wordpress_logged_in_*` + `wp-query_monitor_*` cookies in the REST request
+4. If no fresh cookies exist, returns an error directing the agent to run `pw_auth_login` first
 
 ### Proposed Tools
 
 1. **`qm_profile`**
-   - Profile any REST endpoint with QM data collection
-   - Inputs: `siteUrl` (string, required), `route` (string, required — e.g. `/wp/v2/posts`), `params` (object, optional — query params like `per_page`), `user` (string, default "admin")
-   - Returns: `{ site, route, overview: { time, memory }, db_queries: { total, time, queries, dupes }, cache, http, logger }`
-   - Auth: Uses pw-auth session cookies + QM cookie
+   - Profile any REST route with QM data collection
+   - Inputs:
+     - `siteUrl` (string, required) — e.g. `https://myfriendcom-09-30.local`
+     - `route` (string, required) — e.g. `/wp/v2/posts`
+     - `params` (object, optional) — query params like `per_page`, `status`
+     - `method` (string, default "GET") — HTTP method (GET, POST, PUT, DELETE)
+     - `body` (object, optional) — request body for POST/PUT
+     - `headers` (object, optional) — additional request headers
+     - `user` (string, default "admin")
+   - Returns: `{ site, route, method, overview: { time, memory }, db_queries: { total, time, queries, dupes }, cache, http, logger }`
+   - Auth: Uses pw-auth session cookies + QM cookie via `getCookiesForSite()`
 
 2. **`qm_slow_queries`**
-   - Convenience tool: profile a REST endpoint and filter to queries above a threshold
-   - Inputs: `siteUrl`, `route`, `params`, `threshold_ms` (number, default 50), `user`
+   - Convenience tool: profile a REST route and filter to queries above a threshold
+   - Inputs: `siteUrl`, `route`, `params`, `method`, `body`, `threshold_ms` (number, default 50), `user`
    - Returns: `{ site, route, total_queries, slow_queries: [...], total_time }`
 
 3. **`qm_duplicate_queries`**
    - Convenience tool: profile and return only duplicate queries (N+1 detection)
-   - Inputs: `siteUrl`, `route`, `params`, `user`
+   - Inputs: `siteUrl`, `route`, `params`, `method`, `body`, `user`
    - Returns: `{ site, route, duplicates: [{ sql, count, total_time, callers }] }`
 
 ### Deliverables
 
-1. `tools/mcp-server/src/handlers/qm.ts` — QM handler (~200-250 lines)
-2. `tools/mcp-server/test/qm.test.ts` — Unit tests with mocked HTTP responses
-3. `tools/mcp-server/src/index.ts` — Register 3 new tools (~60 lines)
-4. Update tool reference table and changelog
+1. `tools/mcp-server/src/handlers/pw-auth.ts` — Add `getCookiesForSite(user, domain)` method (~30-40 lines)
+2. `tools/mcp-server/src/handlers/qm.ts` — QM handler (~200-250 lines, calls pw-auth for cookies)
+3. `tools/mcp-server/test/qm.test.ts` — Unit tests with mocked QM envelope responses
+4. `tools/mcp-server/src/index.ts` — Register 3 new tools (~60 lines)
+5. Update tool reference table and changelog
 
 ### Risks & Mitigations
 
@@ -679,16 +701,18 @@ If pw-auth storageState doesn't contain the needed cookies, fall back to a mu-pl
 | QM envelope format is not a stable API | Medium | Pin QM version in docs, add integration test that validates envelope structure |
 | pw-auth storageState may not contain WP cookies | Medium | Verify during implementation; fall back to mu-plugin cookie generator |
 | QM data collection stopped by `qm/cease` race | Low | Session cookies authenticate at `init` time, avoiding the app-password timing issue |
-| REST-only profiling misses frontend-specific queries | Low | Acceptable for Phase 7; Option B mu-plugin is a natural follow-up |
+| REST-only profiling misses frontend-specific queries | Low | Out of scope for Phase 7; Phase 7b addresses this with a mu-plugin companion |
 
 ### Acceptance Criteria
 
-- `qm_profile` returns structured QM data (db_queries, cache, http) for a REST endpoint on a Local site
+- `qm_profile` returns structured QM data (db_queries, cache, http) for a REST route on a Local site
+- `qm_profile` supports GET/POST/PUT/DELETE with optional body and headers
 - `qm_slow_queries` correctly filters queries by threshold
 - `qm_duplicate_queries` identifies N+1 patterns from the `dupes` collector
+- Cookie extraction is handled by pw-auth's `getCookiesForSite()`, not by qm.ts directly
 - All tools require auth and fail cleanly when pw-auth state is missing or stale
 - `npm test` passes with mocked QM envelope responses
-- No WordPress-side code required (REST-only mode)
+- No WordPress-side code required (REST route profiling only)
 
 ---
 
