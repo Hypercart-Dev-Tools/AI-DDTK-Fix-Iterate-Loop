@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "ai-ddtk": {
+      "command": "bash",
+      "args": ["tools/mcp-server/start.sh"]
+    },
+    "wordpress-local": {
+      "command": "./bin/local-wp",
+      "args": [
+        "<site-name>",
+        "mcp-adapter",
+        "serve",
+        "--server=mcp-adapter-default-server",
+        "--user=1"
+      ]
+    }
+  }
+}

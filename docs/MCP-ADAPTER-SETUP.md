@@ -4,6 +4,10 @@
 >
 > For Valet clone-lab setup, see the comparison table in [P1-WP-MCP-ADAPTER.md](../PROJECT/2-WORKING/P1-WP-MCP-ADAPTER.md#phase-0--technical-spike). Steps 2–5 are identical; only the WP-CLI invocation style differs.
 
+> **Public repo hygiene:** Treat real site names, internal domains, local filesystem paths, user IDs, and auth details as environment-specific data. Keep the checked-in `.mcp.json` generic and store local-only MCP variants or working snippets under `temp/` rather than committing them.
+
+> **Local helper option:** This repo ships with `.mcp.local.example.json` as a tracked placeholder and `./bin/mcp-local-config` to merge the generic checked-in `.mcp.json` with local-only snippets from `temp/mcp/local-snippets/`.
+
 ---
 
 ## Prerequisites
@@ -120,6 +124,14 @@ Add the site's adapter server alongside the existing `ai-ddtk` server in `.mcp.j
 ```
 
 **Important:** Use `--user=1` (numeric user ID), not `--user=admin`. Admin usernames vary per site (e.g. an email address on some imports); the user ID `1` is always the first admin.
+
+**Commit hygiene:** This adapter entry is meant for your local machine. Do not commit a real `<site-name>`, internal hostname, or user mapping into the public repo's checked-in `.mcp.json`.
+
+If you want to keep your real adapter entries out of the tracked `.mcp.json`, store them as JSON snippets under `temp/mcp/local-snippets/` and generate a local merged config with:
+
+```bash
+./bin/mcp-local-config --write .mcp.local.json
+```
 
 ---
 
