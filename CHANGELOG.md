@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **README optional workflows section** — added an "Optional Workflows" section in `README.md` linking to the Valet clone-lab recipe and clarifying that it complements, not replaces, Local WP.
 - **Planning dashboard tracking** — added a current-week checklist item in `4X4.md` to track Valet clone-lab formalization as an optional path without promoting it to core.
 - **AGENTS optional recipe cross-link** — added a short optional-workflow note in `AGENTS.md` pointing agents to `recipes/valet-clone-lab.md` for macOS throwaway clone/testing scenarios.
+- **`install.sh` MCP/bootstrap refresh** — `setup-mcp` now prints launcher-based config that uses `tools/mcp-server/start.sh`, `status` reports launcher readiness when `dist/` is missing, `update` now follows the current branch/upstream with `--ff-only` instead of hardcoding `main`, and first-run next steps now surface `setup-mcp`.
 - **Version updates** — README.md and AGENTS.md updated to `1.0.44`.
 
 ### Fixed
