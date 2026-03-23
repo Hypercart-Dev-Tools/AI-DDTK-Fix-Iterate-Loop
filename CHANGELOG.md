@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **MCP Adapter Phase 1 & 2 — 12 abilities implemented and validated** — all content CRUD and introspection abilities are live in `templates/ai-ddtk-abilities.php` and validated end-to-end on a WP 6.9.4 Local site (`myfriendcom-09-30`). Phase 1 abilities: `create-post`, `update-post`, `list-posts`, `delete-post`, `manage-taxonomy` (create/assign/list), `batch-create-posts`, `batch-update-posts`. Phase 2 abilities: `get-options`, `list-post-types`, `list-registered-blocks`, `get-active-theme`, `list-plugins`.
+- **`docs/MCP-ADAPTER-SETUP.md`** — new step-by-step setup guide covering Composer install, nested autoloader workaround, mu-plugin deployment, `.mcp.json` dual-server config, known bugs, and verification checklist. Based on real provisioning session on `myfriendcom-09-30`.
+- **MCP Adapter now provisioned on `myfriendcom-09-30`** — `wordpress/mcp-adapter` v0.4.1 installed, abilities mu-plugin deployed, `.mcp.json` updated with `wordpress-myfriendcom-09-30` server entry. Requires Claude Code restart to activate.
 - **Optional Valet clone-lab recipe** — added `recipes/valet-clone-lab.md` as a macOS-focused, experimental workflow for rapid throwaway WordPress cloning/testing with explicit scope and safety guardrails. This path is documented as optional and not part of the core AI-DDTK toolset.
 - **Phase 2.5: README Consolidation & AGENTS.md Expansion** — established `AGENTS.md` as the single source of truth for AI development guidelines; moved detailed pw-auth, WPCC, and troubleshooting content from `README.md` into `AGENTS.md`. Added new Navigation table to `README.md` with direct section links into `AGENTS.md`.
 - **P1-WP-MCP-ADAPTER.md project specification** — added comprehensive 6-phase implementation plan for integrating the official WordPress MCP Adapter with AI-DDTK. Includes Phase 0 technical spike results, real-world scenarios, prerequisites, and integration patterns for Local by Flywheel and Valet clone-lab environments.
@@ -22,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Version updates** — README.md and AGENTS.md updated to `1.0.44`.
 
 ### Fixed
+- **`get-active-theme` ability with empty parameters** — no-parameter abilities must omit `input_schema` from `wp_register_ability()`. The previous `'properties' => new stdClass()` pattern caused two bugs in MCP Adapter v0.4.1: (1) `ExecuteAbilityAbility` uses `empty($input['parameters'])` which coerces `{}` (decoded as `[]`) to `null`, then `rest_validate_value_from_schema(null, type:object)` fails; (2) when any parameter is passed, `$schema['properties'][$key]` on a `stdClass` throws `"Cannot use object of type stdClass as array"`. Fixed by removing `input_schema` from `get-active-theme` — WP core correctly handles `null` input when no schema is defined.
 - **MCP server startup crash loop** — `dist/` is gitignored so the MCP server failed to start after a fresh clone or checkout, causing VS Code to restart it in a loop. Added `tools/mcp-server/start.sh` launcher that auto-builds TypeScript when `dist/` is missing, and updated `.mcp.json` to use it.
 
 ## [1.0.43] - 2026-03-13

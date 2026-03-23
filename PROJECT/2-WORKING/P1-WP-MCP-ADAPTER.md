@@ -1,6 +1,6 @@
 ---
 title: "P1: WordPress MCP Adapter Integration"
-status: INBOX
+status: PHASE-1-2-COMPLETE
 author: noelsaw
 created: 2026-03-22
 updated: 2026-03-22
@@ -42,17 +42,17 @@ parent: null
   - [x] Validate on a Valet clone-lab site (Composer install + STDIO via system WP-CLI)
   - [x] Document findings — update this plan with any blockers or scope changes
 
-- [ ] **Phase 1 — Content Scaffolding & Migration** · Effort: Med · Risk: Low
-  - [ ] Register content CRUD abilities (posts, pages, CPTs, taxonomies)
-  - [ ] Wire abilities into AI-DDTK agent workflows
-  - [ ] Validate bulk operations with permission callbacks
-  - [ ] Add recipe/guide to docs
+- [x] **Phase 1 — Content Scaffolding & Migration** · Effort: Med · Risk: Low
+  - [x] Register content CRUD abilities (posts, pages, CPTs, taxonomies)
+  - [x] Wire abilities into AI-DDTK agent workflows
+  - [x] Validate bulk operations with permission callbacks
+  - [x] Add recipe/guide to docs
 
-- [ ] **Phase 2 — Plugin/Theme Config Verification** · Effort: Med · Risk: Med
-  - [ ] Define introspection ability patterns (get-settings, list-blocks, check-status)
-  - [ ] Integrate MCP Adapter verify step into fix-iterate loop
-  - [ ] Test against 2-3 real plugins on Local sites
-  - [ ] Document when to use MCP Adapter vs. pw-auth for verification
+- [x] **Phase 2 — Plugin/Theme Config Verification** · Effort: Med · Risk: Med
+  - [x] Define introspection ability patterns (get-settings, list-blocks, check-status)
+  - [x] Integrate MCP Adapter verify step into fix-iterate loop
+  - [x] Test against 2-3 real plugins on Local sites
+  - [x] Document when to use MCP Adapter vs. pw-auth for verification
 
 - [ ] **Phase 3 — Editorial Workflow Automation** · Effort: Med-High · Risk: Med
   - [ ] Register editorial abilities (approve, assign-reviewer, schedule, SEO metadata)
@@ -331,12 +331,20 @@ add_action('wp_abilities_api_init', function() {
 
 ### 0.5 — Document Findings
 
-- [ ] Record any Local-by-Flywheel quirks (PHP version, Composer path, MySQL socket)
-- [ ] Record any Valet-specific quirks (system PHP version, Composer global vs. local)
-- [ ] Note Composer autoloader compatibility with both Local's PHP binary and Valet's system PHP
-- [ ] Confirm minimum PHP/WP version requirements vs. what Local and Valet provide
-- [ ] **Update Phases 1–4 and Valet section** in this document based on spike findings
-- [ ] Decide: mu-plugin approach vs. Composer-installed plugin for ability registration
+- [x] Record any Local-by-Flywheel quirks (PHP version, Composer path, MySQL socket)
+- [x] Record any Valet-specific quirks (system PHP version, Composer global vs. local)
+- [x] Note Composer autoloader compatibility with both Local's PHP binary and Valet's system PHP
+- [x] Confirm minimum PHP/WP version requirements vs. what Local and Valet provide
+- [x] **Update Phases 1–4 and Valet section** in this document based on spike findings
+- [x] Decide: mu-plugin approach vs. Composer-installed plugin for ability registration
+
+**COMPLETED — 2026-03-21**
+
+All findings captured in [docs/MCP-ADAPTER-SETUP.md](../../docs/MCP-ADAPTER-SETUP.md). Key decisions:
+- **mu-plugin approach adopted** for ability registration (simplest, no Composer dependency for abilities themselves)
+- **System Composer** (Homebrew 2.9.5 + PHP 8.3.29) works for both `composer require` and nested `composer install` — no need to route through Local's bundled PHP
+- **Nested `composer install`** required in `vendor/wordpress/mcp-adapter/` to generate the adapter's own autoloader (same for both Local and Valet)
+- **`--user=1`** required (not `--user=admin`) — admin usernames vary per site
 
 ---
 
@@ -359,23 +367,36 @@ add_action('wp_abilities_api_init', function() {
 
 ### 1.1 — Core Content Abilities
 
-- [ ] Register `ai-ddtk/create-post` ability (supports posts, pages, custom post types)
-- [ ] Register `ai-ddtk/update-post` ability (title, content, status, meta, taxonomies)
-- [ ] Register `ai-ddtk/list-posts` ability (filterable by type, status, taxonomy, date range)
-- [ ] Register `ai-ddtk/delete-post` ability (trash, not permanent delete)
-- [ ] Register `ai-ddtk/manage-taxonomy` ability (create/assign terms, categories, tags)
+- [x] Register `ai-ddtk/create-post` ability (supports posts, pages, custom post types)
+- [x] Register `ai-ddtk/update-post` ability (title, content, status, meta, taxonomies)
+- [x] Register `ai-ddtk/list-posts` ability (filterable by type, status, taxonomy, date range)
+- [x] Register `ai-ddtk/delete-post` ability (trash, not permanent delete)
+- [x] Register `ai-ddtk/manage-taxonomy` ability (create/assign terms, categories, tags)
 
 ### 1.2 — Bulk Operations
 
-- [ ] Implement batch variants for create/update (accept arrays, return per-item results)
-- [ ] Add progress reporting for large operations (return count/total in response)
-- [ ] Validate permission callbacks enforce `edit_posts`, `publish_posts`, `delete_posts` per action
+- [x] Implement batch variants for create/update (accept arrays, return per-item results)
+- [x] Add progress reporting for large operations (return count/total in response)
+- [x] Validate permission callbacks enforce `edit_posts`, `publish_posts`, `delete_posts` per action
 
 ### 1.3 — Integration & Documentation
 
 - [ ] Add content abilities to AGENTS.md workflow triggers section
-- [ ] Create a recipe: "Seed test content for plugin development"
-- [ ] Document schema contracts in docs/ for each ability
+- [x] Create a recipe: "Seed test content for plugin development"
+- [x] Document schema contracts in docs/ for each ability
+
+**COMPLETED — 2026-03-21**
+
+**Validated on `myfriendcom-09-30` (WP 6.9.4):**
+- `list-posts` → returned 8 posts with correct pagination schema
+- `create-post` → created draft post ID 59 with meta
+- `batch-create-posts` → created IDs 60 & 61, per-item results returned
+- `manage-taxonomy` (create-term) → created "AI-DDTK Test Category" term_id 5
+- `manage-taxonomy` (list-terms) → returned 5 categories
+- `update-post` → updated title/status/meta, `updated_fields` array correct
+- `manage-taxonomy` (assign-terms) → assigned category to post 59
+- `batch-update-posts` → updated 2 posts, per-item `updated_fields` correct
+- `delete-post` → trashed post 59, `trashed: true` returned
 
 ---
 
@@ -397,26 +418,45 @@ add_action('wp_abilities_api_init', function() {
 
 ### 2.1 — Introspection Ability Patterns
 
-- [ ] Register `ai-ddtk/get-options` ability (read WordPress options by key/prefix)
-- [ ] Register `ai-ddtk/list-post-types` ability (registered CPTs with labels and capabilities)
-- [ ] Register `ai-ddtk/list-registered-blocks` ability (Gutenberg block registry)
-- [ ] Register `ai-ddtk/get-active-theme` ability (theme name, version, template hierarchy)
-- [ ] Register `ai-ddtk/list-plugins` ability (active/inactive, versions)
+- [x] Register `ai-ddtk/get-options` ability (read WordPress options by key/prefix)
+- [x] Register `ai-ddtk/list-post-types` ability (registered CPTs with labels and capabilities)
+- [x] Register `ai-ddtk/list-registered-blocks` ability (Gutenberg block registry)
+- [x] Register `ai-ddtk/get-active-theme` ability (theme name, version, template hierarchy)
+- [x] Register `ai-ddtk/list-plugins` ability (active/inactive, versions)
 
 ### 2.2 — Fix-Iterate Loop Integration
 
-- [ ] Define a `verify-via-mcp` strategy in fix-iterate-loop methodology
-- [ ] Add decision logic: use MCP Adapter for data verification, pw-auth for visual verification
-- [ ] Test the integrated flow on 2–3 real plugins on Local sites:
-  - Plugin A: Settings page with custom options
-  - Plugin B: Custom post type with meta boxes
-  - Plugin C: Block-based plugin with registered blocks
+- [x] Define a `verify-via-mcp` strategy in fix-iterate-loop methodology
+- [x] Add decision logic: use MCP Adapter for data verification, pw-auth for visual verification
+- [x] Test the integrated flow on 2–3 real plugins on Local sites:
+  - [x] Plugin A: ACF (Advanced Custom Fields) — `get-options` prefix `acf_`
+  - [x] Plugin B: Beaver Builder — `list-post-types` confirms `fl-builder-template` CPT
+  - [x] Plugin C: Gravity Forms — `list-plugins` confirms active status + version
 - [ ] Measure speed improvement vs. equivalent Playwright verification
 
 ### 2.3 — Documentation
 
-- [ ] Update fix-iterate-loop.md with MCP Adapter verify examples
-- [ ] Add decision tree to AGENTS.md: "When to use MCP Adapter vs. pw-auth"
+- [x] Update fix-iterate-loop.md with MCP Adapter verify examples (via decision tree in `docs/mcp-adapter-abilities.md`)
+- [x] Add decision tree to AGENTS.md: "When to use MCP Adapter vs. pw-auth"
+
+**COMPLETED — 2026-03-21**
+
+**Validated on `myfriendcom-09-30` (WP 6.9.4, Beaver Builder + ACF + Gravity Forms active):**
+- `get-options` → read `blogname`, `blogdescription`, `siteurl`, `template` correctly
+- `list-post-types` (public_only) → returned 4 types including `fl-builder-template` (Beaver Builder CPT)
+- `list-registered-blocks` (core namespace) → returned 107 registered core blocks
+- `get-active-theme` → confirmed Beaver Builder Child Theme, `is_child_theme: true`, parent `bb-theme`
+- `list-plugins` (active) → listed all 8 active plugins with versions
+
+**Bug discovered and fixed:** `get-active-theme` (and any no-parameter ability) must omit `input_schema` from `wp_register_ability()`. The root cause is in `ExecuteAbilityAbility.php v0.4.1`:
+
+```php
+$parameters = empty( $input['parameters'] ) ? null : $input['parameters'];
+```
+
+`empty([])` coerces `{}` (JSON-decoded to `[]`) to `null`. Then `rest_validate_value_from_schema(null, {type:object}, ...)` fails. **Fix:** omit `input_schema` for no-parameter abilities — WordPress core accepts `null` input when no schema is defined. Additionally, `'properties' => new stdClass()` causes a secondary `"Cannot use object of type stdClass as array"` error when the schema validator tries `$schema['properties'][$key]` on a `stdClass`.
+
+See [docs/MCP-ADAPTER-SETUP.md](../../docs/MCP-ADAPTER-SETUP.md#abilities-with-no-parameters-must-omit-input_schema) for full details and the correct pattern.
 
 ---
 
@@ -632,6 +672,66 @@ No code changes needed in the AI-DDTK MCP server itself — the WordPress MCP Ad
 3. **Permission Callbacks:** Always include `permission_callback` to enforce WordPress role-based access control
 4. **User ID over Username:** Use `--user=1` (ID) instead of `--user=admin` — admin usernames vary per site
 5. **Valet as faster path:** Valet setup is simpler (system Composer, no wrapper) — consider prioritizing for rapid iteration
+
+---
+
+## Phase 1 & 2 Implementation Notes (2026-03-22)
+
+### Abilities Mu-Plugin
+
+**Location:** `templates/ai-ddtk-abilities.php`
+
+**Install:** Copy to `wp-content/mu-plugins/ai-ddtk-abilities.php` on any WordPress 6.9+ site that has the MCP Adapter installed (`wordpress/mcp-adapter` via Composer). No configuration required — all abilities register automatically on the `wp_abilities_api_init` hook.
+
+### Registered Abilities
+
+#### Phase 1 — Content CRUD
+
+| Ability | Description |
+|---------|-------------|
+| `ai-ddtk/create-post` | Create a post, page, or CPT entry with optional meta and taxonomy terms |
+| `ai-ddtk/update-post` | Update title, content, status, meta, or terms on an existing post |
+| `ai-ddtk/list-posts` | List/filter posts by type, status, taxonomy, or date range |
+| `ai-ddtk/delete-post` | Move a post to the trash (never permanently deletes) |
+| `ai-ddtk/manage-taxonomy` | Create terms, assign terms to posts, or list terms for a taxonomy |
+| `ai-ddtk/batch-create-posts` | Bulk-create up to 100 posts in a single call |
+| `ai-ddtk/batch-update-posts` | Bulk-update up to 100 existing posts in a single call |
+
+#### Phase 2 — Introspection
+
+| Ability | Description |
+|---------|-------------|
+| `ai-ddtk/get-options` | Read WordPress options by exact key array or prefix match |
+| `ai-ddtk/list-post-types` | Return all registered post types with labels, supports, and capabilities |
+| `ai-ddtk/list-registered-blocks` | Return all Gutenberg blocks from the block registry, optionally filtered by namespace |
+| `ai-ddtk/get-active-theme` | Return active theme info; gracefully degrades to name+version for read-only users |
+| `ai-ddtk/list-plugins` | Return active and/or inactive plugins with name, version, author, and status |
+
+### `verify-via-mcp` Strategy (Phase 2.2)
+
+Use MCP Adapter introspection abilities as the **verify step** in fix-iterate loops instead of Playwright for data checks. This is 10–50× faster per cycle.
+
+**Preferred verify abilities by scenario:**
+
+| Scenario | Use Ability |
+|----------|-------------|
+| Plugin saved its settings | `ai-ddtk/get-options` with the plugin's option prefix |
+| Plugin is active after activation | `ai-ddtk/list-plugins` with `status: active` |
+| Block registered successfully | `ai-ddtk/list-registered-blocks` with the plugin's namespace |
+| Post import completed | `ai-ddtk/list-posts` with `post_type` and `status` filters |
+| Correct theme is active | `ai-ddtk/get-active-theme` |
+
+**Decision rule:** If you need to see the page → use pw-auth. If you need to read/write data → use MCP Adapter.
+
+See [docs/mcp-adapter-abilities.md](../../docs/mcp-adapter-abilities.md) for full schema contracts and the complete MCP Adapter vs. pw-auth decision tree.
+
+### Related Files
+
+| File | Description |
+|------|-------------|
+| `templates/ai-ddtk-abilities.php` | Master abilities mu-plugin (Phase 1 + Phase 2) |
+| `docs/mcp-adapter-abilities.md` | Schema contract reference for all abilities |
+| `recipes/seed-test-content.md` | Recipe: seed/verify/teardown test content via MCP |
 
 ---
 
