@@ -41,8 +41,8 @@ program
   .option('-d, --data <json>', 'JSON data payload', '{}')
   .option('--auth <file>', 'Auth file path (JSON)', null)
   .option('-f, --format <format>', 'Output format (human|json)', 'human')
-  .option('--admin', 'Use admin AJAX endpoint (default)', true)
-  .option('--nopriv', 'Use nopriv AJAX endpoint')
+  .option('--admin', 'Send the default authenticated/admin-style request flow', true)
+  .option('--nopriv', 'Send an unauthenticated request and skip auth/nonce discovery')
   .option('-m, --method <method>', 'HTTP method', 'POST')
   .option('-t, --timeout <ms>', 'Request timeout in ms', '30000')
   .option('-v, --verbose', 'Verbose output', false)
@@ -86,6 +86,22 @@ function buildCookieHeader() {
   return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ');
 }
 
+function storeSetCookieHeaders(setCookieHeaders = []) {
+  setCookieHeaders.forEach((cookieHeader) => {
+    const cookiePair = cookieHeader.split(';')[0];
+    const separatorIndex = cookiePair.indexOf('=');
+
+    if (separatorIndex <= 0) {
+      return;
+    }
+
+    const cookieName = cookiePair.slice(0, separatorIndex);
+    const cookieValue = cookiePair.slice(separatorIndex + 1);
+
+    cookies[cookieName] = cookieValue;
+  });
+}
+
 function resolveNonceUrl(siteUrl, customNonceUrl = null) {
   const siteOrigin = getSiteOrigin(siteUrl);
 
@@ -113,12 +129,7 @@ async function fetchNoncePage(nonceUrl, siteOrigin, maxRedirects = 5) {
       maxRedirects: 0
     });
 
-    if (response.headers['set-cookie']) {
-      response.headers['set-cookie'].forEach(cookie => {
-        const parts = cookie.split(';')[0].split('=');
-        cookies[parts[0]] = parts[1];
-      });
-    }
+    storeSetCookieHeaders(response.headers['set-cookie']);
 
     if (!isRedirectStatus(response.status) || !response.headers.location) {
       return response;
@@ -157,6 +168,7 @@ if (options.insecure) {
 async function main() {
   try {
     const startTime = Date.now();
+    const useAuthenticatedFlow = !options.nopriv;
     
     // Parse data payload
     let data;
@@ -168,11 +180,19 @@ async function main() {
 
     // Load authentication if provided
     let auth = null;
-    if (options.auth) {
+    if (options.auth && useAuthenticatedFlow) {
       auth = await loadAuth(options.auth);
       if (options.verbose) {
         console.log(`Loaded auth from: ${options.auth}`);
       }
+    }
+
+    if (options.auth && !useAuthenticatedFlow && options.verbose) {
+      console.log('Ignoring --auth because --nopriv sends the request without authentication');
+    }
+
+    if (!useAuthenticatedFlow && options.nonceUrl && options.verbose) {
+      console.log('Ignoring --nonce-url because --nopriv skips authenticated nonce discovery');
     }
 
     // Authenticate if needed
@@ -190,9 +210,7 @@ async function main() {
     }
 
     // Build AJAX endpoint URL
-    const endpoint = options.nopriv 
-      ? `${options.url}/wp-admin/admin-ajax.php`
-      : `${options.url}/wp-admin/admin-ajax.php`;
+    const endpoint = `${options.url}/wp-admin/admin-ajax.php`;
 
     // Build request payload
     const payload = {
@@ -272,12 +290,7 @@ async function authenticate(siteUrl, auth) {
   try {
     // First, get the login page to get any initial cookies
     const getResponse = await client.get(loginUrl);
-    if (getResponse.headers['set-cookie']) {
-      getResponse.headers['set-cookie'].forEach(cookie => {
-        const parts = cookie.split(';')[0].split('=');
-        cookies[parts[0]] = parts[1];
-      });
-    }
+    storeSetCookieHeaders(getResponse.headers['set-cookie']);
 
     // Now POST the login form with cookies
     const response = await client.post(loginUrl, new URLSearchParams({
@@ -300,10 +313,7 @@ async function authenticate(siteUrl, auth) {
 
     // Store cookies from response
     if (response.headers['set-cookie']) {
-      response.headers['set-cookie'].forEach(cookie => {
-        const parts = cookie.split(';')[0].split('=');
-        cookies[parts[0]] = parts[1];
-      });
+      storeSetCookieHeaders(response.headers['set-cookie']);
 
       if (options.verbose) {
         console.log(`   Stored cookies: ${Object.keys(cookies).join(', ')}`);

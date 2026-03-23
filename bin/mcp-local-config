@@ -82,16 +82,38 @@ function readJsonFile(filePath) {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-function normalizeSnippet(snippet, sourcePath) {
-  if (!snippet || typeof snippet !== 'object' || Array.isArray(snippet)) {
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validateServerEntries(serverMap, sourcePath) {
+  if (!isPlainObject(serverMap)) {
     throw new Error(`Invalid MCP snippet in ${sourcePath}`);
   }
 
-  if (snippet.mcpServers && typeof snippet.mcpServers === 'object' && !Array.isArray(snippet.mcpServers)) {
-    return snippet.mcpServers;
+  for (const [serverName, serverConfig] of Object.entries(serverMap)) {
+    if (!isPlainObject(serverConfig)) {
+      throw new Error(`Invalid MCP server entry \"${serverName}\" in ${sourcePath}: expected an object`);
+    }
+
+    if (typeof serverConfig.command !== 'string' || serverConfig.command.trim() === '') {
+      throw new Error(`Invalid MCP server entry \"${serverName}\" in ${sourcePath}: missing required string \"command\"`);
+    }
   }
 
-  return snippet;
+  return serverMap;
+}
+
+function normalizeSnippet(snippet, sourcePath) {
+  if (!isPlainObject(snippet)) {
+    throw new Error(`Invalid MCP snippet in ${sourcePath}`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(snippet, 'mcpServers')) {
+    return validateServerEntries(snippet.mcpServers, sourcePath);
+  }
+
+  return validateServerEntries(snippet, sourcePath);
 }
 
 function loadLocalSnippets() {
