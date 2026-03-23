@@ -1384,11 +1384,61 @@ add_action( 'wp_abilities_api_init', function () {
 				];
 			}
 
+			// Value validation for dangerous keys (only reached when confirm_dangerous is true).
+			if ( $confirm_dangerous && $dangerous_keys_seen ) {
+				$validation_errors = [];
+				$url_keys          = [ 'siteurl', 'home' ];
+				$theme_keys        = [ 'template', 'stylesheet' ];
+
+				foreach ( $params['updates'] as $raw_key => $new_value ) {
+					$key = sanitize_text_field( (string) $raw_key );
+
+					// URL keys must be well-formed URLs.
+					if ( in_array( $key, $url_keys, true ) ) {
+						$sanitized_url = esc_url_raw( (string) $new_value );
+						if ( empty( $sanitized_url ) || ! wp_http_validate_url( $sanitized_url ) ) {
+							$validation_errors[] = sprintf( '"%s" value "%s" is not a valid URL.', $key, (string) $new_value );
+						}
+					}
+
+					// Theme keys must match an installed theme directory.
+					if ( in_array( $key, $theme_keys, true ) ) {
+						$installed_themes = wp_get_themes();
+						$theme_slug       = sanitize_text_field( (string) $new_value );
+						if ( ! isset( $installed_themes[ $theme_slug ] ) ) {
+							$valid_slugs         = array_keys( $installed_themes );
+							$validation_errors[] = sprintf(
+								'"%s" value "%s" does not match any installed theme. Installed themes: %s.',
+								$key,
+								$theme_slug,
+								implode( ', ', array_slice( $valid_slugs, 0, 10 ) )
+							);
+						}
+					}
+				}
+
+				if ( ! empty( $validation_errors ) ) {
+					return [
+						'success'                => false,
+						'dangerous_keys_present' => true,
+						'error'                  => 'Value validation failed for dangerous keys: ' . implode( ' ', $validation_errors ),
+					];
+				}
+			}
+
 			// All keys cleared — write each one.
-			$results = [];
+			$results    = [];
+			$skipped    = [];
 
 			foreach ( $params['updates'] as $raw_key => $new_value ) {
-				$key            = sanitize_text_field( (string) $raw_key );
+				$key = sanitize_text_field( (string) $raw_key );
+
+				// Reject empty or whitespace-only keys that survive sanitization.
+				if ( '' === $key ) {
+					$skipped[] = (string) $raw_key;
+					continue;
+				}
+
 				$previous_value = get_option( $key );
 				$is_dangerous   = in_array( $key, $require_confirm, true );
 
@@ -1423,11 +1473,17 @@ add_action( 'wp_abilities_api_init', function () {
 				];
 			}
 
-			return [
+			$response = [
 				'success'                => true,
 				'results'                => $results,
 				'dangerous_keys_present' => $dangerous_keys_seen,
 			];
+
+			if ( ! empty( $skipped ) ) {
+				$response['skipped_keys'] = $skipped;
+			}
+
+			return $response;
 		},
 	] );
 } );

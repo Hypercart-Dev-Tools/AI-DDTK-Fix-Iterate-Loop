@@ -395,7 +395,7 @@ Two-tier safety system enforced inside the ability handler (also extensible via 
 | Tier | Keys | Behaviour |
 |------|------|-----------|
 | **Always refused** | `active_plugins`, `active_sitewide_plugins` | Returned as a `blocked_keys` error regardless of `confirm_dangerous`. Use `local_wp_run plugin activate/deactivate` instead. |
-| **Require confirm** | `siteurl`, `home`, `template`, `stylesheet`, `admin_email` | Blocked unless `confirm_dangerous: true`. Override is written to PHP error log with user ID + timestamp for audit. |
+| **Require confirm** | `siteurl`, `home`, `template`, `stylesheet`, `admin_email` | Blocked unless `confirm_dangerous: true`. URL keys (`siteurl`, `home`) are validated via `esc_url_raw()` + `wp_http_validate_url()`; theme keys (`template`, `stylesheet`) are validated against `wp_get_themes()`. Override is written to PHP error log with user ID + timestamp for audit. |
 
 #### Output Schema
 
@@ -691,11 +691,11 @@ This replaces slow Playwright page loads with direct PHP execution via WP-CLI �
 
 ---
 
-## Phase 3 — Options Write Abilities (Planned)
+## Phase 3 — Options Write Abilities
 
-> **Status: Planned — no functional code yet.**
+> **Status: Implemented** — `ai-ddtk/update-options` is registered in `templates/ai-ddtk-abilities.php` with full blocklist, value validation, and audit logging. See the [API reference above](#ai-ddtkupdate-options) for usage.
 >
-> This phase adds write capabilities to the `wp_options` table, closing the gap that currently requires Playwright or `local_wp_run` to change plugin/theme settings.
+> This phase adds write capabilities to the `wp_options` table, closing the gap that previously required Playwright or `local_wp_run` to change plugin/theme settings.
 > The primary design constraint is safety: certain option keys can silently break or brick a WordPress install and must be treated with extra caution.
 
 ### Implementation Checklist
@@ -714,10 +714,10 @@ This replaces slow Playwright page loads with direct PHP execution via WP-CLI �
 The following option keys are in a hardcoded **blocklist** inside the ability handler.
 Writing to any of them must be refused unless the caller passes `"confirm_dangerous": true` **and** the new value passes additional validation:
 
-- [x] `siteurl` — changing this relocates the entire site; validate it is a well-formed URL and warn the caller that permalink flushing may be needed
-- [x] `home` — same concerns as `siteurl`
-- [x] `template` — changes the active parent theme directory; validate it matches an installed theme slug returned by `get-active-theme`
-- [x] `stylesheet` — changes the active theme (child or standalone); same validation as `template`
+- [x] `siteurl` — changing this relocates the entire site; value is validated via `esc_url_raw()` + `wp_http_validate_url()`; invalid URLs are rejected before `update_option()` runs
+- [x] `home` — same concerns and URL validation as `siteurl`
+- [x] `template` — changes the active parent theme directory; value is validated against `wp_get_themes()` and rejected if it does not match an installed theme slug
+- [x] `stylesheet` — changes the active theme (child or standalone); same theme validation as `template`
 - [x] `active_plugins` — direct writes can bypass activation hooks and corrupt the list; **always refuse** — callers must use WP-CLI (`local_wp_run plugin activate/deactivate`) for plugin activation state changes
 - [x] `active_sitewide_plugins` (multisite) — same refusal as `active_plugins`
 - [x] `admin_email` — flag as sensitive; allow with `confirm_dangerous: true` but log the change
@@ -747,7 +747,7 @@ Writing to any of them must be refused unless the caller passes `"confirm_danger
 - [x] Unit test: blocklisted key without `confirm_dangerous` returns error and does **not** call `update_option()`
 - [x] Unit test: blocklisted key with `confirm_dangerous: true` calls `update_option()` and logs to error log
 - [x] Unit test: `active_plugins` is always refused even with `confirm_dangerous: true`
-- [ ] Integration test: write a WooCommerce option prefix key on a local site and verify with `get-options` — deferred; requires a live LocalWP site
+- [ ] Integration test: write a WooCommerce option prefix key on a local site and verify with `get-options` — see [recipes/integration-test-update-options.md](../recipes/integration-test-update-options.md) for manual steps; requires a live LocalWP site
 
 ---
 
