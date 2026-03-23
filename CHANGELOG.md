@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **AGENTS optional recipe cross-link** — added a short optional-workflow note in `AGENTS.md` pointing agents to `recipes/valet-clone-lab.md` for macOS throwaway clone/testing scenarios.
 - **`install.sh` MCP/bootstrap refresh** — `setup-mcp` now prints launcher-based config that uses `tools/mcp-server/start.sh`, `status` reports launcher readiness when `dist/` is missing, `update` now follows the current branch/upstream with `--ff-only` instead of hardcoding `main`, and first-run next steps now surface `setup-mcp`.
 - **Experimental `theme-crash-loop.sh` evidence upgrade** — the crash-loop helper now defaults to the canonical `bin/local-wp` wrapper, supports repeatable extra probe URLs and configurable curl timeouts, writes machine-readable probe artifacts (`probes.tsv`, `probes.jsonl`, `run.json`), snapshots theme state per phase, and classifies probes using multiple signals (HTTP status, redirects, login gates, fatal/WP-die/db-error pages) instead of raw `curl` metrics alone.
+- **Experimental `theme-crash-loop.sh` segmentation fault detection** — added segmentation fault detection patterns (`segmentation fault`, `segfault`, `core dumped`) to the log scanning logic in `scan_log_delta()` so PHP-FPM segfaults that leave log trails are now caught and counted as alert events.
 - **Version updates** — README.md and AGENTS.md updated to `1.0.44`.
 
 ### Fixed
