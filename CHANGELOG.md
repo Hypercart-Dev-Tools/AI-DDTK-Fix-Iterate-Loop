@@ -5,6 +5,15 @@ All notable changes to AI-DDTK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Repo-level PHPStan setup** — added a root `composer.json` for PHP static-analysis dependencies and a focused `phpstan.neon` that targets AI-DDTK's first-party WordPress PHP files under `templates/` and `tools/qm-bridge/` while excluding vendored/generated subtrees.
+
+### Fixed
+- **`wp-ajax-test` authenticated nonce fetch hardening** — custom `--nonce-url` values now must resolve to the same origin as `--url`, and nonce fetch redirects are followed manually only when they stay on the same origin. This prevents authenticated WordPress cookies from being forwarded to arbitrary external hosts during nonce discovery.
+- **Query Monitor MCP TLS verification scope** — the QM handler now disables HTTPS certificate verification only for explicit local-development hosts (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`) instead of all HTTPS targets.
+
 ## [1.1.0-rc.1] - 2026-03-22
 
 ### Added

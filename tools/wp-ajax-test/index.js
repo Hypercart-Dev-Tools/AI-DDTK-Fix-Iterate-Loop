@@ -53,6 +53,72 @@ program
 
 const options = program.opts();
 
+function getSiteOrigin(siteUrl) {
+  return new URL(siteUrl).origin;
+}
+
+function isRedirectStatus(statusCode) {
+  return [301, 302, 303, 307, 308].includes(statusCode);
+}
+
+function buildCookieHeader() {
+  return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
+function resolveNonceUrl(siteUrl, customNonceUrl = null) {
+  const siteOrigin = getSiteOrigin(siteUrl);
+
+  if (!customNonceUrl) {
+    return new URL('/wp-admin/', siteOrigin).href;
+  }
+
+  const resolvedUrl = new URL(customNonceUrl, siteOrigin).href;
+
+  if (new URL(resolvedUrl).origin !== siteOrigin) {
+    throw new Error('--nonce-url must resolve to the same origin as --url when authenticated cookies are in use');
+  }
+
+  return resolvedUrl;
+}
+
+async function fetchNoncePage(nonceUrl, siteOrigin, maxRedirects = 5) {
+  let currentUrl = nonceUrl;
+
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    const response = await client.get(currentUrl, {
+      headers: {
+        'Cookie': buildCookieHeader()
+      },
+      maxRedirects: 0
+    });
+
+    if (response.headers['set-cookie']) {
+      response.headers['set-cookie'].forEach(cookie => {
+        const parts = cookie.split(';')[0].split('=');
+        cookies[parts[0]] = parts[1];
+      });
+    }
+
+    if (!isRedirectStatus(response.status) || !response.headers.location) {
+      return response;
+    }
+
+    if (redirectCount === maxRedirects) {
+      throw new Error(`Nonce fetch exceeded ${maxRedirects} redirects`);
+    }
+
+    const redirectUrl = new URL(response.headers.location, currentUrl).href;
+
+    if (new URL(redirectUrl).origin !== siteOrigin) {
+      throw new Error('Nonce fetch redirected to a different origin; refusing to forward authenticated cookies');
+    }
+
+    currentUrl = redirectUrl;
+  }
+
+  throw new Error('Nonce fetch failed to resolve a final response');
+}
+
 // Configure SSL if --insecure flag is set
 if (options.insecure) {
   const https = require('https');
@@ -276,19 +342,10 @@ async function authenticate(siteUrl, auth) {
  * Get nonce from WordPress admin page
  */
 async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '_wpnonce') {
-  try {
-    // Determine which URL to fetch nonce from
-    let nonceUrl;
-    if (customNonceUrl) {
-      // Custom URL provided - can be relative or absolute
-      nonceUrl = customNonceUrl.startsWith('http')
-        ? customNonceUrl
-        : `${siteUrl}${customNonceUrl.startsWith('/') ? '' : '/'}${customNonceUrl}`;
-    } else {
-      // Default to wp-admin
-      nonceUrl = `${siteUrl}/wp-admin/`;
-    }
+  const siteOrigin = getSiteOrigin(siteUrl);
+  const nonceUrl = resolveNonceUrl(siteUrl, customNonceUrl);
 
+  try {
     if (options.verbose) {
       console.log(`🔑 Fetching nonce from: ${nonceUrl}`);
       if (customNonceUrl) {
@@ -296,20 +353,7 @@ async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '
       }
     }
 
-    const response = await client.get(nonceUrl, {
-      headers: {
-        'Cookie': Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
-      },
-      maxRedirects: 5 // Allow redirects for this request
-    });
-
-    // Update cookies from response
-    if (response.headers['set-cookie']) {
-      response.headers['set-cookie'].forEach(cookie => {
-        const parts = cookie.split(';')[0].split('=');
-        cookies[parts[0]] = parts[1];
-      });
-    }
+    const response = await fetchNoncePage(nonceUrl, siteOrigin);
 
     const $ = cheerio.load(response.data);
 
