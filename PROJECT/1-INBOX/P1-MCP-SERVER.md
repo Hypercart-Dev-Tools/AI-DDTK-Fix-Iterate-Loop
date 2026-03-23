@@ -97,6 +97,17 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
   - [ ] Tool registration in index.ts + tool/resource reference update
   - [ ] Optional follow-up: mu-plugin companion for frontend page profiling
 
+Key Discoveries from Spike:
+QM envelope works — ?_envelope=1 on REST routes returns a qm property with all 6 raw collectors (db_queries, cache, http, logger, conditionals, transients)
+
+App passwords don't work — QM's Dispatcher::init() fires at WordPress init hook, before rest_api_init where app passwords authenticate. By the time the user is recognized, QM has already called qm/cease and stopped collecting.
+
+Session cookies work — WordPress logged_in cookie + QM auth cookie authenticate at init time via $_COOKIE, so QM collects data normally.
+
+Frontend URLs are REST-only — _envelope=1 is a REST-layer filter, so frontend pages return HTML. REST-only profiling is the right scope for Phase 7; a mu-plugin companion for frontend profiling can follow later.
+
+The data is rich — Each query includes SQL, timing (seconds), full call stack, and row count. The dupes collector gives N+1 detection for free.
+
 ---
 
 ## Overview
