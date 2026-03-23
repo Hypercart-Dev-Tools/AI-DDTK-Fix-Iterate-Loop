@@ -126,7 +126,7 @@ export function createServer() {
   const tmuxHandlers = createTmuxHandlers({ repoRoot });
   const wpAjaxTestHandlers = createWpAjaxTestHandlers({ repoRoot });
   const wpccHandlers = createWpccHandlers({ repoRoot });
-  const qmHandlers = createQmHandlers({ getCookiesForSite: (user, domain) => pwAuthHandlers.getCookiesForSite(user, domain) });
+  const qmHandlers = createQmHandlers({ getCookiesForSite: (user, domain) => pwAuthHandlers.getCookiesForSite(user, domain), repoRoot });
 
   const server = new McpServer({
     name: "ai-ddtk-mcp",

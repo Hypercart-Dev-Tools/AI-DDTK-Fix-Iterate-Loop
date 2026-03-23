@@ -1,6 +1,8 @@
 import { randomBytes } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
 import https from "node:https";
 import http from "node:http";
+import path from "node:path";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const PROFILE_RETRIEVE_DELAY_MS = 500;
@@ -98,6 +100,7 @@ export type QmDuplicateQueriesResult = Record<string, unknown> & {
 
 export interface QmHandlerDeps {
   getCookiesForSite: (user: string, domain: string) => Promise<Array<{ name: string; value: string; domain: string }>>;
+  repoRoot: string;
   timeoutMs?: number;
 }
 
@@ -193,6 +196,7 @@ function sleep(ms: number): Promise<void> {
 
 export function createQmHandlers(deps: QmHandlerDeps) {
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const profilesDir = path.join(deps.repoRoot, "temp", "qm-profiles");
 
   async function getAuthCookies(siteUrl: string, user: string): Promise<Array<{ name: string; value: string }>> {
     const domain = extractDomain(siteUrl);
@@ -269,7 +273,20 @@ export function createQmHandlers(deps: QmHandlerDeps) {
       throw new Error(`Failed to retrieve QM profile (HTTP ${profileRes.statusCode}): ${profileRes.body.slice(0, 200)}`);
     }
 
-    return JSON.parse(profileRes.body) as QmProfileData;
+    const profileData = JSON.parse(profileRes.body) as QmProfileData;
+
+    // Persist profile to temp/qm-profiles/<domain>-<timestamp>.json
+    try {
+      await mkdir(profilesDir, { recursive: true });
+      const domain = extractDomain(siteUrl);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-").replace("T", "_").slice(0, 19);
+      const fileName = `${domain}_${timestamp}.json`;
+      await writeFile(path.join(profilesDir, fileName), JSON.stringify(profileData, null, 2));
+    } catch {
+      // Non-fatal — profile retrieval succeeded, file save is best-effort.
+    }
+
+    return profileData;
   }
 
   return {
