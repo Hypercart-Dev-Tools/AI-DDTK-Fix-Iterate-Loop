@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: AI-DDTK Abilities
- * Description: Registers Phase 1 (content CRUD) and Phase 2 (introspection) abilities for the
- *              WordPress MCP Adapter. Part of AI-DDTK — see https://github.com/Hypercart-Dev-Tools/AI-DDTK
+ * Description: Registers Phase 1 (content CRUD), Phase 2 (introspection), and Phase 3 (options write)
+ *              abilities for the WordPress MCP Adapter. Part of AI-DDTK — see https://github.com/Hypercart-Dev-Tools/AI-DDTK
  *
  * Installation: Copy this file to wp-content/mu-plugins/ai-ddtk-abilities.php on any WordPress 6.9+
  *               site that has the MCP Adapter installed (wordpress/mcp-adapter via Composer).
@@ -46,6 +46,38 @@ function _ai_ddtk_sanitize_meta_value( $value ) {
 	}
 	// Arrays and objects: return as-is; WordPress handles serialization.
 	return $value;
+}
+
+/**
+ * Return the hardcoded options blocklist used by ai-ddtk/update-options.
+ *
+ * Keys are grouped into two tiers:
+ *   - 'always_refuse'    : Never writable via this ability regardless of confirm_dangerous.
+ *   - 'require_confirm'  : Writable only when the caller passes confirm_dangerous: true.
+ *
+ * Both lists are filterable via the 'ai_ddtk_options_blocklist' filter so that
+ * site owners can extend them without patching this file.
+ *
+ * @return array{ always_refuse: string[], require_confirm: string[] }
+ */
+function _ai_ddtk_options_blocklist(): array {
+	$defaults = [
+		'always_refuse'   => [
+			'active_plugins',           // Activation/deactivation must go through WP-CLI hooks.
+			'active_sitewide_plugins',  // Multisite equivalent.
+		],
+		'require_confirm' => [
+			'siteurl',                  // Relocates the entire site; flush rewrite rules after.
+			'home',                     // Front-end URL; same risk as siteurl.
+			'template',                 // Changes active parent theme directory.
+			'stylesheet',               // Changes active theme (child or standalone).
+			'admin_email',              // Sensitive account contact.
+		],
+	];
+
+	/** @var array{ always_refuse: string[], require_confirm: string[] } $list */
+	$list = apply_filters( 'ai_ddtk_options_blocklist', $defaults );
+	return $list;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1239,6 +1271,234 @@ add_action( 'wp_abilities_api_init', function () {
 				'active_count'   => $active_count,
 				'inactive_count' => $inactive_count,
 			];
+		},
+	] );
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// PHASE 3 — Options Write Abilities
+	// ─────────────────────────────────────────────────────────────────────────
+
+	// ── ai-ddtk/update-options ───────────────────────────────────────────────
+	wp_register_ability( 'ai-ddtk/update-options', [
+		'label'       => 'Update Options',
+		'description' => 'Write one or more WordPress options to wp_options. Dangerous keys (siteurl, home, template, stylesheet, admin_email) require confirm_dangerous: true. Plugin activation keys (active_plugins, active_sitewide_plugins) are always refused.',
+		'category'    => 'site',
+		'meta'        => [ 'mcp' => [ 'public' => true ] ],
+		'input_schema' => [
+			'type'       => 'object',
+			'required'   => [ 'updates' ],
+			'properties' => [
+				'updates' => [
+					'type'        => 'object',
+					'description' => 'Key/value pairs of option names and their new values. Each value must be a string, number, boolean, array, or null.',
+				],
+				'autoload' => [
+					'type'        => 'string',
+					'description' => 'Autoload hint applied to every key in this call: "yes", "no", or "unchanged" (default "unchanged").',
+					'enum'        => [ 'yes', 'no', 'unchanged' ],
+					'default'     => 'unchanged',
+				],
+				'confirm_dangerous' => [
+					'type'        => 'boolean',
+					'description' => 'Must be true to write blocklisted-but-writable keys (siteurl, home, template, stylesheet, admin_email). Has no effect on always-refused keys (active_plugins, active_sitewide_plugins).',
+					'default'     => false,
+				],
+				'redact_values' => [
+					'type'        => 'boolean',
+					'description' => 'When true, previous_value and new_value in each result are replaced with "[REDACTED]". Use when writing options that may contain secrets (API keys, SMTP credentials, license keys) to prevent leaking sensitive values into MCP transcripts or agent context.',
+					'default'     => false,
+				],
+			],
+		],
+		'output_schema' => [
+			'type'       => 'object',
+			'properties' => [
+				'success'               => [ 'type' => 'boolean' ],
+				'results'               => [
+					'type'  => 'array',
+					'items' => [
+						'type'       => 'object',
+						'properties' => [
+							'key'            => [ 'type' => 'string' ],
+							'previous_value' => [],
+							'new_value'      => [],
+							'changed'        => [ 'type' => 'boolean' ],
+						],
+					],
+				],
+				'dangerous_keys_present' => [ 'type' => 'boolean' ],
+				'blocked_keys'           => [ 'type' => 'array', 'items' => [ 'type' => 'string' ] ],
+				'error'                  => [ 'type' => 'string' ],
+			],
+		],
+		'permission_callback' => function () {
+			return current_user_can( 'manage_options' );
+		},
+		'execute_callback' => function ( $params ) {
+			if ( empty( $params['updates'] ) || ! is_array( $params['updates'] ) ) {
+				return [ 'success' => false, 'error' => 'The "updates" parameter is required and must be a non-empty object.' ];
+			}
+
+			$confirm_dangerous = ! empty( $params['confirm_dangerous'] );
+			$redact_values     = ! empty( $params['redact_values'] );
+			$autoload_hint     = isset( $params['autoload'] ) ? $params['autoload'] : 'unchanged';
+
+			$blocklist       = _ai_ddtk_options_blocklist();
+			$always_refuse   = $blocklist['always_refuse'];
+			$require_confirm = $blocklist['require_confirm'];
+
+			// Pre-flight: collect any always-refused or unconfirmed dangerous keys.
+			$refused_keys        = [];
+			$unconfirmed_keys    = [];
+			$dangerous_keys_seen = false;
+
+			foreach ( array_keys( $params['updates'] ) as $key ) {
+				$key = sanitize_text_field( (string) $key );
+				if ( in_array( $key, $always_refuse, true ) ) {
+					$refused_keys[] = $key;
+				} elseif ( in_array( $key, $require_confirm, true ) ) {
+					$dangerous_keys_seen = true;
+					if ( ! $confirm_dangerous ) {
+						$unconfirmed_keys[] = $key;
+					}
+				}
+			}
+
+			// Hard stop: always-refused keys present.
+			if ( ! empty( $refused_keys ) ) {
+				return [
+					'success'                => false,
+					'blocked_keys'           => $refused_keys,
+					'dangerous_keys_present' => true,
+					'error'                  => sprintf(
+						'The following option keys can never be written via this ability: %s. Use WP-CLI (local_wp_run plugin activate/deactivate) for plugin activation state changes.',
+						implode( ', ', $refused_keys )
+					),
+				];
+			}
+
+			// Soft stop: dangerous keys present but confirm_dangerous not set.
+			if ( ! empty( $unconfirmed_keys ) ) {
+				return [
+					'success'                => false,
+					'blocked_keys'           => $unconfirmed_keys,
+					'dangerous_keys_present' => true,
+					'error'                  => sprintf(
+						'The following option keys require "confirm_dangerous": true before writing: %s. These keys can break site URL routing or change the active theme.',
+						implode( ', ', $unconfirmed_keys )
+					),
+				];
+			}
+
+			// Value validation for dangerous keys (only reached when confirm_dangerous is true).
+			if ( $confirm_dangerous && $dangerous_keys_seen ) {
+				$validation_errors = [];
+				$url_keys          = [ 'siteurl', 'home' ];
+				$theme_keys        = [ 'template', 'stylesheet' ];
+				$email_keys        = [ 'admin_email' ];
+
+				foreach ( $params['updates'] as $raw_key => $new_value ) {
+					$key = sanitize_text_field( (string) $raw_key );
+
+					// URL keys must be well-formed URLs.
+					if ( in_array( $key, $url_keys, true ) ) {
+						$sanitized_url = esc_url_raw( (string) $new_value );
+						if ( empty( $sanitized_url ) || ! wp_http_validate_url( $sanitized_url ) ) {
+							$validation_errors[] = sprintf( '"%s" value "%s" is not a valid URL.', $key, (string) $new_value );
+						}
+					}
+
+					// Theme keys must match an installed theme directory.
+					if ( in_array( $key, $theme_keys, true ) ) {
+						$installed_themes = wp_get_themes();
+						$theme_slug       = sanitize_text_field( (string) $new_value );
+						if ( ! isset( $installed_themes[ $theme_slug ] ) ) {
+							$valid_slugs         = array_keys( $installed_themes );
+							$validation_errors[] = sprintf(
+								'"%s" value "%s" does not match any installed theme. Installed themes: %s.',
+								$key,
+								$theme_slug,
+								implode( ', ', array_slice( $valid_slugs, 0, 10 ) )
+							);
+						}
+					}
+
+					// Email keys must be valid email addresses.
+					if ( in_array( $key, $email_keys, true ) ) {
+						$sanitized_email = sanitize_email( (string) $new_value );
+						if ( empty( $sanitized_email ) || ! is_email( $sanitized_email ) ) {
+							$validation_errors[] = sprintf( '"%s" value "%s" is not a valid email address.', $key, (string) $new_value );
+						}
+					}
+				}
+
+				if ( ! empty( $validation_errors ) ) {
+					return [
+						'success'                => false,
+						'dangerous_keys_present' => true,
+						'error'                  => 'Value validation failed for dangerous keys: ' . implode( ' ', $validation_errors ),
+					];
+				}
+			}
+
+			// All keys cleared — write each one.
+			$results    = [];
+			$skipped    = [];
+
+			foreach ( $params['updates'] as $raw_key => $new_value ) {
+				$key = sanitize_text_field( (string) $raw_key );
+
+				// Reject empty or whitespace-only keys that survive sanitization.
+				if ( '' === $key ) {
+					$skipped[] = (string) $raw_key;
+					continue;
+				}
+
+				$previous_value = get_option( $key );
+				$is_dangerous   = in_array( $key, $require_confirm, true );
+
+				// Resolve autoload argument.
+				if ( 'yes' === $autoload_hint ) {
+					$updated = update_option( $key, $new_value, true );
+				} elseif ( 'no' === $autoload_hint ) {
+					$updated = update_option( $key, $new_value, false );
+				} else {
+					$updated = update_option( $key, $new_value );
+				}
+
+				// Audit log: dangerous key overrides.
+				if ( $is_dangerous && $confirm_dangerous ) {
+					$user_id = get_current_user_id();
+					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+					error_log(
+						sprintf(
+							'[AI-DDTK] ai-ddtk/update-options: dangerous key "%s" overridden by user %d at %s.',
+							$key,
+							$user_id,
+							gmdate( 'Y-m-d H:i:s' )
+						)
+					);
+				}
+
+				$results[] = [
+					'key'            => $key,
+					'previous_value' => $redact_values ? '[REDACTED]' : $previous_value,
+					'new_value'      => $redact_values ? '[REDACTED]' : get_option( $key ),
+					'changed'        => (bool) $updated,
+				];
+			}
+
+			$response = [
+				'success'                => true,
+				'results'                => $results,
+				'dangerous_keys_present' => $dangerous_keys_seen,
+			];
+
+			if ( ! empty( $skipped ) ) {
+				$response['skipped_keys'] = $skipped;
+			}
+
+			return $response;
 		},
 	] );
 } );
