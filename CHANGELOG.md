@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **`wp-ajax-test` authenticated nonce fetch hardening** — custom `--nonce-url` values now must resolve to the same origin as `--url`, and nonce fetch redirects are followed manually only when they stay on the same origin. This prevents authenticated WordPress cookies from being forwarded to arbitrary external hosts during nonce discovery.
 - **`wp-ajax-test` nonce field parsing hardening** — custom `--nonce-field` values no longer flow unescaped into Cheerio selectors or dynamically constructed regular expressions. The tool now compares input names directly and escapes the regex variant before matching inline script content.
+- **`wp-ajax-test` cookie and `--nopriv` handling** — cookie values from `Set-Cookie` headers are now preserved intact even when they contain `=` characters, and `--nopriv` now means an actual unauthenticated request flow by skipping auth loading and nonce discovery instead of acting as a no-op flag.
+- **`bin/mcp-local-config` snippet validation** — local MCP snippets are now validated per server entry so malformed values fail fast with a direct error when a server entry is not an object or is missing the required `command` field.
 - **Query Monitor MCP TLS verification scope** — the QM handler now disables HTTPS certificate verification only for explicit local-development hosts (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`) instead of all HTTPS targets.
 
 ## [1.1.0-rc.1] - 2026-03-22
