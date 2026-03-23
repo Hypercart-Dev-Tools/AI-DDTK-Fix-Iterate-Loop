@@ -3,11 +3,6 @@
     "ai-ddtk": {
       "command": "bash",
       "args": ["tools/mcp-server/start.sh"]
-    },
-    "wordpress-myfriendcom-09-30": {
-      "command": "./bin/local-wp",
-      "args": ["myfriendcom-09-30", "mcp-adapter", "serve",
-               "--server=mcp-adapter-default-server", "--user=1"]
     }
   }
 }
