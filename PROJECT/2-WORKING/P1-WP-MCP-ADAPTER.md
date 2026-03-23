@@ -1,6 +1,6 @@
 ---
 title: "P1: WordPress MCP Adapter Integration"
-status: PHASE-1-2-COMPLETE
+status: Paused after Phase 1 and 2 completed
 author: noelsaw
 created: 2026-03-22
 updated: 2026-03-22
