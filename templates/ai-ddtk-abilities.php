@@ -1097,23 +1097,22 @@ add_action( 'wp_abilities_api_init', function () {
 		'description' => 'Return active theme information. Full details require switch_themes capability; gracefully degrades to name+version for read-only users.',
 		'category'    => 'site',
 		'meta'        => [ 'mcp' => [ 'public' => true ] ],
-		'input_schema' => [
-			'type'       => 'object',
-			'properties' => new stdClass(),
-		],
+		// No input_schema: ability takes no parameters. Omitting it avoids a WP core
+		// validator bug where ExecuteAbilityAbility converts {} (decoded as []) to null
+		// via empty(), then rest_validate_value_from_schema(null, type:object) fails.
 		'output_schema' => [
 			'type'       => 'object',
 			'properties' => [
-				'success'       => [ 'type' => 'boolean' ],
-				'name'          => [ 'type' => 'string' ],
-				'version'       => [ 'type' => 'string' ],
-				'template'      => [ 'type' => 'string' ],
-				'stylesheet'    => [ 'type' => 'string' ],
-				'author'        => [ 'type' => 'string' ],
-				'theme_uri'     => [ 'type' => 'string' ],
+				'success'        => [ 'type' => 'boolean' ],
+				'name'           => [ 'type' => 'string' ],
+				'version'        => [ 'type' => 'string' ],
+				'template'       => [ 'type' => 'string' ],
+				'stylesheet'     => [ 'type' => 'string' ],
+				'author'         => [ 'type' => 'string' ],
+				'theme_uri'      => [ 'type' => 'string' ],
 				'is_child_theme' => [ 'type' => 'boolean' ],
-				'parent_theme'  => [ 'type' => [ 'string', 'null' ] ],
-				'error'         => [ 'type' => 'string' ],
+				'parent_theme'   => [ 'type' => [ 'string', 'null' ] ],
+				'error'          => [ 'type' => 'string' ],
 			],
 		],
 		'permission_callback' => function () {
