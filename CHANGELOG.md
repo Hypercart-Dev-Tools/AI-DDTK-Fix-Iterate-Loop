@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Repo-level PHPStan setup** — added a root `composer.json` for PHP static-analysis dependencies and a focused `phpstan.neon` that targets AI-DDTK's first-party WordPress PHP files under `templates/` and `tools/qm-bridge/` while excluding vendored/generated subtrees.
+- **Local MCP config example + helper** — added `.mcp.local.example.json` as a tracked dual-server placeholder and a new `bin/mcp-local-config` helper that merges the checked-in generic `.mcp.json` with local-only snippets from `temp/mcp/local-snippets/`.
 
 ### Fixed
 - **`wp-ajax-test` authenticated nonce fetch hardening** — custom `--nonce-url` values now must resolve to the same origin as `--url`, and nonce fetch redirects are followed manually only when they stay on the same origin. This prevents authenticated WordPress cookies from being forwarded to arbitrary external hosts during nonce discovery.
@@ -33,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Public-safe MCP defaults** — the checked-in `.mcp.json` now ships with the generic single-server AI-DDTK configuration, and the companion MCP docs replace the previously committed LocalWP site-specific adapter example with generic wording and placeholder guidance.
+- **MCP repo-hygiene guidance** — added explicit reminders in the MCP companion/setup docs to avoid committing real site names, internal domains, local paths, user IDs, tokens, or auth artifacts, and documented `temp/mcp/` as the place for local-only MCP snippets and notes.
 - **Phase 0 Technical Spike (WP MCP Adapter) — COMPLETE** — all 5 sub-phases validated. Dual-server `.mcp.json` config works (AI-DDTK 18 tools + WP MCP Adapter 3 tools, zero collisions). Valet clone-lab validated with system Composer/WP-CLI. Discovered three mu-plugin registration requirements: correct hook (`wp_abilities_api_init`), required `category` field, and `meta.mcp.public` flag. Custom ability end-to-end verified on both Local and Valet. Added `.mcp.README.md` companion doc for dual-server config reference.
 - **MCP server TypeScript comment quality** — added focused TSDoc to the LocalWP, pw-auth, and WPCC handler layers so exported factories and non-obvious helper behavior are documented consistently with the stronger JSDoc/PHPDoc style already present in the JS and PHP tooling.
 - **README simplified to lightweight hub (~150 lines)** — removed verbose pw-auth, troubleshooting, and WPCC-templates sections; replaced with a Navigation table pointing into `AGENTS.md` for all detailed guidance. All content moved, not deleted.

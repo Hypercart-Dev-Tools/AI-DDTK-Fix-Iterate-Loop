@@ -1,0 +1,123 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+const repoRoot = path.resolve(__dirname, '..');
+const baseConfigPath = path.join(repoRoot, '.mcp.json');
+const snippetsDir = path.join(repoRoot, 'temp', 'mcp', 'local-snippets');
+
+function showHelp() {
+  console.log(`AI-DDTK MCP Local Config Helper
+
+Merges the checked-in public-safe .mcp.json with any local-only JSON snippets
+stored under temp/mcp/local-snippets/ and prints the result.
+
+Usage:
+  ./bin/mcp-local-config
+  ./bin/mcp-local-config --write .mcp.local.json
+
+Notes:
+  - Snippet files must be JSON.
+  - A snippet can be either { "mcpServers": { ... } } or { "server-name": { ... } }.
+  - Do not commit generated local MCP configs containing real site names.
+`);
+}
+
+function parseArguments(argv) {
+  const args = argv.slice(2);
+  let outputPath = null;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--help' || arg === '-h') {
+      showHelp();
+      process.exit(0);
+    }
+
+    if (arg === '--write') {
+      outputPath = args[index + 1] || null;
+      if (!outputPath) {
+        throw new Error('--write requires a file path');
+      }
+      index += 1;
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  return { outputPath };
+}
+
+function readJsonFile(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function normalizeSnippet(snippet, sourcePath) {
+  if (!snippet || typeof snippet !== 'object' || Array.isArray(snippet)) {
+    throw new Error(`Invalid MCP snippet in ${sourcePath}`);
+  }
+
+  if (snippet.mcpServers && typeof snippet.mcpServers === 'object' && !Array.isArray(snippet.mcpServers)) {
+    return snippet.mcpServers;
+  }
+
+  return snippet;
+}
+
+function loadLocalSnippets() {
+  if (!fs.existsSync(snippetsDir)) {
+    return {};
+  }
+
+  const mergedServers = {};
+  const snippetNames = fs.readdirSync(snippetsDir)
+    .filter((entry) => entry.endsWith('.json'))
+    .sort((left, right) => left.localeCompare(right));
+
+  for (const snippetName of snippetNames) {
+    const snippetPath = path.join(snippetsDir, snippetName);
+    const snippetJson = readJsonFile(snippetPath);
+    Object.assign(mergedServers, normalizeSnippet(snippetJson, snippetPath));
+  }
+
+  return mergedServers;
+}
+
+function main() {
+  const { outputPath } = parseArguments(process.argv);
+  const baseConfig = readJsonFile(baseConfigPath);
+
+  if (!baseConfig.mcpServers || typeof baseConfig.mcpServers !== 'object' || Array.isArray(baseConfig.mcpServers)) {
+    throw new Error(`Invalid base MCP config: ${baseConfigPath}`);
+  }
+
+  const localServers = loadLocalSnippets();
+  const mergedConfig = {
+    ...baseConfig,
+    mcpServers: {
+      ...baseConfig.mcpServers,
+      ...localServers,
+    },
+  };
+
+  const formatted = `${JSON.stringify(mergedConfig, null, 2)}\n`;
+
+  if (!outputPath) {
+    process.stdout.write(formatted);
+    return;
+  }
+
+  const resolvedOutputPath = path.resolve(repoRoot, outputPath);
+  fs.writeFileSync(resolvedOutputPath, formatted, 'utf8');
+  console.error(`Wrote merged MCP config to ${path.relative(repoRoot, resolvedOutputPath) || resolvedOutputPath}`);
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}

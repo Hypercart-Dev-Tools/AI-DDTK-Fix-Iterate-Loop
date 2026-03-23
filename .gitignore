@@ -64,3 +64,4 @@ coverage/
 /typescript.[0-9]*
 
 /.claude
+/.mcp.local.json

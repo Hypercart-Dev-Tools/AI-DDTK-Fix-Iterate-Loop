@@ -28,6 +28,10 @@ temp/
 ├── playwright/         # Playwright test data
 │   └── .auth/         # Authentication state files
 │
+├── mcp/               # Local-only MCP config snippets and notes
+│   ├── local-snippets/ # Site-specific MCP server entries to copy manually
+│   └── notes/         # Environment-specific MCP setup notes
+│
 ├── logs/              # Temporary log files
 │   ├── debug.log      # Debug output
 │   └── tmux/          # AI-DDTK tmux session captures
@@ -131,6 +135,24 @@ await page.goto('http://my-site.local/wp-admin/');
 await page.context().storageState({ path: 'temp/playwright/.auth/admin.json' });
 ```
 
+### `/temp/mcp/` - Local MCP Variants
+**Store**:
+- site-specific MCP server snippets
+- local-only `.mcp.json` variants
+- environment notes for LocalWP or Valet sites
+
+**Use this for**:
+- real Local site names
+- internal domains
+- local user ID mappings
+- experimental dual-server snippets that should not ship in the public repo
+
+**Recommended pattern**:
+- keep the checked-in repo-root `.mcp.json` generic and public-safe
+- keep real site-specific adapter entries in `temp/mcp/local-snippets/`
+- copy those snippets into your local `.mcp.json` when needed, but do not commit them
+- or generate a local merged config with `./bin/mcp-local-config --write .mcp.local.json`
+
 ### `/temp/logs/` - Debug & Temporary Logs
 **Store**:
 - Debug output
@@ -174,6 +196,7 @@ aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --verbose"
 | PHPStan results | `temp/reports/phpstan/` | `temp/reports/phpstan/analysis.json` |
 | Database export | `temp/data/backups/` | `temp/data/backups/db-backup.sql` |
 | Playwright auth | `temp/playwright/.auth/` | `temp/playwright/.auth/admin.json` |
+| Local MCP snippets | `temp/mcp/local-snippets/` | `temp/mcp/local-snippets/love2hugcom.json` |
 | Debug logging | `temp/logs/` | `temp/logs/debug.log` |
 | Tmux session log | `temp/logs/tmux/` | `temp/logs/tmux/aiddtk-my-plugin.log` |
 | Temporary notes | `temp/analysis/notes/` | `temp/analysis/notes/findings.md` |
