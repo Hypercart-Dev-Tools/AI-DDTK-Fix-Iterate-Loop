@@ -1,4 +1,4 @@
-import { readdir, rm, stat } from "node:fs/promises";
+import { readdir, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
 import { ExecFileTextError, execFileText, type ExecFileText, type ExecResult } from "../utils/exec.js";
 
@@ -341,6 +341,34 @@ export function createPwAuthHandlers(deps: PwAuthHandlerDeps) {
     async readStatusResource(user: string): Promise<PwAuthReadResourceResult> {
       const metadata = await getAuthStatusEntry(workingDir, user, now(), { discloseMissingFilePath: false });
       return buildReadResourceResult(buildStatusUri(user), JSON.stringify(metadata, null, 2));
+    },
+
+    /**
+     * Extract WordPress cookies from a pw-auth storageState file for a given domain.
+     *
+     * Returns only cookies whose domain matches (exact or leading-dot), so the
+     * caller never sees credentials for unrelated sites.
+     */
+    async getCookiesForSite(user: string, domain: string): Promise<Array<{ name: string; value: string; domain: string }>> {
+      const safeUser = normalizeRequestedUser(user);
+      const authFilePath = getAuthFilePath(workingDir, safeUser);
+
+      let raw: string;
+      try {
+        raw = await readFile(authFilePath, "utf8");
+      } catch {
+        throw new Error(`No pw-auth state for user "${user}". Run pw_auth_login first.`);
+      }
+
+      const state = JSON.parse(raw) as { cookies?: Array<{ name: string; value: string; domain: string }> };
+      const cookies = state.cookies ?? [];
+
+      const normalizedDomain = domain.toLowerCase().replace(/^\./, "");
+
+      return cookies.filter((c) => {
+        const cookieDomain = c.domain.toLowerCase().replace(/^\./, "");
+        return cookieDomain === normalizedDomain;
+      }).map((c) => ({ name: c.name, value: c.value, domain: c.domain }));
     },
   };
 }
