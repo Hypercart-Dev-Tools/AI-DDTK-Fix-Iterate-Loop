@@ -2,10 +2,23 @@
 
 All notable changes to AI-DDTK will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+<!-- CHANGELOG MAINTAINER RULES
+- No [Unreleased]. Every entry belongs to a dated version block: ## [X.Y.Z] - YYYY-MM-DD
+- PATCH for fixes/docs · MINOR for new tools or capabilities · MAJOR for breaking changes
+- Batch same-session changes into one block rather than one block per commit
+- Entry format: - **`tool-or-file`** or **Feature** — outcome-focused description (what changed and why it matters)
+- No real site names, hostnames, local paths, user IDs, tokens, or credentials
+- Do not edit a version block that has already been committed and pushed
+-->
+
+## [1.2.0] - 2026-03-23
+
+### Added
+- **`ai-ddtk/update-options` MCP ability (Phase 3)** — writes WordPress options via `update_option()` (sanitization callbacks fire) with a two-tier safety model: `active_plugins` and `active_sitewide_plugins` are always refused; `siteurl`, `home`, `template`, `stylesheet`, and `admin_email` require `confirm_dangerous: true`. Dangerous-key overrides are written to PHP `error_log` with user ID and timestamp for audit. Returns per-key results with `previous_value`, `new_value`, and `changed` flag. Supports `redact_values: true` to prevent secrets from leaking into MCP transcripts or agent context. Blocklist is filterable via `ai_ddtk_options_blocklist`.
+
+## [1.1.0] - 2026-03-23
 
 ### Added
 - **Repo-level PHPStan setup** — added a root `composer.json` for PHP static-analysis dependencies and a focused `phpstan.neon` that targets AI-DDTK's first-party WordPress PHP files under `templates/` and `tools/qm-bridge/` while excluding vendored/generated subtrees.
