@@ -118,6 +118,20 @@ interface FetchResult {
   body: string;
 }
 
+function isLocalDevHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase();
+
+  return normalized === "localhost"
+    || normalized === "127.0.0.1"
+    || normalized === "::1"
+    || normalized.endsWith(".local")
+    || normalized.endsWith(".test");
+}
+
+function shouldIgnoreTlsErrors(targetUrl: URL): boolean {
+  return targetUrl.protocol === "https:" && isLocalDevHost(targetUrl.hostname);
+}
+
 /** Minimal HTTPS/HTTP fetch — avoids external dependencies. */
 function fetchUrl(options: FetchOptions): Promise<FetchResult> {
   const { url, method = "GET", headers = {}, body, timeoutMs = DEFAULT_TIMEOUT_MS } = options;
@@ -131,7 +145,7 @@ function fetchUrl(options: FetchOptions): Promise<FetchResult> {
         method,
         headers,
         timeout: timeoutMs,
-        rejectUnauthorized: false, // Local dev sites use self-signed certs
+        ...(parsed.protocol === "https:" ? { rejectUnauthorized: !shouldIgnoreTlsErrors(parsed) } : {}),
       },
       (res) => {
         const chunks: Buffer[] = [];
