@@ -8,6 +8,7 @@
  *   wp-ajax-test --url https://site.local --action my_ajax_action
  *   wp-ajax-test --url https://site.local --action my_ajax_action --data '{"key":"value"}'
  *   wp-ajax-test --url https://site.local --action my_ajax_action --auth temp/auth.json
+ *   wp-ajax-test --url https://site.local --action my_ajax_action --auth-state temp/playwright/.auth/admin.json
  */
 
 const { program } = require('commander');
@@ -39,10 +40,11 @@ program
   .requiredOption('-u, --url <url>', 'WordPress site URL')
   .requiredOption('-a, --action <action>', 'AJAX action name')
   .option('-d, --data <json>', 'JSON data payload', '{}')
-  .option('--auth <file>', 'Auth file path (JSON)', null)
+  .option('--auth <file>', 'Auth file path with username/password (JSON) — prefer --auth-state', null)
+  .option('--auth-state <file>', 'Playwright auth state file from pw-auth (no plaintext passwords)', null)
   .option('-f, --format <format>', 'Output format (human|json)', 'human')
-  .option('--admin', 'Use admin AJAX endpoint (default)', true)
-  .option('--nopriv', 'Use nopriv AJAX endpoint')
+  .option('--admin', 'Send the default authenticated/admin-style request flow', true)
+  .option('--nopriv', 'Send an unauthenticated request and skip auth/nonce discovery')
   .option('-m, --method <method>', 'HTTP method', 'POST')
   .option('-t, --timeout <ms>', 'Request timeout in ms', '30000')
   .option('-v, --verbose', 'Verbose output', false)
@@ -52,6 +54,104 @@ program
   .parse(process.argv);
 
 const options = program.opts();
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function findInputValueByName($, fieldName) {
+  if (!fieldName) {
+    return null;
+  }
+
+  const inputs = $('input').toArray();
+
+  for (const input of inputs) {
+    if ($(input).attr('name') === fieldName) {
+      const value = $(input).val();
+      return typeof value === 'string' && value.length > 0 ? value : null;
+    }
+  }
+
+  return null;
+}
+
+function getSiteOrigin(siteUrl) {
+  return new URL(siteUrl).origin;
+}
+
+function isRedirectStatus(statusCode) {
+  return [301, 302, 303, 307, 308].includes(statusCode);
+}
+
+function buildCookieHeader() {
+  return Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
+function storeSetCookieHeaders(setCookieHeaders = []) {
+  setCookieHeaders.forEach((cookieHeader) => {
+    const cookiePair = cookieHeader.split(';')[0];
+    const separatorIndex = cookiePair.indexOf('=');
+
+    if (separatorIndex <= 0) {
+      return;
+    }
+
+    const cookieName = cookiePair.slice(0, separatorIndex);
+    const cookieValue = cookiePair.slice(separatorIndex + 1);
+
+    cookies[cookieName] = cookieValue;
+  });
+}
+
+function resolveNonceUrl(siteUrl, customNonceUrl = null) {
+  const siteOrigin = getSiteOrigin(siteUrl);
+
+  if (!customNonceUrl) {
+    return new URL('/wp-admin/', siteOrigin).href;
+  }
+
+  const resolvedUrl = new URL(customNonceUrl, siteOrigin).href;
+
+  if (new URL(resolvedUrl).origin !== siteOrigin) {
+    throw new Error('--nonce-url must resolve to the same origin as --url when authenticated cookies are in use');
+  }
+
+  return resolvedUrl;
+}
+
+async function fetchNoncePage(nonceUrl, siteOrigin, maxRedirects = 5) {
+  let currentUrl = nonceUrl;
+
+  for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
+    const response = await client.get(currentUrl, {
+      headers: {
+        'Cookie': buildCookieHeader()
+      },
+      maxRedirects: 0
+    });
+
+    storeSetCookieHeaders(response.headers['set-cookie']);
+
+    if (!isRedirectStatus(response.status) || !response.headers.location) {
+      return response;
+    }
+
+    if (redirectCount === maxRedirects) {
+      throw new Error(`Nonce fetch exceeded ${maxRedirects} redirects`);
+    }
+
+    const redirectUrl = new URL(response.headers.location, currentUrl).href;
+
+    if (new URL(redirectUrl).origin !== siteOrigin) {
+      throw new Error('Nonce fetch redirected to a different origin; refusing to forward authenticated cookies');
+    }
+
+    currentUrl = redirectUrl;
+  }
+
+  throw new Error('Nonce fetch failed to resolve a final response');
+}
 
 // Configure SSL if --insecure flag is set
 if (options.insecure) {
@@ -70,6 +170,7 @@ if (options.insecure) {
 async function main() {
   try {
     const startTime = Date.now();
+    const useAuthenticatedFlow = !options.nopriv;
     
     // Parse data payload
     let data;
@@ -79,23 +180,44 @@ async function main() {
       throw new Error(`Invalid JSON data: ${e.message}`);
     }
 
-    // Load authentication if provided
+    // Auth: prefer --auth-state (pw-auth cookies) over --auth (plaintext credentials)
     let auth = null;
-    if (options.auth) {
+    let authenticatedViaCookies = false;
+
+    if (options.authState && useAuthenticatedFlow) {
+      // Load pre-authenticated cookies from Playwright auth state
+      const cookieCount = loadAuthState(options.authState, options.url);
+      authenticatedViaCookies = true;
+      if (options.verbose) {
+        console.log(`🔐 Loaded ${cookieCount} cookies from auth state: ${options.authState}`);
+      }
+      if (options.auth) {
+        console.error('⚠️  --auth-state takes precedence over --auth. Ignoring --auth.');
+      }
+    } else if (options.auth && useAuthenticatedFlow) {
+      console.error('⚠️  --auth uses plaintext credentials. Consider pw-auth login + --auth-state instead.');
       auth = await loadAuth(options.auth);
       if (options.verbose) {
         console.log(`Loaded auth from: ${options.auth}`);
       }
     }
 
-    // Authenticate if needed
+    if ((options.auth || options.authState) && !useAuthenticatedFlow && options.verbose) {
+      console.log('Ignoring auth options because --nopriv sends the request without authentication');
+    }
+
+    if (!useAuthenticatedFlow && options.nonceUrl && options.verbose) {
+      console.log('Ignoring --nonce-url because --nopriv skips authenticated nonce discovery');
+    }
+
+    // Authenticate with username/password if using legacy --auth (not needed for --auth-state)
     if (auth && auth.username && auth.password) {
       await authenticate(options.url, auth);
     }
 
-    // Get nonce if authenticated
+    // Get nonce if authenticated (works with both --auth-state cookies and --auth login)
     let nonce = null;
-    if (auth) {
+    if (auth || authenticatedViaCookies) {
       nonce = await getNonce(options.url, auth, options.nonceUrl, options.nonceField);
       if (options.verbose && nonce) {
         console.log(`Extracted nonce: ${nonce.substring(0, 10)}...`);
@@ -103,9 +225,7 @@ async function main() {
     }
 
     // Build AJAX endpoint URL
-    const endpoint = options.nopriv 
-      ? `${options.url}/wp-admin/admin-ajax.php`
-      : `${options.url}/wp-admin/admin-ajax.php`;
+    const endpoint = `${options.url}/wp-admin/admin-ajax.php`;
 
     // Build request payload
     const payload = {
@@ -156,7 +276,7 @@ async function main() {
 }
 
 /**
- * Load authentication from file
+ * Load authentication from file (plaintext username/password)
  */
 async function loadAuth(authFile) {
   try {
@@ -169,6 +289,59 @@ async function loadAuth(authFile) {
   } catch (e) {
     throw new Error(`Failed to load auth file: ${e.message}`);
   }
+}
+
+/**
+ * Load cookies from a Playwright auth state file (from pw-auth).
+ * Filters cookies by the target site domain and populates the global cookies object.
+ * Returns the number of cookies loaded.
+ */
+function loadAuthState(authStateFile, siteUrl) {
+  const authStatePath = path.resolve(authStateFile);
+  if (!fs.existsSync(authStatePath)) {
+    throw new Error(`Auth state file not found: ${authStatePath}`);
+  }
+
+  let state;
+  try {
+    state = JSON.parse(fs.readFileSync(authStatePath, 'utf8'));
+  } catch (e) {
+    throw new Error(`Failed to parse auth state file: ${e.message}`);
+  }
+
+  if (!state || !Array.isArray(state.cookies)) {
+    throw new Error('Auth state file does not contain a cookies array. Expected Playwright storageState format.');
+  }
+
+  const targetHost = new URL(siteUrl).hostname;
+  const now = Date.now() / 1000;
+  let loaded = 0;
+
+  for (const cookie of state.cookies) {
+    if (!cookie.name || typeof cookie.value !== 'string') continue;
+
+    // Match domain: Playwright stores "site.local" (no leading dot)
+    const cookieDomain = (cookie.domain || '').replace(/^\./, '');
+    if (cookieDomain !== targetHost) continue;
+
+    // Skip expired cookies
+    if (cookie.expires && cookie.expires > 0 && cookie.expires < now) continue;
+
+    cookies[cookie.name] = cookie.value;
+    loaded++;
+  }
+
+  if (loaded === 0) {
+    throw new Error(`No valid cookies found for ${targetHost} in auth state file. Run pw-auth login first.`);
+  }
+
+  // Verify we have a wordpress_logged_in cookie
+  const hasLoggedInCookie = Object.keys(cookies).some(k => k.startsWith('wordpress_logged_in_'));
+  if (!hasLoggedInCookie) {
+    throw new Error(`Auth state has cookies for ${targetHost} but no wordpress_logged_in_* cookie. Session may have expired — run pw-auth login --force.`);
+  }
+
+  return loaded;
 }
 
 /**
@@ -185,12 +358,7 @@ async function authenticate(siteUrl, auth) {
   try {
     // First, get the login page to get any initial cookies
     const getResponse = await client.get(loginUrl);
-    if (getResponse.headers['set-cookie']) {
-      getResponse.headers['set-cookie'].forEach(cookie => {
-        const parts = cookie.split(';')[0].split('=');
-        cookies[parts[0]] = parts[1];
-      });
-    }
+    storeSetCookieHeaders(getResponse.headers['set-cookie']);
 
     // Now POST the login form with cookies
     const response = await client.post(loginUrl, new URLSearchParams({
@@ -213,10 +381,7 @@ async function authenticate(siteUrl, auth) {
 
     // Store cookies from response
     if (response.headers['set-cookie']) {
-      response.headers['set-cookie'].forEach(cookie => {
-        const parts = cookie.split(';')[0].split('=');
-        cookies[parts[0]] = parts[1];
-      });
+      storeSetCookieHeaders(response.headers['set-cookie']);
 
       if (options.verbose) {
         console.log(`   Stored cookies: ${Object.keys(cookies).join(', ')}`);
@@ -276,19 +441,10 @@ async function authenticate(siteUrl, auth) {
  * Get nonce from WordPress admin page
  */
 async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '_wpnonce') {
-  try {
-    // Determine which URL to fetch nonce from
-    let nonceUrl;
-    if (customNonceUrl) {
-      // Custom URL provided - can be relative or absolute
-      nonceUrl = customNonceUrl.startsWith('http')
-        ? customNonceUrl
-        : `${siteUrl}${customNonceUrl.startsWith('/') ? '' : '/'}${customNonceUrl}`;
-    } else {
-      // Default to wp-admin
-      nonceUrl = `${siteUrl}/wp-admin/`;
-    }
+  const siteOrigin = getSiteOrigin(siteUrl);
+  const nonceUrl = resolveNonceUrl(siteUrl, customNonceUrl);
 
+  try {
     if (options.verbose) {
       console.log(`🔑 Fetching nonce from: ${nonceUrl}`);
       if (customNonceUrl) {
@@ -296,27 +452,14 @@ async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '
       }
     }
 
-    const response = await client.get(nonceUrl, {
-      headers: {
-        'Cookie': Object.entries(cookies).map(([k, v]) => `${k}=${v}`).join('; ')
-      },
-      maxRedirects: 5 // Allow redirects for this request
-    });
-
-    // Update cookies from response
-    if (response.headers['set-cookie']) {
-      response.headers['set-cookie'].forEach(cookie => {
-        const parts = cookie.split(';')[0].split('=');
-        cookies[parts[0]] = parts[1];
-      });
-    }
+    const response = await fetchNoncePage(nonceUrl, siteOrigin);
 
     const $ = cheerio.load(response.data);
 
     // Look for nonce patterns in priority order
     // 1. Check for custom nonce field name if specified
     if (customNonceUrl && nonceFieldName) {
-      let nonce = $(`input[name="${nonceFieldName}"]`).val();
+      let nonce = findInputValueByName($, nonceFieldName);
       if (nonce) {
         if (options.verbose) {
           console.log(`   Found nonce in field: ${nonceFieldName}`);
@@ -335,7 +478,7 @@ async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '
 
     // 4. Check for custom field name (if different from _wpnonce)
     if (nonceFieldName !== '_wpnonce') {
-      nonce = $(`input[name="${nonceFieldName}"]`).val();
+      nonce = findInputValueByName($, nonceFieldName);
       if (nonce) return nonce;
     }
 
@@ -345,9 +488,10 @@ async function getNonce(siteUrl, auth, customNonceUrl = null, nonceFieldName = '
       const content = $(script).html();
       if (content && content.includes('nonce')) {
         // Try to match nonce in various formats
+        const escapedNonceFieldName = escapeRegExp(nonceFieldName);
         const patterns = [
           /nonce["']?\s*:\s*["']([a-f0-9]+)["']/i,
-          new RegExp(`${nonceFieldName}["']?\\s*:\\s*["']([a-f0-9]+)["']`, 'i'),
+          new RegExp(`${escapedNonceFieldName}["']?\\s*:\\s*["']([a-f0-9]+)["']`, 'i'),
           /["']nonce["']\s*:\s*["']([a-f0-9]+)["']/i
         ];
 
@@ -437,14 +581,17 @@ function handleError(error, format) {
   };
 
   // Add specific suggestions based on error
-  if (error.message.includes('Auth file not found')) {
+  if (error.message.includes('Auth file not found') || error.message.includes('Auth state file not found')) {
     errorObj.error.code = 'AUTH_REQUIRED';
-    errorObj.suggestions.push('Create temp/auth.json with username and password');
-    errorObj.suggestions.push('Use --auth flag to specify auth file location');
+    errorObj.suggestions.push('Run: pw-auth login --site-url <url> --wp-cli "local-wp <site>"');
+    errorObj.suggestions.push('Then: --auth-state temp/playwright/.auth/admin.json');
+  } else if (error.message.includes('No valid cookies found') || error.message.includes('no wordpress_logged_in_')) {
+    errorObj.error.code = 'AUTH_EXPIRED';
+    errorObj.suggestions.push('Run: pw-auth login --site-url <url> --force');
   } else if (error.message.includes('Authentication failed')) {
     errorObj.error.code = 'AUTH_FAILED';
     errorObj.suggestions.push('Check username and password in auth file');
-    errorObj.suggestions.push('Verify WordPress site URL is correct');
+    errorObj.suggestions.push('Consider switching to --auth-state with pw-auth (no plaintext passwords)');
   } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
     errorObj.error.code = 'CONNECTION_ERROR';
     errorObj.suggestions.push('Check if WordPress site is running');

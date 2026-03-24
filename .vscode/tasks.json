@@ -1,0 +1,87 @@
+{
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "siteUrl",
+      "description": "WordPress site URL (e.g. http://my-site.local)",
+      "type": "promptString"
+    },
+    {
+      "id": "siteName",
+      "description": "Local by Flywheel site name",
+      "type": "promptString"
+    },
+    {
+      "id": "ajaxUrl",
+      "description": "WordPress site URL for AJAX testing",
+      "type": "promptString"
+    },
+    {
+      "id": "ajaxAction",
+      "description": "WordPress AJAX action name",
+      "type": "promptString"
+    },
+    {
+      "id": "scanPaths",
+      "description": "Path(s) to scan with WPCC (relative to workspace)",
+      "type": "promptString",
+      "default": "."
+    }
+  ],
+  "tasks": [
+    {
+      "label": "MCP: Start Server (stdio)",
+      "type": "shell",
+      "command": "npm run mcp",
+      "options": { "cwd": "${workspaceFolder}/tools/mcp-server" },
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "MCP: Start Server (HTTP)",
+      "type": "shell",
+      "command": "npm run mcp:http",
+      "options": { "cwd": "${workspaceFolder}/tools/mcp-server" },
+      "group": "none",
+      "problemMatcher": [],
+      "isBackground": true
+    },
+    {
+      "label": "MCP: Build",
+      "type": "shell",
+      "command": "npm run build",
+      "options": { "cwd": "${workspaceFolder}/tools/mcp-server" },
+      "group": "build",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "MCP: Test",
+      "type": "shell",
+      "command": "npm test",
+      "options": { "cwd": "${workspaceFolder}/tools/mcp-server" },
+      "group": "test",
+      "problemMatcher": []
+    },
+    {
+      "label": "WPCC: Run Scan",
+      "type": "shell",
+      "command": "wpcc --paths ${input:scanPaths} --format json",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "pw-auth: Login",
+      "type": "shell",
+      "command": "pw-auth login --site-url ${input:siteUrl} --wp-cli 'local-wp ${input:siteName}'",
+      "group": "none",
+      "problemMatcher": []
+    },
+    {
+      "label": "AJAX Test",
+      "type": "shell",
+      "command": "wp-ajax-test --url ${input:ajaxUrl} --action ${input:ajaxAction} --format json",
+      "group": "none",
+      "problemMatcher": []
+    }
+  ]
+}

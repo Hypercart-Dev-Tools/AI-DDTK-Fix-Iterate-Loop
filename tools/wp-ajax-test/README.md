@@ -27,20 +27,11 @@ wp-ajax-test --version
 
 ## Quick Start
 
-### 1. Create Auth File
+### 1. Authenticate (via pw-auth — no plaintext passwords)
 
 ```bash
-# In your project
-mkdir -p temp
-cat > temp/auth.json <<'EOF'
-{
-  "username": "admin",
-  "password": "your-password"
-}
-EOF
-
-# Add to .gitignore
-echo "temp/auth.json" >> .gitignore
+# One-time login via pw-auth (creates temp/playwright/.auth/admin.json)
+pw-auth login --site-url https://yoursite.local --wp-cli "local-wp yoursite"
 ```
 
 ### 2. Test an Endpoint
@@ -49,24 +40,40 @@ echo "temp/auth.json" >> .gitignore
 # Basic test
 wp-ajax-test --url https://yoursite.local --action my_ajax_action
 
+# With pw-auth cookies (recommended)
+wp-ajax-test \
+  --url https://yoursite.local \
+  --action my_ajax_action \
+  --auth-state temp/playwright/.auth/admin.json
+
 # With data payload
 wp-ajax-test \
   --url https://yoursite.local \
   --action my_ajax_action \
+  --auth-state temp/playwright/.auth/admin.json \
   --data '{"user_id": 1, "action_type": "update"}'
-
-# With authentication
-wp-ajax-test \
-  --url https://yoursite.local \
-  --action my_ajax_action \
-  --auth temp/auth.json
 
 # JSON output (for AI parsing)
 wp-ajax-test \
   --url https://yoursite.local \
   --action my_ajax_action \
-  --auth temp/auth.json \
+  --auth-state temp/playwright/.auth/admin.json \
   --format json
+```
+
+### Legacy: plaintext auth file (deprecated)
+
+```bash
+# Still works but not recommended — stores passwords in plaintext
+cat > temp/auth.json <<'EOF'
+{
+  "username": "admin",
+  "password": "your-password"
+}
+EOF
+echo "temp/auth.json" >> .gitignore
+
+wp-ajax-test --url https://yoursite.local --action my_ajax_action --auth temp/auth.json
 ```
 
 ---

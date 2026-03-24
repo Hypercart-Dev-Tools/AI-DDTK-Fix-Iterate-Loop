@@ -5,6 +5,11 @@
 !temp/README.md
 !temp/*/.gitkeep
 !temp/*/*/.gitkeep
+!temp/mcp/
+!temp/mcp/local-snippets/
+!temp/mcp/notes/
+!temp/mcp/local-snippets/.gitkeep
+!temp/mcp/notes/.gitkeep
 
 # Credentials (never commit these)
 *.credentials
@@ -20,7 +25,9 @@ playwright-auth.json
 
 # IDE files
 .DS_Store
-.vscode/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 *.sublime-*
 *.swp
@@ -57,4 +64,13 @@ coverage/
 *.bak
 *.cache
 
-.DS_Store
+# Root-level shell transcript artifacts from script(1)
+/typescript
+/typescript.[0-9]*
+
+/.claude
+/.mcp.local.json
+
+# Machine-specific symlinks (never commit these)
+/npx
+/playwright

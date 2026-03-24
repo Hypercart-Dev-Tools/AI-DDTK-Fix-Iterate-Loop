@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.0.0
+# Version: 1.1.0-rc.1
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -18,6 +18,7 @@
 #   ./install.sh update       # Pull latest AI-DDTK
 #   ./install.sh update-wpcc  # Pull latest WP Code Check
 #   ./install.sh setup-wpcc   # Initial WPCC subtree setup
+#   ./install.sh setup-mcp    # Build MCP server + show launcher-based client config
 #   ./install.sh status       # Show versions and status
 #   ./install.sh uninstall    # Remove PATH entries
 #
@@ -36,12 +37,17 @@
 #   ├── install.sh           # This file - install & maintenance
 #   ├── bin/                  # Executable wrappers (added to PATH)
 #   │   ├── wpcc              # WP Code Check wrapper
-#   │   └── local-wp          # (future) Local WP-CLI wrapper
-#   ├── tools/                # Embedded dependencies via git subtree
+#   │   ├── wp-ajax-test      # AJAX endpoint tester
+#   │   ├── pw-auth           # Playwright WP admin auth helper
+#   │   ├── local-wp          # Local WP-CLI wrapper (canonical)
+#   │   └── aiddtk-tmux       # Optional resilient tmux wrapper
+#   ├── tools/                # Embedded tool packages and dependencies
+#   │   ├── mcp-server/       # AI-DDTK MCP server package + auto-build launcher
+#   │   ├── qm-bridge/        # Query Monitor bridge mu-plugins for page profiling
 #   │   └── wp-code-check/    # WPCC subtree
-#   ├── agents/               # AI agent instructions
-#   ├── mcp/                  # MCP server configurations
-#   └── docs/                 # Documentation
+#   ├── temp/                 # Sensitive data, logs, analysis files
+#   ├── recipes/              # Workflow recipes
+#   └── AGENTS.md             # AI agent guidelines
 #
 # ============================================================
 # LLM AGENT GUIDANCE: GIT SUBTREE OPERATIONS
@@ -98,11 +104,12 @@
 # - It modifies shell config (~/.zshrc or ~/.bashrc)
 # - It does NOT require sudo
 # - PATH entry format: export PATH="$HOME/bin/ai-ddtk/bin:$PATH"
+# - MCP clients should prefer tools/mcp-server/start.sh so fresh clones auto-build dist/
 # - If WPCC is later merged into AI-DDTK, update bin/wpcc wrapper
 # - All tools should be callable from any directory
 #
 # FUTURE TOOLS TO ADD:
-# - Move local-wp to bin/ with proper wrapper
+# - Remove the repo-root local-wp compatibility shim after deprecation
 # - Add playwright wrapper if needed
 # - Add pixelmatch wrapper if needed
 #
@@ -159,9 +166,24 @@ show_usage() {
     echo "  update        Pull latest AI-DDTK changes"
     echo "  update-wpcc   Pull latest WP Code Check"
     echo "  setup-wpcc    Initial WPCC subtree setup"
+    echo "  setup-mcp     Build MCP server + show launcher-based client config"
+    echo "  doctor-playwright  Run pw-auth doctor via install.sh convenience wrapper"
     echo "  status        Show versions and status"
     echo "  uninstall     Remove PATH entries"
     echo ""
+    echo "Optional tools after install:"
+    echo "  aiddtk-tmux --help   Resilient tmux-backed sessions for AI agents"
+    echo "  local-wp --help      Local by Flywheel WP-CLI wrapper"
+    echo ""
+}
+
+show_tmux_status() {
+    if command -v tmux >/dev/null 2>&1; then
+        TMUX_VERSION="$(tmux -V 2>/dev/null || echo installed)"
+        echo -e "  tmux: ${GREEN}✓ Available${NC} ($TMUX_VERSION)"
+    else
+        echo -e "  tmux: ${YELLOW}○ Optional / not installed${NC} (brew install tmux)"
+    fi
 }
 
 install_path() {
@@ -179,6 +201,7 @@ install_path() {
 
     # Make scripts executable
     chmod +x "$BIN_DIR"/* 2>/dev/null || true
+    chmod +x "$TOOLS_DIR/mcp-server/start.sh" 2>/dev/null || true
 
     echo ""
     echo -e "${YELLOW}Run this to activate now:${NC}"
@@ -217,7 +240,27 @@ update_wpcc() {
 update_toolkit() {
     echo -e "${CYAN}Updating AI-DDTK...${NC}"
     cd "$SCRIPT_DIR"
-    git pull origin main
+    local CURRENT_BRANCH
+    local UPSTREAM_REF
+
+    CURRENT_BRANCH="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
+    if [ -z "$CURRENT_BRANCH" ]; then
+        echo -e "${RED}Cannot update from a detached HEAD.${NC}"
+        echo "Checkout a branch first, then rerun './install.sh update'."
+        return 1
+    fi
+
+    UPSTREAM_REF="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null || true)"
+
+    echo "  Branch: $CURRENT_BRANCH"
+    if [ -n "$UPSTREAM_REF" ]; then
+        echo "  Upstream: $UPSTREAM_REF"
+        git pull --ff-only
+    else
+        echo "  Upstream: not configured, falling back to origin/$CURRENT_BRANCH"
+        git pull --ff-only origin "$CURRENT_BRANCH"
+    fi
+
     echo -e "${GREEN}✓ AI-DDTK updated${NC}"
 }
 
@@ -245,6 +288,21 @@ show_status() {
         echo -e "  WPCC: ${YELLOW}✗ Not installed${NC} (run './install.sh setup-wpcc')"
     fi
 
+    # Check MCP server
+    local MCP_ENTRY="$TOOLS_DIR/mcp-server/dist/src/index.js"
+    local MCP_STARTER="$TOOLS_DIR/mcp-server/start.sh"
+    if [ -f "$MCP_ENTRY" ]; then
+        echo -e "  MCP Server: ${GREEN}✓ Built${NC} ($TOOLS_DIR/mcp-server)"
+    elif [ -x "$MCP_STARTER" ]; then
+        echo -e "  MCP Server: ${GREEN}✓ Launcher ready${NC} ($MCP_STARTER auto-builds dist on first run)"
+    elif [ -d "$TOOLS_DIR/mcp-server" ]; then
+        echo -e "  MCP Server: ${YELLOW}○ Not built${NC} (run './install.sh setup-mcp')"
+    else
+        echo -e "  MCP Server: ${YELLOW}✗ Not found${NC}"
+    fi
+
+    show_tmux_status
+
     echo ""
     echo -e "${CYAN}Available Tools:${NC}"
     for tool in "$BIN_DIR"/*; do
@@ -252,6 +310,80 @@ show_status() {
             echo "  - $(basename "$tool")"
         fi
     done
+}
+
+setup_mcp() {
+    local MCP_DIR="$TOOLS_DIR/mcp-server"
+
+    echo -e "${CYAN}Setting up AI-DDTK MCP Server...${NC}"
+
+    if [ ! -d "$MCP_DIR" ]; then
+        echo -e "${RED}MCP server not found at $MCP_DIR${NC}"
+        return 1
+    fi
+
+    # Check Node.js
+    if ! command -v node >/dev/null 2>&1; then
+        echo -e "${RED}Node.js is required but not installed.${NC}"
+        echo "Install via: brew install node"
+        return 1
+    fi
+
+    NODE_VERSION="$(node -v)"
+    echo -e "  Node.js: ${GREEN}✓${NC} $NODE_VERSION"
+
+    # Install dependencies
+    echo -e "${CYAN}Installing dependencies...${NC}"
+    cd "$MCP_DIR"
+    npm install --ignore-scripts 2>&1 | tail -1
+
+    # Build
+    echo -e "${CYAN}Building MCP server...${NC}"
+    npm run build 2>&1 | tail -3
+
+    echo -e "${GREEN}✓ MCP server built successfully${NC}"
+    echo ""
+
+    # Show config snippets
+    local MCP_ENTRY="$MCP_DIR/dist/src/index.js"
+    local MCP_STARTER="$MCP_DIR/start.sh"
+
+    echo -e "${CYAN}Client Configuration:${NC}"
+    echo ""
+    echo -e "${YELLOW}Claude Code (.mcp.json — already in repo root):${NC}"
+    echo "  Auto-detected when you open the project."
+    echo ""
+    echo -e "${YELLOW}Claude Desktop (add to ~/Library/Application Support/Claude/claude_desktop_config.json):${NC}"
+    echo "  \"ai-ddtk\": {"
+    echo "    \"command\": \"bash\","
+    echo "    \"args\": [\"$MCP_STARTER\"],"
+    echo "    \"cwd\": \"$SCRIPT_DIR\""
+    echo "  }"
+    echo ""
+    echo -e "${YELLOW}Cline (VS Code > Cline > MCP Servers > Edit Config):${NC}"
+    echo "  \"ai-ddtk\": {"
+    echo "    \"command\": \"bash\","
+    echo "    \"args\": [\"$MCP_STARTER\"],"
+    echo "    \"cwd\": \"$SCRIPT_DIR\""
+    echo "  }"
+    echo ""
+    echo -e "${YELLOW}HTTP/SSE mode (for remote or multi-client use):${NC}"
+    echo "  bash $MCP_STARTER --http"
+    echo "  Bearer token stored in: ~/.ai-ddtk/mcp-token"
+    echo ""
+    echo "Reference configs available in: $MCP_DIR/mcp-configs/"
+}
+
+doctor_playwright() {
+    echo -e "${CYAN}Running Playwright readiness doctor...${NC}"
+    echo ""
+
+    if [ ! -x "$BIN_DIR/pw-auth" ]; then
+        echo -e "${RED}pw-auth not found or not executable at: $BIN_DIR/pw-auth${NC}"
+        return 1
+    fi
+
+    "$BIN_DIR/pw-auth" doctor "$@"
 }
 
 uninstall() {
@@ -285,8 +417,10 @@ case "${1:-}" in
         echo ""
         echo "Next steps:"
         echo "  1. Run: source $SHELL_CONFIG"
-        echo "  2. Run: ./install.sh setup-wpcc"
-        echo "  3. Test: wpcc --help"
+        echo "  2. Run: ./install.sh setup-mcp"
+        echo "  3. Run: ./install.sh setup-wpcc"
+        echo "  4. Test: wpcc --help"
+        echo "  5. Optional: aiddtk-tmux --help"
         ;;
     update)
         update_toolkit
@@ -296,6 +430,13 @@ case "${1:-}" in
         ;;
     setup-wpcc)
         setup_wpcc
+        ;;
+    setup-mcp)
+        setup_mcp
+        ;;
+    doctor-playwright)
+        shift
+        doctor_playwright "$@"
         ;;
     status)
         show_status
@@ -312,4 +453,3 @@ case "${1:-}" in
         exit 1
         ;;
 esac
-

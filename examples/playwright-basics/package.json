@@ -1,0 +1,20 @@
+{
+  "name": "playwright-basics",
+  "version": "1.0.0",
+  "description": "Beginner-friendly Playwright examples for WordPress testing with AI-DDTK",
+  "private": true,
+  "scripts": {
+    "test": "node 01-setup.js && node 02-form-submission.js && node 03-menu-check.js && node 04-db-query.js && node 05-common-patterns.js",
+    "test:setup": "node 01-setup.js",
+    "test:form": "node 02-form-submission.js",
+    "test:menu": "node 03-menu-check.js",
+    "test:db": "node 04-db-query.js",
+    "test:patterns": "node 05-common-patterns.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

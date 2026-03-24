@@ -1,0 +1,32 @@
+parameters:
+    level: 3
+
+    paths:
+        - templates
+        - tools/qm-bridge
+
+    excludePaths:
+        - vendor
+        - node_modules (?)
+        - tests (?)
+        - build
+        - temp
+        - tools/wp-code-check
+        - tools/mcp-server/dist
+
+    tmpDir: build/phpstan
+
+    bootstrapFiles:
+        - vendor/php-stubs/wordpress-stubs/wordpress-stubs.php
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php
+
+    scanFiles:
+        - templates/ai-ddtk-abilities.php
+        - templates/dev-login-cli.php
+        - tools/qm-bridge/ai-ddtk-qm-bridge.php
+        - tools/qm-bridge/ai-ddtk-test-delays.php
+
+    ignoreErrors:
+        - '#Call to static method init\(\) on an unknown class QM_Collectors\.#'
+        - '#Call to static method get\(\) on an unknown class QM_Collectors\.#'

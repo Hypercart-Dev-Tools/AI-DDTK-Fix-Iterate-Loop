@@ -1,0 +1,346 @@
+#!/usr/bin/env bash
+# ============================================================
+# Local WP-CLI Wrapper
+# Part of AI-DDTK - AI Driven Development ToolKit
+# ============================================================
+#
+# PURPOSE:
+#   Provides easy access to WP-CLI for Local by Flywheel sites
+#   Auto-detects Local paths and PHP binary
+#
+# USAGE:
+#   local-wp <site-name> <wp-cli-command> [args...]
+#
+# EXAMPLES:
+#   local-wp my-site plugin list
+#   local-wp my-site option get siteurl
+#   local-wp my-site --list
+#
+# CONFIGURATION:
+#   Set these environment variables to override auto-detection:
+#
+#   export LOCAL_SITES_DIR="$HOME/Local Sites"
+#   export LOCAL_RUN_DIR="$HOME/Library/Application Support/Local/run"
+#   export WP_CLI_PHAR="/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar"
+#   export PHP_BIN="/path/to/php"
+#   export LOCAL_WP_MEMORY_LIMIT="512M"   # PHP memory_limit for WP-CLI (default: 512M)
+#
+# ============================================================
+
+set -e
+
+# Configuration (can be overridden via environment variables)
+LOCAL_SITES_DIR="${LOCAL_SITES_DIR:-$HOME/Local Sites}"
+LOCAL_RUN_DIR="${LOCAL_RUN_DIR:-$HOME/Library/Application Support/Local/run}"
+WP_CLI_PHAR="${WP_CLI_PHAR:-/Applications/Local.app/Contents/Resources/extraResources/bin/wp-cli/wp-cli.phar}"
+DEBUG_LOCAL_WP="${LOCAL_WP_DEBUG:-0}"
+
+debug_log() {
+  if [ "$DEBUG_LOCAL_WP" != "1" ]; then
+    return 0
+  fi
+
+  printf '[local-wp debug] %s\n' "$*" >&2
+}
+
+# Auto-detect PHP binary from Local's lightning-services
+detect_php_bin() {
+  local services_dir="$HOME/Library/Application Support/Local/lightning-services"
+
+  if [ ! -d "$services_dir" ]; then
+    return 1
+  fi
+
+  # Find the most recent PHP version
+  local php_dir=$(find "$services_dir" -maxdepth 1 -type d -name "php-*" 2>/dev/null | sort -V | tail -1)
+
+  if [ -z "$php_dir" ]; then
+    return 1
+  fi
+
+  # Detect architecture
+  local arch=""
+  if [[ "$(uname -m)" == "arm64" ]]; then
+    arch="darwin-arm64"
+  else
+    arch="darwin-x64"
+  fi
+
+  local php_binary="$php_dir/bin/$arch/bin/php"
+
+  if [ -f "$php_binary" ]; then
+    echo "$php_binary"
+    return 0
+  fi
+
+  return 1
+}
+
+PHP_BIN="${PHP_BIN:-$(detect_php_bin)}"
+PHP_INI_FILE=""
+
+find_matching_site_ids() {
+  local site_name="$1"
+  local site_path="$2"
+  local site_root_dir="$3"
+  local site_host="${site_name}.local"
+  local site_run_dir=""
+  local site_id=""
+  local conf_dir=""
+  local conf_file=""
+  local score="0"
+  local active="0"
+  local candidate=""
+  local max_score="-1"
+  local -a candidates=()
+  local -a active_candidates=()
+  local -a pool=()
+
+  if [ ! -d "$LOCAL_RUN_DIR" ]; then
+    return 0
+  fi
+
+  while IFS= read -r site_run_dir; do
+    [ -d "$site_run_dir" ] || continue
+
+    site_id="${site_run_dir##*/}"
+    conf_dir="$site_run_dir/conf"
+
+    if [ ! -d "$conf_dir" ] || [ ! -d "$site_run_dir/mysql" ]; then
+      continue
+    fi
+
+    score=0
+
+    while IFS= read -r conf_file; do
+      [ -f "$conf_file" ] || continue
+
+      if grep -Fq -- "$site_path" "$conf_file"; then
+        score=$((score + 100))
+      fi
+
+      if grep -Fq -- "$site_root_dir/" "$conf_file"; then
+        score=$((score + 80))
+      fi
+
+      if grep -Fq -- "$site_host" "$conf_file"; then
+        score=$((score + 40))
+      fi
+
+      if grep -Fxq -- "$site_name" "$conf_file"; then
+        score=$((score + 20))
+      fi
+    done < <(find "$conf_dir" -type f 2>/dev/null | sort)
+
+    if [ "$score" -eq 0 ]; then
+      debug_log "No runtime metadata match for site '$site_name' in $site_id"
+      continue
+    fi
+
+    active=0
+    if [ -S "$site_run_dir/mysql/mysqld.sock" ]; then
+      active=1
+    fi
+
+    debug_log "Candidate $site_id matched with score=$score active_socket=$active"
+    candidates+=("${active}"$'\t'"${score}"$'\t'"${site_id}")
+  done < <(find "$LOCAL_RUN_DIR" -mindepth 1 -maxdepth 1 -type d ! -name 'router' 2>/dev/null | sort)
+
+  if [ "${#candidates[@]}" -eq 0 ]; then
+    return 0
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    IFS=$'\t' read -r active score site_id <<< "$candidate"
+    if [ "$active" = "1" ]; then
+      active_candidates+=("$candidate")
+    fi
+  done
+
+  if [ "${#active_candidates[@]}" -gt 0 ]; then
+    pool=("${active_candidates[@]}")
+  else
+    pool=("${candidates[@]}")
+  fi
+
+  for candidate in "${pool[@]}"; do
+    IFS=$'\t' read -r active score site_id <<< "$candidate"
+    if [ "$score" -gt "$max_score" ]; then
+      max_score="$score"
+    fi
+  done
+
+  for candidate in "${pool[@]}"; do
+    IFS=$'\t' read -r active score site_id <<< "$candidate"
+    if [ "$score" -eq "$max_score" ]; then
+      printf '%s\n' "$site_id"
+    fi
+  done | sort -u
+}
+
+create_php_ini_file() {
+  local tmp_dir="${TMPDIR:-/tmp}"
+  local original_umask=""
+
+  original_umask="$(umask)"
+  umask 077
+  PHP_INI_FILE="$(mktemp "$tmp_dir/local-wp-${SITE_NAME}.XXXXXX")" || {
+    umask "$original_umask"
+    return 1
+  }
+  umask "$original_umask"
+
+  chmod 600 "$PHP_INI_FILE" 2>/dev/null || true
+
+  LOCAL_WP_MEMORY_LIMIT="${LOCAL_WP_MEMORY_LIMIT:-512M}"
+
+  cat > "$PHP_INI_FILE" << EOF
+mysqli.default_socket = "$MYSQL_SOCKET"
+pdo_mysql.default_socket = "$MYSQL_SOCKET"
+memory_limit = $LOCAL_WP_MEMORY_LIMIT
+EOF
+}
+
+cleanup_php_ini() {
+  if [ -n "$PHP_INI_FILE" ]; then
+    rm -f "$PHP_INI_FILE" 2>/dev/null || true
+  fi
+}
+
+trap cleanup_php_ini EXIT
+trap 'cleanup_php_ini; exit 130' INT
+trap 'cleanup_php_ini; exit 143' TERM
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+show_usage() {
+  echo -e "${BLUE}Local WP-CLI Wrapper${NC}"
+  echo ""
+  echo "Usage: local-wp [--debug] <site-name> <wp-cli-command> [args...]"
+  echo ""
+  echo "Examples:"
+  echo "  local-wp neochrome-timesheets plugin list"
+  echo "  local-wp neochrome-timesheets option get siteurl"
+  echo "  local-wp neochrome-timesheets core version"
+  echo "  local-wp --debug neochrome-timesheets option get siteurl"
+  echo ""
+  echo "Available sites:"
+  ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
+  echo ""
+}
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --help|-h)
+      show_usage
+      exit 0
+      ;;
+    --list)
+      echo -e "${BLUE}Available Local sites:${NC}"
+      ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
+      exit 0
+      ;;
+    --debug)
+      DEBUG_LOCAL_WP="1"
+      shift
+      ;;
+    *)
+      break
+      ;;
+  esac
+done
+
+if [ $# -lt 1 ]; then
+  show_usage
+  exit 1
+fi
+
+SITE_NAME="$1"
+shift
+
+SITE_PATH="$LOCAL_SITES_DIR/$SITE_NAME/app/public"
+SITE_ROOT_DIR="$LOCAL_SITES_DIR/$SITE_NAME"
+
+debug_log "Resolving Local run config for site '$SITE_NAME'"
+debug_log "Site path: $SITE_PATH"
+debug_log "Local run dir: $LOCAL_RUN_DIR"
+
+if [ ! -d "$SITE_PATH" ]; then
+  echo -e "${RED}Error: Site not found: $SITE_NAME${NC}"
+  echo ""
+  echo -e "${YELLOW}Available sites:${NC}"
+  ls -1 "$LOCAL_SITES_DIR" 2>/dev/null | grep -v "^\." | sed 's/^/  - /'
+  exit 1
+fi
+
+if [ ! -f "$WP_CLI_PHAR" ]; then
+  echo -e "${RED}Error: WP-CLI not found at: $WP_CLI_PHAR${NC}"
+  echo ""
+  echo -e "${YELLOW}To fix, set the WP_CLI_PHAR environment variable:${NC}"
+  echo "  export WP_CLI_PHAR=\"/path/to/wp-cli.phar\""
+  exit 1
+fi
+
+if [ -z "$PHP_BIN" ] || [ ! -f "$PHP_BIN" ]; then
+  echo -e "${RED}Error: PHP binary not found${NC}"
+  echo ""
+  echo -e "${YELLOW}Could not auto-detect PHP from Local's lightning-services.${NC}"
+  echo "To fix, set the PHP_BIN environment variable:"
+  echo "  export PHP_BIN=\"/path/to/php\""
+  echo ""
+  echo "Searched in: $HOME/Library/Application Support/Local/lightning-services"
+  exit 1
+fi
+
+if [ ! -f "$SITE_PATH/wp-config.php" ]; then
+  echo -e "${RED}Error: WordPress not found at: $SITE_PATH${NC}"
+  exit 1
+fi
+
+MATCHED_SITE_IDS=()
+while IFS= read -r matched_site_id; do
+  [ -n "$matched_site_id" ] && MATCHED_SITE_IDS+=("$matched_site_id")
+done < <(find_matching_site_ids "$SITE_NAME" "$SITE_PATH" "$SITE_ROOT_DIR")
+
+if [ "${#MATCHED_SITE_IDS[@]}" -eq 0 ]; then
+  echo -e "${RED}Error: Could not find site configuration${NC}"
+  if [ "$DEBUG_LOCAL_WP" != "1" ]; then
+    echo -e "${YELLOW}Tip: Re-run with --debug to inspect Local run discovery.${NC}" >&2
+  fi
+  exit 1
+fi
+
+if [ "${#MATCHED_SITE_IDS[@]}" -gt 1 ]; then
+  echo -e "${RED}Error: Multiple Local run configurations matched site name exactly: $SITE_NAME${NC}"
+  for matched_site_id in "${MATCHED_SITE_IDS[@]}"; do
+    echo "  - $matched_site_id"
+  done
+  exit 1
+fi
+
+SITE_ID="${MATCHED_SITE_IDS[0]}"
+
+debug_log "Resolved site '$SITE_NAME' to Local run ID '$SITE_ID'"
+
+MYSQL_SOCKET="$LOCAL_RUN_DIR/$SITE_ID/mysql/mysqld.sock"
+
+if [ ! -S "$MYSQL_SOCKET" ]; then
+  echo -e "${RED}Error: MySQL socket not found. Is the site running in Local?${NC}"
+  exit 1
+fi
+
+# Create temporary PHP ini with socket path
+if ! create_php_ini_file; then
+  echo -e "${RED}Error: Could not create temporary PHP configuration${NC}"
+  exit 1
+fi
+
+cd "$SITE_PATH" || exit 1
+
+# Run WP-CLI with custom PHP ini
+"$PHP_BIN" -c "$PHP_INI_FILE" "$WP_CLI_PHAR" "$@"

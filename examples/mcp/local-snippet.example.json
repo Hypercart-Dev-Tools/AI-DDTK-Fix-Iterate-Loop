@@ -1,0 +1,12 @@
+{
+  "wordpress-local": {
+    "command": "./bin/local-wp",
+    "args": [
+      "<site-name>",
+      "mcp-adapter",
+      "serve",
+      "--server=mcp-adapter-default-server",
+      "--user=1"
+    ]
+  }
+}

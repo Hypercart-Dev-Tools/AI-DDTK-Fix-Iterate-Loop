@@ -1,0 +1,216 @@
+#!/usr/bin/env node
+
+const fs = require('fs');
+const path = require('path');
+
+const repoRoot = path.resolve(__dirname, '..');
+const baseConfigPath = path.join(repoRoot, '.mcp.json');
+const snippetsDir = path.join(repoRoot, 'temp', 'mcp', 'local-snippets');
+
+function showHelp() {
+  console.log(`AI-DDTK MCP Local Config Helper
+
+Merges the checked-in public-safe .mcp.json with any local-only JSON snippets
+stored under temp/mcp/local-snippets/ and prints the result.
+
+Usage:
+  ./bin/mcp-local-config
+  ./bin/mcp-local-config --dry-run --write .mcp.local.json
+  ./bin/mcp-local-config --write .mcp.local.json
+  ./bin/mcp-local-config --write-root
+  printf 'OVERWRITE\n' | ./bin/mcp-local-config --write-root
+
+Notes:
+  - Snippet files must be JSON.
+  - A snippet can be either { "mcpServers": { ... } } or { "server-name": { ... } }.
+  - Do not commit generated local MCP configs containing real site names.
+  - --dry-run previews the merged config for a write target without modifying files.
+  - Writing directly to .mcp.json requires an explicit warning confirmation.
+`);
+}
+
+function parseArguments(argv) {
+  const args = argv.slice(2);
+  let outputPath = null;
+  let writeRoot = false;
+  let force = false;
+  let dryRun = false;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === '--help' || arg === '-h') {
+      showHelp();
+      process.exit(0);
+    }
+
+    if (arg === '--write') {
+      outputPath = args[index + 1] || null;
+      if (!outputPath) {
+        throw new Error('--write requires a file path');
+      }
+      index += 1;
+      continue;
+    }
+
+    if (arg === '--write-root') {
+      writeRoot = true;
+      continue;
+    }
+
+    if (arg === '--force') {
+      force = true;
+      continue;
+    }
+
+    if (arg === '--dry-run') {
+      dryRun = true;
+      continue;
+    }
+
+    throw new Error(`Unknown argument: ${arg}`);
+  }
+
+  if (writeRoot && outputPath) {
+    throw new Error('Use either --write <path> or --write-root, not both');
+  }
+
+  return { outputPath, writeRoot, force, dryRun };
+}
+
+function readJsonFile(filePath) {
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function validateServerEntries(serverMap, sourcePath) {
+  if (!isPlainObject(serverMap)) {
+    throw new Error(`Invalid MCP snippet in ${sourcePath}`);
+  }
+
+  for (const [serverName, serverConfig] of Object.entries(serverMap)) {
+    if (!isPlainObject(serverConfig)) {
+      throw new Error(`Invalid MCP server entry \"${serverName}\" in ${sourcePath}: expected an object`);
+    }
+
+    if (typeof serverConfig.command !== 'string' || serverConfig.command.trim() === '') {
+      throw new Error(`Invalid MCP server entry \"${serverName}\" in ${sourcePath}: missing required string \"command\"`);
+    }
+  }
+
+  return serverMap;
+}
+
+function normalizeSnippet(snippet, sourcePath) {
+  if (!isPlainObject(snippet)) {
+    throw new Error(`Invalid MCP snippet in ${sourcePath}`);
+  }
+
+  if (Object.prototype.hasOwnProperty.call(snippet, 'mcpServers')) {
+    return validateServerEntries(snippet.mcpServers, sourcePath);
+  }
+
+  return validateServerEntries(snippet, sourcePath);
+}
+
+function loadLocalSnippets() {
+  if (!fs.existsSync(snippetsDir)) {
+    return {};
+  }
+
+  const mergedServers = {};
+  const snippetNames = fs.readdirSync(snippetsDir)
+    .filter((entry) => entry.endsWith('.json'))
+    .sort((left, right) => left.localeCompare(right));
+
+  for (const snippetName of snippetNames) {
+    const snippetPath = path.join(snippetsDir, snippetName);
+    const snippetJson = readJsonFile(snippetPath);
+    Object.assign(mergedServers, normalizeSnippet(snippetJson, snippetPath));
+  }
+
+  return mergedServers;
+}
+
+function readConfirmationToken() {
+  return fs.readFileSync(0, 'utf8').trim();
+}
+
+function assertRootWriteConfirmed(force) {
+  if (force) {
+    return;
+  }
+
+  console.error('WARNING: This will overwrite the checked-in .mcp.json with local-only MCP server entries.');
+  console.error('This can leak real site names, internal domains, local paths, or user mappings if you commit it.');
+  console.error('Type OVERWRITE and press Enter to continue.');
+
+  const confirmationToken = readConfirmationToken();
+
+  if (confirmationToken !== 'OVERWRITE') {
+    throw new Error('Aborted .mcp.json overwrite. Confirmation token did not match OVERWRITE.');
+  }
+}
+
+function main() {
+  const { outputPath, writeRoot, force, dryRun } = parseArguments(process.argv);
+  const baseConfig = readJsonFile(baseConfigPath);
+
+  if (!baseConfig.mcpServers || typeof baseConfig.mcpServers !== 'object' || Array.isArray(baseConfig.mcpServers)) {
+    throw new Error(`Invalid base MCP config: ${baseConfigPath}`);
+  }
+
+  const localServers = loadLocalSnippets();
+  const mergedConfig = {
+    ...baseConfig,
+    mcpServers: {
+      ...baseConfig.mcpServers,
+      ...localServers,
+    },
+  };
+
+  const formatted = `${JSON.stringify(mergedConfig, null, 2)}\n`;
+
+  if (!outputPath) {
+    if (!writeRoot) {
+      process.stdout.write(formatted);
+      return;
+    }
+
+    if (dryRun) {
+      console.error('Dry run: would write merged MCP config to .mcp.json');
+      process.stdout.write(formatted);
+      return;
+    }
+
+    assertRootWriteConfirmed(force);
+    fs.writeFileSync(baseConfigPath, formatted, 'utf8');
+    console.error('Wrote merged MCP config to .mcp.json');
+    return;
+  }
+
+  const resolvedOutputPath = path.resolve(repoRoot, outputPath);
+
+  if (dryRun) {
+    console.error(`Dry run: would write merged MCP config to ${path.relative(repoRoot, resolvedOutputPath) || resolvedOutputPath}`);
+    process.stdout.write(formatted);
+    return;
+  }
+
+  if (resolvedOutputPath === baseConfigPath) {
+    assertRootWriteConfirmed(force);
+  }
+
+  fs.writeFileSync(resolvedOutputPath, formatted, 'utf8');
+  console.error(`Wrote merged MCP config to ${path.relative(repoRoot, resolvedOutputPath) || resolvedOutputPath}`);
+}
+
+try {
+  main();
+} catch (error) {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+}

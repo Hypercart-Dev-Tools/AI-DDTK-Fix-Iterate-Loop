@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "ai-ddtk": {
+      "command": "bash",
+      "args": ["tools/mcp-server/start.sh"]
+    }
+  }
+}

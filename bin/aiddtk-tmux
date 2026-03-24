@@ -1,0 +1,287 @@
+#!/usr/bin/env bash
+# ============================================================
+# AI-DDTK Tmux Proxy Wrapper
+# Optional resilient terminal sessions for AI agents and humans
+# ============================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLKIT_ROOT="$(dirname "$SCRIPT_DIR")"
+LOG_DIR="$TOOLKIT_ROOT/temp/logs/tmux"
+
+sanitize_name() {
+    echo "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g'
+}
+
+normalize_session_name() {
+    local raw_name="${1:-workspace}"
+    local name
+    name="$(sanitize_name "$raw_name")"
+    [ -n "$name" ] || name="workspace"
+
+    case "$name" in
+        aiddtk-*) echo "$name" ;;
+        *) echo "aiddtk-$name" ;;
+    esac
+}
+
+default_session_name() {
+    normalize_session_name "$(basename "${1:-$(pwd)}")"
+}
+
+require_tmux() {
+    if ! command -v tmux >/dev/null 2>&1; then
+        echo "Error: tmux is not installed."
+        echo ""
+        echo "AI-DDTK tmux proxy is optional, but required for this command."
+        echo "Install it with: brew install tmux"
+        exit 1
+    fi
+}
+
+session_exists() {
+    tmux has-session -t "$1" 2>/dev/null
+}
+
+show_help() {
+    cat <<EOF
+AI-DDTK Tmux Proxy
+
+Usage:
+  aiddtk-tmux <command> [options]
+
+Commands:
+  start    Start or reuse a detached workspace session
+  status   Show session status for the current workspace or a named session
+  list     List AI-DDTK tmux sessions
+  send     Send a command into a session
+  capture  Print recent pane output from a session
+  attach   Attach your terminal to a session
+  stop     Stop a session
+  help     Show this help
+
+Options:
+  --session <name>   Session name (default: aiddtk-<current-folder>)
+  --cwd <path>       Working directory for start (default: current directory)
+  --command <cmd>    Command to send with the send subcommand
+  --tail <lines>     Number of lines to capture (default: 200)
+
+Examples:
+  aiddtk-tmux start --cwd /path/to/plugin
+  aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --verbose"
+  aiddtk-tmux capture --tail 100
+  aiddtk-tmux stop
+
+Logs:
+  Session output is appended to: $LOG_DIR/<session>.log
+EOF
+}
+
+start_session() {
+    local session="$1"
+    local cwd="$2"
+    local log_file="$LOG_DIR/${session}.log"
+
+    require_tmux
+    mkdir -p "$LOG_DIR"
+
+    if session_exists "$session"; then
+        echo "Session already running: $session"
+        echo "Capture output with: aiddtk-tmux capture --session $session"
+        return 0
+    fi
+
+    : > "$log_file"
+    printf '[%s] AI-DDTK tmux session started in %s\n' "$(date -u +%FT%TZ)" "$cwd" >> "$log_file"
+
+    tmux new-session -d -s "$session" -c "$cwd"
+    tmux rename-window -t "$session:0" main >/dev/null 2>&1 || true
+    tmux set-option -t "$session" remain-on-exit on >/dev/null 2>&1 || true
+    tmux pipe-pane -o -t "$session:0.0" "cat >> \"$log_file\""
+
+    echo "Started session: $session"
+    echo "Working directory: $cwd"
+    echo "Log file: $log_file"
+}
+
+show_status() {
+    local session="$1"
+    local log_file="$LOG_DIR/${session}.log"
+
+    require_tmux
+
+    if ! session_exists "$session"; then
+        echo "Session not found: $session"
+        echo "Start one with: aiddtk-tmux start --session ${session#aiddtk-} --cwd $(pwd)"
+        exit 1
+    fi
+
+    echo "Session: $session"
+    echo "tmux: $(tmux -V 2>/dev/null || echo installed)"
+    echo "Path: $(tmux display-message -p -t "$session:0.0" '#{pane_current_path}')"
+    echo "Windows: $(tmux list-windows -t "$session" 2>/dev/null | wc -l | tr -d ' ')"
+    echo "Log file: $log_file"
+}
+
+list_sessions() {
+    require_tmux
+
+    if ! tmux list-sessions -F '#{session_name}\t#{session_windows}\t#{?session_attached,attached,detached}' 2>/dev/null | grep '^aiddtk-'; then
+        echo "No AI-DDTK tmux sessions found."
+    fi
+}
+
+send_command() {
+    local session="$1"
+    local command_text="$2"
+
+    require_tmux
+
+    if ! session_exists "$session"; then
+        echo "Session not found: $session"
+        exit 1
+    fi
+
+    tmux send-keys -t "$session:0.0" "$command_text" C-m
+    echo "Sent command to $session"
+}
+
+capture_output() {
+    local session="$1"
+    local tail_lines="$2"
+
+    require_tmux
+
+    if ! session_exists "$session"; then
+        echo "Session not found: $session"
+        exit 1
+    fi
+
+    tmux capture-pane -p -t "$session:0.0" -S "-$tail_lines"
+}
+
+attach_session() {
+    local session="$1"
+
+    require_tmux
+
+    if ! session_exists "$session"; then
+        echo "Session not found: $session"
+        exit 1
+    fi
+
+    exec tmux attach-session -t "$session"
+}
+
+stop_session() {
+    local session="$1"
+
+    require_tmux
+
+    if ! session_exists "$session"; then
+        echo "Session not found: $session"
+        exit 1
+    fi
+
+    tmux kill-session -t "$session"
+    echo "Stopped session: $session"
+}
+
+COMMAND="${1:-help}"
+shift || true
+
+case "$COMMAND" in
+    start)
+        SESSION=""
+        CWD="$(pwd)"
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --session) SESSION="$2"; shift 2 ;;
+                --cwd) CWD="$2"; shift 2 ;;
+                -h|--help) show_help; exit 0 ;;
+                *) echo "Unknown option: $1"; exit 1 ;;
+            esac
+        done
+        SESSION="$(normalize_session_name "${SESSION:-$(basename "$CWD")}")"
+        start_session "$SESSION" "$CWD"
+        ;;
+    status)
+        SESSION=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --session) SESSION="$2"; shift 2 ;;
+                -h|--help) show_help; exit 0 ;;
+                *) echo "Unknown option: $1"; exit 1 ;;
+            esac
+        done
+        SESSION="$(normalize_session_name "${SESSION:-$(basename "$(pwd)")}")"
+        show_status "$SESSION"
+        ;;
+    list)
+        list_sessions
+        ;;
+    send)
+        SESSION=""
+        COMMAND_TEXT=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --session) SESSION="$2"; shift 2 ;;
+                --command) COMMAND_TEXT="$2"; shift 2 ;;
+                --) shift; COMMAND_TEXT="$*"; break ;;
+                -h|--help) show_help; exit 0 ;;
+                *) echo "Unknown option: $1"; exit 1 ;;
+            esac
+        done
+        [ -n "$COMMAND_TEXT" ] || { echo "Error: send requires --command"; exit 1; }
+        SESSION="$(normalize_session_name "${SESSION:-$(basename "$(pwd)")}")"
+        send_command "$SESSION" "$COMMAND_TEXT"
+        ;;
+    capture)
+        SESSION=""
+        TAIL_LINES="200"
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --session) SESSION="$2"; shift 2 ;;
+                --tail) TAIL_LINES="$2"; shift 2 ;;
+                -h|--help) show_help; exit 0 ;;
+                *) echo "Unknown option: $1"; exit 1 ;;
+            esac
+        done
+        SESSION="$(normalize_session_name "${SESSION:-$(basename "$(pwd)")}")"
+        capture_output "$SESSION" "$TAIL_LINES"
+        ;;
+    attach)
+        SESSION=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --session) SESSION="$2"; shift 2 ;;
+                -h|--help) show_help; exit 0 ;;
+                *) echo "Unknown option: $1"; exit 1 ;;
+            esac
+        done
+        SESSION="$(normalize_session_name "${SESSION:-$(basename "$(pwd)")}")"
+        attach_session "$SESSION"
+        ;;
+    stop)
+        SESSION=""
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                --session) SESSION="$2"; shift 2 ;;
+                -h|--help) show_help; exit 0 ;;
+                *) echo "Unknown option: $1"; exit 1 ;;
+            esac
+        done
+        SESSION="$(normalize_session_name "${SESSION:-$(basename "$(pwd)")}")"
+        stop_session "$SESSION"
+        ;;
+    help|-h|--help)
+        show_help
+        ;;
+    *)
+        echo "Unknown command: $COMMAND"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac
