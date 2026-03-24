@@ -111,6 +111,7 @@ See `tools/mcp-server/README.md` for detailed tool documentation and examples.
 | **AI-DDTK Tmux Proxy** | Resilient terminal sessions for flaky IDE/agent workflows | [CLI Reference](docs/CLI-REFERENCE.md#aiddtk-tmux) |
 | **Playwright Auth (`pw-auth`)** | Passwordless wp-admin auth + DOM inspection helpers | [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) |
 | **WP AJAX Test** | Structured `admin-ajax.php` testing | [CLI Reference](docs/CLI-REFERENCE.md#wp-ajax-test) |
+| **MCP Local Config** | Merge local-only MCP snippets with public `.mcp.json` | [CLI Reference](docs/CLI-REFERENCE.md#mcp-local-config) |
 | **WP Performance Timer** | Runtime profiling for suspected slow paths | [recipes/performance-audit.md](recipes/performance-audit.md) |
 | **PHPStan** | Type-aware static analysis for PHP/WordPress projects | [recipes/phpstan-wordpress-setup.md](recipes/phpstan-wordpress-setup.md) |
 | **Recipes / Fix-Iterate Loop** | Multi-step verification and debugging workflows | [fix-iterate-loop.md](fix-iterate-loop.md) |
@@ -399,7 +400,7 @@ Scan → AI Triage → HTML Report → GitHub Issue
        positives)      at top)         Linear/Asana too)
 ```
 
-Templates handle flexible naming — `Gravity Forms`, `gravity-forms`, and `gravityforms` all resolve to the same config. See the [Template Guide](tools/wp-code-check/dist/HOWTO-TEMPLATES.md) for details.
+Templates handle flexible naming — `Gravity Forms`, `gravity-forms`, and `gravityforms` all resolve to the same config. See the [AI Instructions](tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md) for details.
 
 #### WPCC Features
 

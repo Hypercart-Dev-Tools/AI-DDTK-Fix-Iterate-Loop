@@ -87,11 +87,14 @@ check_links_in_file() {
     dir=$(dirname "$file")
     # Extract relative markdown links — skip http/https, anchors-only, and images
     # Uses grep -Eo (POSIX extended) for macOS compatibility (no -P/PCRE)
-    grep -Eo '\[([^]]*)\]\(([^)]+)\)' "$file" 2>/dev/null \
+    # Uses process substitution to keep FAIL_COUNT in the current shell (not a subshell)
+    local links
+    links=$(grep -Eo '\[([^]]*)\]\(([^)]+)\)' "$file" 2>/dev/null \
         | sed 's/.*](//' | sed 's/)$//' \
         | grep -v '^https\{0,1\}://' \
-        | grep -v '^#' \
-        | while read -r link; do
+        | grep -v '^#' || true)
+    [ -z "$links" ] && return 0
+    while read -r link; do
         # Strip anchor
         target="${link%%#*}"
         [ -z "$target" ] && continue
@@ -101,7 +104,7 @@ check_links_in_file() {
         else
             fail "$file -> $target (file not found)"
         fi
-    done
+    done <<< "$links"
 }
 
 # Check key onboarding docs
