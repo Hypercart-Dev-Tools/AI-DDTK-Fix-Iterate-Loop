@@ -102,6 +102,31 @@ Plus **4 MCP resources**: auth status, latest scan, latest report, scan-by-ID.
 
 ## Quick Start
 
+> **macOS required** for full functionality (Local by Flywheel, Homebrew).
+> Core scanning (`wpcc`) works on any Unix-like system with Node.js.
+
+### Prerequisites
+
+**Required:**
+
+| Requirement | Used By | Install |
+|---|---|---|
+| **Git** | Core | `brew install git` |
+| **Node.js ≥ 18** | WPCC, MCP server | `brew install node` |
+
+**Optional (unlocks specific features):**
+
+| Requirement | Unlocks | Install |
+|---|---|---|
+| **Python 3** | AI triage, HTML reports | `brew install python3` |
+| **WP-CLI** | pw-auth, local-wp, MCP Adapter | [wp-cli.org](https://wp-cli.org/) |
+| **Composer** | PHPStan | `brew install composer` |
+| **Playwright** | Browser automation | `npm install -g playwright` |
+| **tmux** | Resilient sessions | `brew install tmux` |
+| **GitHub CLI** | Issue creation | `brew install gh` |
+
+### Install
+
 ```bash
 # Clone
 git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git ~/bin/ai-ddtk
@@ -117,19 +142,6 @@ wpcc --help
 local-wp --help
 ./install.sh status
 ```
-
-**Prerequisites:**
-
-| Requirement | Used By | Install |
-|---|---|---|
-| **Git** | Core | `brew install git` |
-| **Node.js** | WPCC, MCP server | `brew install node` |
-| **Python 3** | AI triage, HTML reports | `brew install python3` |
-| **WP-CLI** | pw-auth, local-wp, MCP Adapter | [wp-cli.org](https://wp-cli.org/) |
-| **Composer** | PHPStan (optional) | `brew install composer` |
-| **Playwright** | Browser automation (optional) | `npm install -g playwright` |
-| **tmux** | Resilient sessions (optional) | `brew install tmux` |
-| **GitHub CLI** | Issue creation (optional) | `brew install gh` |
 
 ---
 

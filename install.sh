@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.1.0-rc.1
+# Version: 1.2.1
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -26,92 +26,8 @@
 #   wpcc analyze ./wp-content/plugins/my-plugin
 #   local-wp my-site plugin list
 #
-# ============================================================
-#
-# ┌─────────────────────────────────────────────────────────┐
-# │  SECTION 2: FOR LLM AGENTS - Architecture & Maintenance │
-# └─────────────────────────────────────────────────────────┘
-#
-# REPOSITORY STRUCTURE:
-#   AI-DDTK/
-#   ├── install.sh           # This file - install & maintenance
-#   ├── bin/                  # Executable wrappers (added to PATH)
-#   │   ├── wpcc              # WP Code Check wrapper
-#   │   ├── wp-ajax-test      # AJAX endpoint tester
-#   │   ├── pw-auth           # Playwright WP admin auth helper
-#   │   ├── local-wp          # Local WP-CLI wrapper (canonical)
-#   │   └── aiddtk-tmux       # Optional resilient tmux wrapper
-#   ├── tools/                # Embedded tool packages and dependencies
-#   │   ├── mcp-server/       # AI-DDTK MCP server package + auto-build launcher
-#   │   ├── qm-bridge/        # Query Monitor bridge mu-plugins for page profiling
-#   │   └── wp-code-check/    # WPCC subtree
-#   ├── temp/                 # Sensitive data, logs, analysis files
-#   ├── recipes/              # Workflow recipes
-#   └── AGENTS.md             # AI agent guidelines
-#
-# ============================================================
-# LLM AGENT GUIDANCE: GIT SUBTREE OPERATIONS
-# ============================================================
-#
-# WPCC is embedded via git subtree at: tools/wp-code-check/
-# Remote: https://github.com/Hypercart-Dev-Tools/WP-Code-Check.git
-#
-# --- INITIAL SETUP (run once) ---
-# git subtree add --prefix=tools/wp-code-check \
-#   https://github.com/Hypercart-Dev-Tools/WP-Code-Check.git main --squash
-#
-# --- PULL LATEST WPCC UPDATES ---
-# git subtree pull --prefix=tools/wp-code-check \
-#   https://github.com/Hypercart-Dev-Tools/WP-Code-Check.git main --squash
-#
-# --- PULL SPECIFIC WPCC VERSION/TAG ---
-# git subtree pull --prefix=tools/wp-code-check \
-#   https://github.com/Hypercart-Dev-Tools/WP-Code-Check.git v1.2.0 --squash
-#
-# --- PUSH CHANGES BACK TO WPCC (if contributing) ---
-# git subtree push --prefix=tools/wp-code-check \
-#   https://github.com/Hypercart-Dev-Tools/WP-Code-Check.git feature-branch
-#
-# ============================================================
-# LLM AGENT GUIDANCE: GITHUB CLI COMMANDS
-# ============================================================
-#
-# --- CHECK WPCC LATEST COMMIT ---
-# gh api repos/Hypercart-Dev-Tools/WP-Code-Check/commits/main --jq '.sha'
-#
-# --- VIEW WPCC RECENT COMMITS ---
-# gh api repos/Hypercart-Dev-Tools/WP-Code-Check/commits --jq '.[0:5] | .[] | "\(.sha[0:7]) \(.commit.message | split("\n")[0])"'
-#
-# --- LIST WPCC RELEASES ---
-# gh release list --repo Hypercart-Dev-Tools/WP-Code-Check
-#
-# --- VIEW WPCC ISSUES ---
-# gh issue list --repo Hypercart-Dev-Tools/WP-Code-Check
-#
-# --- CREATE PR TO WPCC ---
-# gh pr create --repo Hypercart-Dev-Tools/WP-Code-Check --title "..." --body "..."
-#
-# --- COMPARE LOCAL VS REMOTE WPCC ---
-# LOCAL_SHA=$(git log -1 --format="%H" -- tools/wp-code-check)
-# REMOTE_SHA=$(gh api repos/Hypercart-Dev-Tools/WP-Code-Check/commits/main --jq '.sha')
-# [ "$LOCAL_SHA" = "$REMOTE_SHA" ] && echo "Up to date" || echo "Updates available"
-#
-# ============================================================
-# LLM AGENT GUIDANCE: MAINTENANCE NOTES
-# ============================================================
-#
-# - This script is IDEMPOTENT (safe to run multiple times)
-# - It modifies shell config (~/.zshrc or ~/.bashrc)
-# - It does NOT require sudo
-# - PATH entry format: export PATH="$HOME/bin/ai-ddtk/bin:$PATH"
-# - MCP clients should prefer tools/mcp-server/start.sh so fresh clones auto-build dist/
-# - If WPCC is later merged into AI-DDTK, update bin/wpcc wrapper
-# - All tools should be callable from any directory
-#
-# FUTURE TOOLS TO ADD:
-# - Remove the repo-root local-wp compatibility shim after deprecation
-# - Add playwright wrapper if needed
-# - Add pixelmatch wrapper if needed
+# For AI agent maintenance notes and subtree/GitHub command references, see:
+#   docs/INSTALL-AGENT-NOTES.md
 #
 # ============================================================
 #
@@ -119,7 +35,7 @@
 # │  SECTION 3: EXECUTABLE SCRIPT                           │
 # └─────────────────────────────────────────────────────────┘
 
-set -e
+set -euo pipefail
 
 # Colors
 RED='\033[0;31m'
@@ -144,6 +60,9 @@ else
 fi
 
 PATH_ENTRY="export PATH=\"$BIN_DIR:\$PATH\""
+PATH_BEGIN_MARKER="# >>> AI-DDTK >>>"
+PATH_END_MARKER="# <<< AI-DDTK <<<"
+NODE_MIN_MAJOR=18
 
 # ============================================================
 # FUNCTIONS
@@ -186,16 +105,174 @@ show_tmux_status() {
     fi
 }
 
+ensure_shell_config_exists() {
+    if [ ! -f "$SHELL_CONFIG" ]; then
+        touch "$SHELL_CONFIG"
+    fi
+}
+
+node_major_version() {
+    local version_string
+    version_string="$(node -v 2>/dev/null || true)"
+    echo "${version_string#v}" | cut -d. -f1
+}
+
+node_version_status() {
+    if ! command -v node >/dev/null 2>&1; then
+        echo "missing"
+        return 0
+    fi
+
+    local major
+    major="$(node_major_version)"
+    if [ -z "$major" ]; then
+        echo "unknown"
+        return 0
+    fi
+
+    if [ "$major" -ge "$NODE_MIN_MAJOR" ]; then
+        echo "ok"
+    else
+        echo "too_old"
+    fi
+}
+
+check_node_requirement() {
+    local status
+    status="$(node_version_status)"
+
+    case "$status" in
+        ok)
+            echo -e "  Node.js: ${GREEN}✓${NC} $(node -v)"
+            ;;
+        too_old)
+            echo -e "${RED}Node.js $(node -v) detected, but setup-mcp requires >= v${NODE_MIN_MAJOR}.x${NC}"
+            echo "Install/upgrade Node via: brew install node"
+            return 1
+            ;;
+        missing)
+            echo -e "${RED}Node.js is required but not installed.${NC}"
+            echo "Install via: brew install node"
+            return 1
+            ;;
+        *)
+            echo -e "${RED}Unable to determine Node.js version.${NC}"
+            return 1
+            ;;
+    esac
+}
+
+print_next_steps_block() {
+    echo ""
+    echo -e "${CYAN}Next steps (copy/paste):${NC}"
+    cat <<EOF
+source "$SHELL_CONFIG"
+./install.sh status
+wpcc --help
+aiddtk-tmux --help
+EOF
+}
+
+run_npm_step() {
+    local title="$1"
+    shift
+    local log_file
+    log_file="$(mktemp)"
+
+    echo -e "${CYAN}${title}...${NC}"
+    if "$@" >"$log_file" 2>&1; then
+        tail -n 3 "$log_file"
+        rm -f "$log_file"
+        return 0
+    fi
+
+    echo -e "${RED}${title} failed.${NC}"
+    tail -n 40 "$log_file"
+    rm -f "$log_file"
+    return 1
+}
+
+preflight_summary() {
+    echo -e "${CYAN}Preflight summary:${NC}"
+    echo "  OS: $(uname -s)"
+    echo "  Shell config target: $SHELL_CONFIG"
+
+    if command -v git >/dev/null 2>&1; then
+        echo -e "  git: ${GREEN}✓${NC} $(git --version | awk '{print $3}')"
+    else
+        echo -e "  git: ${RED}✗ Missing${NC}"
+    fi
+
+    local node_status
+    node_status="$(node_version_status)"
+    case "$node_status" in
+        ok)
+            echo -e "  Node: ${GREEN}✓${NC} $(node -v) (meets >= v${NODE_MIN_MAJOR})"
+            ;;
+        too_old)
+            echo -e "  Node: ${YELLOW}○${NC} $(node -v) (below >= v${NODE_MIN_MAJOR})"
+            ;;
+        missing)
+            echo -e "  Node: ${YELLOW}○ Missing${NC}"
+            ;;
+        *)
+            echo -e "  Node: ${YELLOW}○ Unknown${NC}"
+            ;;
+    esac
+
+    ensure_shell_config_exists
+    if grep -Fq "$PATH_BEGIN_MARKER" "$SHELL_CONFIG" && grep -Fq "$PATH_END_MARKER" "$SHELL_CONFIG"; then
+        echo -e "  PATH block: ${GREEN}✓ Configured${NC}"
+    elif grep -Fq "$BIN_DIR" "$SHELL_CONFIG"; then
+        echo -e "  PATH block: ${YELLOW}○ Legacy entry detected${NC}"
+    else
+        echo -e "  PATH block: ${YELLOW}○ Not configured${NC}"
+    fi
+
+    if command -v wpcc >/dev/null 2>&1; then
+        echo -e "  wpcc in PATH: ${GREEN}✓ Yes${NC}"
+    else
+        echo -e "  wpcc in PATH: ${YELLOW}○ No${NC}"
+    fi
+
+    local MCP_ENTRY="$TOOLS_DIR/mcp-server/dist/src/index.js"
+    if [ -f "$MCP_ENTRY" ]; then
+        echo -e "  MCP build: ${GREEN}✓ Present${NC}"
+    else
+        echo -e "  MCP build: ${YELLOW}○ Not built yet${NC}"
+    fi
+}
+
+remove_path_block_and_legacy() {
+    ensure_shell_config_exists
+    local tmp_file
+    tmp_file="$(mktemp)"
+
+    awk -v start="$PATH_BEGIN_MARKER" -v end="$PATH_END_MARKER" '
+    $0 == start { in_block=1; next }
+    $0 == end { in_block=0; next }
+    !in_block { print }
+    ' "$SHELL_CONFIG" > "$tmp_file"
+
+    awk '!/AI-DDTK - AI Driven Development ToolKit/ && !/ai-ddtk\/bin/' "$tmp_file" > "${tmp_file}.clean"
+    mv "${tmp_file}.clean" "$SHELL_CONFIG"
+    rm -f "$tmp_file"
+}
+
 install_path() {
     echo -e "${CYAN}Setting up PATH...${NC}"
 
-    # Check if already in PATH (use BIN_DIR to match actual path)
-    if grep -q "$BIN_DIR" "$SHELL_CONFIG" 2>/dev/null; then
+    ensure_shell_config_exists
+
+    if grep -Fq "$PATH_BEGIN_MARKER" "$SHELL_CONFIG" && grep -Fq "$PATH_END_MARKER" "$SHELL_CONFIG"; then
         echo -e "${GREEN}✓ PATH already configured in $SHELL_CONFIG${NC}"
     else
+        remove_path_block_and_legacy
         echo "" >> "$SHELL_CONFIG"
+        echo "$PATH_BEGIN_MARKER" >> "$SHELL_CONFIG"
         echo "# AI-DDTK - AI Driven Development ToolKit" >> "$SHELL_CONFIG"
         echo "$PATH_ENTRY" >> "$SHELL_CONFIG"
+        echo "$PATH_END_MARKER" >> "$SHELL_CONFIG"
         echo -e "${GREEN}✓ Added to $SHELL_CONFIG${NC}"
     fi
 
@@ -273,12 +350,37 @@ show_status() {
     echo "  Shell Config: $SHELL_CONFIG"
     echo ""
 
-    # Check PATH (use BIN_DIR to match actual path)
-    if grep -q "$BIN_DIR" "$SHELL_CONFIG" 2>/dev/null; then
-        echo -e "  PATH: ${GREEN}✓ Configured${NC}"
+    ensure_shell_config_exists
+    if grep -Fq "$PATH_BEGIN_MARKER" "$SHELL_CONFIG" && grep -Fq "$PATH_END_MARKER" "$SHELL_CONFIG"; then
+        echo -e "  PATH block: ${GREEN}✓ Configured${NC}"
+    elif grep -Fq "$BIN_DIR" "$SHELL_CONFIG"; then
+        echo -e "  PATH block: ${YELLOW}○ Legacy entry detected${NC}"
     else
-        echo -e "  PATH: ${RED}✗ Not configured${NC}"
+        echo -e "  PATH block: ${RED}✗ Not configured${NC}"
     fi
+
+    if command -v wpcc >/dev/null 2>&1; then
+        echo -e "  wpcc in PATH: ${GREEN}✓ Yes${NC} ($(command -v wpcc))"
+    else
+        echo -e "  wpcc in PATH: ${YELLOW}○ No${NC} (run 'source $SHELL_CONFIG')"
+    fi
+
+    local node_status
+    node_status="$(node_version_status)"
+    case "$node_status" in
+        ok)
+            echo -e "  Node.js floor: ${GREEN}✓ Meets >= v${NODE_MIN_MAJOR}${NC} ($(node -v))"
+            ;;
+        too_old)
+            echo -e "  Node.js floor: ${RED}✗ Below >= v${NODE_MIN_MAJOR}${NC} ($(node -v))"
+            ;;
+        missing)
+            echo -e "  Node.js floor: ${RED}✗ Missing${NC}"
+            ;;
+        *)
+            echo -e "  Node.js floor: ${YELLOW}○ Unknown${NC}"
+            ;;
+    esac
 
     # Check WPCC
     if [ -d "$WPCC_DIR" ] && [ "$(ls -A "$WPCC_DIR" 2>/dev/null)" ]; then
@@ -322,24 +424,14 @@ setup_mcp() {
         return 1
     fi
 
-    # Check Node.js
-    if ! command -v node >/dev/null 2>&1; then
-        echo -e "${RED}Node.js is required but not installed.${NC}"
-        echo "Install via: brew install node"
-        return 1
-    fi
-
-    NODE_VERSION="$(node -v)"
-    echo -e "  Node.js: ${GREEN}✓${NC} $NODE_VERSION"
+    check_node_requirement
 
     # Install dependencies
-    echo -e "${CYAN}Installing dependencies...${NC}"
     cd "$MCP_DIR"
-    npm install --ignore-scripts 2>&1 | tail -1
+    run_npm_step "Installing dependencies" npm install --ignore-scripts
 
     # Build
-    echo -e "${CYAN}Building MCP server...${NC}"
-    npm run build 2>&1 | tail -3
+    run_npm_step "Building MCP server" npm run build
 
     echo -e "${GREEN}✓ MCP server built successfully${NC}"
     echo ""
@@ -390,10 +482,7 @@ uninstall() {
     echo -e "${CYAN}Removing AI-DDTK from PATH...${NC}"
 
     if [ -f "$SHELL_CONFIG" ]; then
-        # Remove the PATH entry and comment
-        sed -i.bak '/AI-DDTK/d' "$SHELL_CONFIG"
-        sed -i.bak '/ai-ddtk\/bin/d' "$SHELL_CONFIG"
-        rm -f "${SHELL_CONFIG}.bak"
+        remove_path_block_and_legacy
         echo -e "${GREEN}✓ Removed from $SHELL_CONFIG${NC}"
     fi
 
@@ -409,18 +498,19 @@ uninstall() {
 case "${1:-}" in
     "")
         show_banner
-        echo -e "${CYAN}Installing AI-DDTK...${NC}"
+        echo -e "${CYAN}Running full safe setup...${NC}"
         echo ""
+
+        preflight_summary
+        echo ""
+
         install_path
+        setup_wpcc
+        setup_mcp
+
         echo ""
-        echo -e "${GREEN}Installation complete!${NC}"
-        echo ""
-        echo "Next steps:"
-        echo "  1. Run: source $SHELL_CONFIG"
-        echo "  2. Run: ./install.sh setup-mcp"
-        echo "  3. Run: ./install.sh setup-wpcc"
-        echo "  4. Test: wpcc --help"
-        echo "  5. Optional: aiddtk-tmux --help"
+        echo -e "${GREEN}Setup complete!${NC}"
+        print_next_steps_block
         ;;
     update)
         update_toolkit
