@@ -13,6 +13,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.4] - 2026-03-24
+
+### Fixed
+- **`README.md` pw-auth examples** — updated the quick example commands to use the supported `--wp-cli` flag and a valid `check dom` invocation with required `--selector` and `--extract` arguments.
+- **`README.md` install flow docs** — removed the stale post-install `setup-wpcc` step and clarified that `./install.sh` now performs PATH setup, WPCC setup, and conditional MCP setup by default.
+
+### Changed
+- **`AGENTS.md` positioning** — clarified that `README.md` is the high-level overview while `AGENTS.md` is the detailed operational source of truth for agent workflow guidance.
+- **Documentation index** — added the weekly UX audit checklist to the `README.md` documentation table so the overview page points to the current recurring UX review workflow.
+
 ## [1.2.3] - 2026-03-24
 
 ### Changed
