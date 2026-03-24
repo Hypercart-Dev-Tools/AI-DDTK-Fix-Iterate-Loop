@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.2.1
+# Version: 1.2.2
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -32,7 +32,7 @@
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
-# │  SECTION 3: EXECUTABLE SCRIPT                           │
+# │  EXECUTABLE SCRIPT                                      │
 # └─────────────────────────────────────────────────────────┘
 
 set -euo pipefail
@@ -81,7 +81,7 @@ show_usage() {
     echo "Usage: ./install.sh [command]"
     echo ""
     echo "Commands:"
-    echo "  (none)        First-time installation"
+    echo "  (none)        Full setup (PATH + WPCC + MCP, with MCP auto-skip if Node < 18)"
     echo "  update        Pull latest AI-DDTK changes"
     echo "  update-wpcc   Pull latest WP Code Check"
     echo "  setup-wpcc    Initial WPCC subtree setup"
@@ -167,7 +167,6 @@ print_next_steps_block() {
     echo -e "${CYAN}Next steps (copy/paste):${NC}"
     cat <<EOF
 source "$SHELL_CONFIG"
-./install.sh status
 wpcc --help
 aiddtk-tmux --help
 EOF
@@ -211,9 +210,11 @@ preflight_summary() {
             ;;
         too_old)
             echo -e "  Node: ${YELLOW}○${NC} $(node -v) (below >= v${NODE_MIN_MAJOR})"
+            echo "  Note: default setup will skip MCP. Run './install.sh setup-mcp' after upgrading Node."
             ;;
         missing)
             echo -e "  Node: ${YELLOW}○ Missing${NC}"
+            echo "  Note: default setup will skip MCP. Install Node >= ${NODE_MIN_MAJOR} and run './install.sh setup-mcp'."
             ;;
         *)
             echo -e "  Node: ${YELLOW}○ Unknown${NC}"
@@ -255,8 +256,8 @@ remove_path_block_and_legacy() {
     ' "$SHELL_CONFIG" > "$tmp_file"
 
     awk '!/AI-DDTK - AI Driven Development ToolKit/ && !/ai-ddtk\/bin/' "$tmp_file" > "${tmp_file}.clean"
-    mv "${tmp_file}.clean" "$SHELL_CONFIG"
-    rm -f "$tmp_file"
+    cat "${tmp_file}.clean" > "$SHELL_CONFIG"
+    rm -f "$tmp_file" "${tmp_file}.clean"
 }
 
 install_path() {
@@ -506,7 +507,12 @@ case "${1:-}" in
 
         install_path
         setup_wpcc
-        setup_mcp
+
+        if ! setup_mcp; then
+            echo ""
+            echo -e "${YELLOW}MCP setup skipped.${NC}"
+            echo "Install Node >= ${NODE_MIN_MAJOR} and re-run: ./install.sh setup-mcp"
+        fi
 
         echo ""
         echo -e "${GREEN}Setup complete!${NC}"

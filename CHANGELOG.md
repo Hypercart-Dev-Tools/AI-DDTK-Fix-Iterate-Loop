@@ -13,6 +13,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.2] - 2026-03-24
+
+### Fixed
+- **`install.sh` default flow resilience** — `./install.sh` now gracefully continues when MCP setup fails (for example, missing/old Node.js), prints an explicit "MCP setup skipped" message, and gives a direct re-run command for `setup-mcp` instead of aborting midway under strict shell mode.
+- **`install.sh` shell-config rewrite safety** — PATH block cleanup now writes back to the existing shell config file in place instead of replacing it via `mv`, preserving inode-level metadata such as ownership/permissions behavior.
+
+### Changed
+- **`install.sh` preflight messaging** — Node.js preflight output now includes explicit advisory text that MCP will be skipped in default setup when Node is missing or below the required floor.
+- **`install.sh` UX copy updates** — help text for default command now reflects full setup behavior, next-step block removes redundant status rerun guidance, and top script header no longer references a non-existent section number.
+
 ## [1.2.1] - 2026-03-24
 
 ### Changed
