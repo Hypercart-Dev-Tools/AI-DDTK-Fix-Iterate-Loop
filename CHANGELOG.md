@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.6] - 2026-03-24
+
+### Fixed
+- **`bin/local-wp` help/list startup path** — deferred PHP auto-detection until after argument parsing so `local-wp --help` and `local-wp --list` no longer silently exit on Linux, WSL, or other environments without Local’s macOS directory layout.
+
 ## [1.2.5] - 2026-03-24
 
 ### Changed
