@@ -514,6 +514,36 @@ aiddtk-tmux stop
 
 ---
 
+## mcp-local-config
+
+**Purpose:** Merge local-only MCP server snippets with the public `.mcp.json` without committing secrets.
+
+```bash
+mcp-local-config                          # Print merged config to stdout
+mcp-local-config --dry-run --write .mcp.local.json  # Preview write target
+mcp-local-config --write .mcp.local.json  # Write merged config to file
+mcp-local-config --write-root             # Overwrite .mcp.json (requires confirmation)
+```
+
+### How It Works
+
+1. Reads the repo-root `.mcp.json` (public, checked in)
+2. Scans `temp/mcp/local-snippets/` for JSON snippet files (gitignored)
+3. Deep-merges snippet servers into the base config
+4. Outputs or writes the result
+
+Snippet files can be `{ "mcpServers": { ... } }` or `{ "server-name": { ... } }`.
+
+### Options
+
+| Flag | Description |
+|------|-------------|
+| `--write <path>` | Write merged config to file instead of stdout |
+| `--write-root` | Write directly to `.mcp.json` (prompts for confirmation) |
+| `--dry-run` | Preview only — no files modified (use with `--write`) |
+
+---
+
 ## valet-site-copy.sh (Optional)
 
 **Purpose:** Create and tear down disposable Valet WordPress clone sites.

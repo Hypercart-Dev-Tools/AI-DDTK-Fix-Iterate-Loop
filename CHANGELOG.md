@@ -13,6 +13,43 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.4] - 2026-03-24
+
+### Fixed
+- **`README.md` pw-auth examples** — updated the quick example commands to use the supported `--wp-cli` flag and a valid `check dom` invocation with required `--selector` and `--extract` arguments.
+- **`README.md` install flow docs** — removed the stale post-install `setup-wpcc` step and clarified that `./install.sh` now performs PATH setup, WPCC setup, and conditional MCP setup by default.
+
+### Changed
+- **`AGENTS.md` positioning** — clarified that `README.md` is the high-level overview while `AGENTS.md` is the detailed operational source of truth for agent workflow guidance.
+- **Documentation index** — added the weekly UX audit checklist to the `README.md` documentation table so the overview page points to the current recurring UX review workflow.
+
+## [1.2.3] - 2026-03-24
+
+### Changed
+- **`bin/pw-auth` internal refactor** — Externalized all embedded Node.js/Playwright helper scripts into a dedicated `bin/pw-auth-helpers/` directory. The main script's logic is unchanged, but it now delegates to these external scripts, improving maintainability and code separation.
+
+## [1.2.2] - 2026-03-24
+
+### Fixed
+- **`install.sh` default flow resilience** — `./install.sh` now gracefully continues when MCP setup fails (for example, missing/old Node.js), prints an explicit "MCP setup skipped" message, and gives a direct re-run command for `setup-mcp` instead of aborting midway under strict shell mode.
+- **`install.sh` shell-config rewrite safety** — PATH block cleanup now writes back to the existing shell config file in place instead of replacing it via `mv`, preserving inode-level metadata such as ownership/permissions behavior.
+
+### Changed
+- **`install.sh` preflight messaging** — Node.js preflight output now includes explicit advisory text that MCP will be skipped in default setup when Node is missing or below the required floor.
+- **`install.sh` UX copy updates** — help text for default command now reflects full setup behavior, next-step block removes redundant status rerun guidance, and top script header no longer references a non-existent section number.
+
+## [1.2.1] - 2026-03-24
+
+### Changed
+- **`install.sh` default flow** — running `./install.sh` now executes a full safe setup sequence (`install_path`, `setup-wpcc`, `setup-mcp`) with idempotent step behavior and a preflight summary before mutations.
+- **`install.sh` shell config writing** — PATH management now uses explicit begin/end markers (`# >>> AI-DDTK >>>` / `# <<< AI-DDTK <<<`) and block replacement instead of fragile line-by-line grep/sed insertion.
+- **`install.sh status` diagnostics** — status now includes doctor-style checks for `wpcc` PATH resolvability and Node.js version-floor compliance (`>= 18`) in addition to existing installation checks.
+- **Install script maintainability** — moved long agent-oriented notes out of script comments into `docs/INSTALL-AGENT-NOTES.md` and left a short pointer in `install.sh`.
+
+### Fixed
+- **`install.sh setup-mcp` correctness** — enforces Node.js `>= 18` before MCP setup and now surfaces npm install/build failures directly instead of potentially reporting false success on piped output.
+- **`install.sh` next-step output** — completion guidance now prints as a copy/paste-ready command block.
+
 ## [1.2.0] - 2026-03-23
 
 ### Added

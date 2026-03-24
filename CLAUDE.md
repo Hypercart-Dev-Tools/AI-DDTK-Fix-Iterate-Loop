@@ -1,0 +1,1 @@
+Attn: Claude and Claude Code agents - Please follow instructions in AGENTS.md
