@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: v3.0.0 — 2026-03-22_
+_Last updated: 2026-03-22 · Toolkit version: see [CHANGELOG.md](CHANGELOG.md)_
 
 ## Purpose
 

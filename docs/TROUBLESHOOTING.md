@@ -1,6 +1,6 @@
 # AI-DDTK Troubleshooting Guide
 
-_Last updated: v2.9.0 — 2026-03-22_
+_Last updated: 2026-03-22 · Toolkit version: see [CHANGELOG.md](../CHANGELOG.md)_
 
 A comprehensive reference for diagnosing and resolving common failures when using AI-DDTK tools including `pw-auth`, `wpcc`, `local-wp`, the MCP server, and associated Playwright workflows.
 

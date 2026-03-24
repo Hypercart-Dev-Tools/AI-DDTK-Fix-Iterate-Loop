@@ -28,6 +28,17 @@ Then proceed with Step 4 below (requires AI judgment).
 
 ---
 
+## Version Policy
+
+The toolkit version appears in exactly **two places**:
+
+1. **`CHANGELOG.md`** — canonical source of truth (includes date and description)
+2. **`install.sh` line 4** — `# Version: X.Y.Z` (synced to CHANGELOG by this audit)
+
+No other file should hardcode a version number. Docs like `AGENTS.md` and `TROUBLESHOOTING.md` carry a "Last updated" date only and link to CHANGELOG.md for version history.
+
+---
+
 ## Step 1: Version Consistency
 
 **Goal:** `install.sh` header version matches the latest `CHANGELOG.md` entry.
@@ -36,8 +47,6 @@ Then proceed with Step 4 below (requires AI judgment).
 - [ ] Run: `head -20 CHANGELOG.md | grep "^## \["`
 - [ ] Compare — they must match
 - [ ] If mismatch: update `install.sh` line 4 to match CHANGELOG
-
-**Note:** `AGENTS.md` and `TROUBLESHOOTING.md` have their own doc-level version numbers — those are intentionally independent and should NOT match the toolkit version.
 
 ---
 
