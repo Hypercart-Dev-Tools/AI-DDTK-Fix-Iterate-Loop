@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.3] - 2026-03-24
+
+### Changed
+- **`bin/pw-auth` internal refactor** — Externalized all embedded Node.js/Playwright helper scripts into a dedicated `bin/pw-auth-helpers/` directory. The main script's logic is unchanged, but it now delegates to these external scripts, improving maintainability and code separation.
+
 ## [1.2.2] - 2026-03-24
 
 ### Fixed
