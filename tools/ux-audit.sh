@@ -63,7 +63,8 @@ done
 
 # 2b: Check install.sh subcommands appear in help text
 # Only match the main case block (4-space indent), not inner case patterns (8-space)
-SUBCOMMANDS=$(grep -oP '^    \K[a-z][-a-z]+(?=\))' "$SCRIPT_DIR/install.sh" || true)
+# Uses sed instead of grep -oP for macOS (BSD grep) compatibility
+SUBCOMMANDS=$(sed -n 's/^    \([a-z][-a-z]*\)).*$/\1/p' "$SCRIPT_DIR/install.sh")
 HELP_TEXT=$(sed -n '/^show_usage/,/^}/p' "$SCRIPT_DIR/install.sh")
 
 for cmd in $SUBCOMMANDS; do
@@ -85,7 +86,12 @@ check_links_in_file() {
     local dir
     dir=$(dirname "$file")
     # Extract relative markdown links — skip http/https, anchors-only, and images
-    grep -oP '\[.*?\]\(\K(?!https?://|#)[^)]+' "$file" 2>/dev/null | while read -r link; do
+    # Uses grep -Eo (POSIX extended) for macOS compatibility (no -P/PCRE)
+    grep -Eo '\[([^]]*)\]\(([^)]+)\)' "$file" 2>/dev/null \
+        | sed 's/.*](//' | sed 's/)$//' \
+        | grep -v '^https\{0,1\}://' \
+        | grep -v '^#' \
+        | while read -r link; do
         # Strip anchor
         target="${link%%#*}"
         [ -z "$target" ] && continue
