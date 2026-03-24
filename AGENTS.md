@@ -461,7 +461,7 @@ Reference: `recipes/phpstan-wordpress-setup.md`
 
 ### Sensitive data handling
 
-Never commit credentials, PII, auth state, or local config.
+Never commit credentials, PII, auth state, or local config. **Never store passwords in plaintext** — not in JSON files, config files, scripts, or anywhere in the repository. Use environment variables, OS keychains, or one-time auth tokens (like `pw-auth`'s WP-CLI login URLs) instead.
 
 Use `./temp` for:
 - API keys, passwords, tokens, auth JSON

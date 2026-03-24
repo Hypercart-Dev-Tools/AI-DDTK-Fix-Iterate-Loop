@@ -58,6 +58,7 @@ export interface WpccHandlerDeps {
   execRunner?: ExecFileText;
 }
 
+/** Strip ANSI escape sequences (colors, cursor movement) from CLI output. */
 function stripAnsi(text: string): string {
   return text.replace(/\u001B\[[0-9;]*[A-Za-z]/g, "");
 }
@@ -177,7 +178,8 @@ export function createWpccHandlers(deps: WpccHandlerDeps) {
         return { stdout: error.stdout, stderr: error.stderr, exitCode: error.exitCode };
       }
 
-      throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      return { stdout: "", stderr: message, exitCode: 1 };
     }
   }
 

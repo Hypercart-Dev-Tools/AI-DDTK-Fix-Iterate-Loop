@@ -178,7 +178,7 @@ if [ -z "$SITE_URL" ]; then
     if [ "$DRY_RUN" -eq 1 ] && [ ! -d "$WP_PATH" ]; then
         SITE_URL="https://$SITE_NAME.local"
     else
-        SITE_URL="$($LOCAL_WP "$SITE_NAME" --path="$WP_PATH" --skip-themes --skip-plugins option get home 2>/dev/null | tail -n 1 || echo "https://$SITE_NAME.local")"
+        SITE_URL="$(timeout 10 $LOCAL_WP "$SITE_NAME" --path="$WP_PATH" --skip-themes --skip-plugins option get home 2>/dev/null | tail -n 1 || echo "https://$SITE_NAME.local")"
     fi
 fi
 
@@ -414,12 +414,18 @@ probe_url() {
         curl_exit_code=$?
     fi
 
-    http_code="$(parse_metric http_code "$metrics_file")"
-    time_total="$(parse_metric time_total "$metrics_file")"
-    size_download="$(parse_metric size_download "$metrics_file")"
-    num_redirects="$(parse_metric num_redirects "$metrics_file")"
-    effective_url="$(parse_metric url_effective "$metrics_file")"
-    content_type="$(parse_metric content_type "$metrics_file")"
+    # Guard against missing files when curl times out before writing output
+    if [ ! -f "$metrics_file" ]; then
+        curl_exit_code="${curl_exit_code:-28}"
+        http_code="" ; time_total="" ; size_download="" ; num_redirects="" ; effective_url="" ; content_type=""
+    else
+        http_code="$(parse_metric http_code "$metrics_file")"
+        time_total="$(parse_metric time_total "$metrics_file")"
+        size_download="$(parse_metric size_download "$metrics_file")"
+        num_redirects="$(parse_metric num_redirects "$metrics_file")"
+        effective_url="$(parse_metric url_effective "$metrics_file")"
+        content_type="$(parse_metric content_type "$metrics_file")"
+    fi
 
     if [ -n "$num_redirects" ] && [ "$num_redirects" != "0" ]; then
         signals+=("redirected")

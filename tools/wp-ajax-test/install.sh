@@ -14,7 +14,7 @@ echo "Installing WP AJAX Test..."
 echo ""
 
 # Check Node.js
-if ! command -v node &> /dev/null; then
+if ! command -v node >/dev/null 2>&1; then
     echo "❌ Node.js not found. Please install Node.js 14+ first."
     exit 1
 fi

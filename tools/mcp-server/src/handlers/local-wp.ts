@@ -225,6 +225,10 @@ export function createLocalWpHandlers(deps: LocalWpHandlerDeps) {
   const localRunDir = getLocalRunDir(homeDir);
 
   async function resolveSite(siteName: string): Promise<ResolvedSite> {
+    if (!siteName || siteName === "undefined") {
+      throw new Error("No site specified. Run local_wp_select_site first, or pass a site name explicitly.");
+    }
+
     const sitePath = path.join(localSitesDir, siteName, "app", "public");
     const wpConfigPath = path.join(sitePath, "wp-config.php");
 

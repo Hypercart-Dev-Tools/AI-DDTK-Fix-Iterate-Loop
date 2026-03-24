@@ -1,6 +1,6 @@
 # AI-DDTK MCP Server
 
-> Version: 0.6.2
+> Version: 0.6.3
 
 Unified MCP server for AI-DDTK. It exposes LocalWP, WPCC, `pw-auth`, `wp-ajax-test`, and tmux workflows through one MCP endpoint for Claude Code, Claude Desktop, Cline, and other MCP-compatible clients.
 

@@ -91,6 +91,7 @@ function resolveCwd(workingDir: string, requestedCwd?: string): string {
   return requestedCwd ? path.resolve(workingDir, requestedCwd) : workingDir;
 }
 
+/** Extract a "Label: value" field from multi-line text, escaping the label for safe regex use. */
 function extractField(text: string, label: string): string | null {
   const escapedLabel = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 

@@ -70,3 +70,7 @@ coverage/
 
 /.claude
 /.mcp.local.json
+
+# Machine-specific symlinks (never commit these)
+/npx
+/playwright

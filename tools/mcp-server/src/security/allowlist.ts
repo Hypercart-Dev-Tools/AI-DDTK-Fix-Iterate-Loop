@@ -12,7 +12,10 @@ const TMUX_ALLOWED_BIN_COMMANDS = new Set(["wpcc"]);
 
 const TMUX_BLOCKED_COMMANDS = new Set(["rm", "sudo", "curl", "wget", "eval", "sh", "bash", "node", "python", "pip", "npm"]);
 
-/** Reject shell control operators and expansion syntax to prevent command chaining/injection. */
+/**
+ * Reject shell control operators and expansion syntax to prevent command chaining/injection.
+ * Matches: && || ; | > < ` $() ${} and embedded newlines.
+ */
 const TMUX_BLOCKED_OPERATOR_PATTERN = /&&|\|\||;|\||>|<|`|\$\(|\$\{|\r|\n/;
 
 const ALLOWED_PREFIXES = [

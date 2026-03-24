@@ -19,6 +19,7 @@ import { loadOrGenerateToken, getTokenFilePath } from "./utils/token.js";
 const MCP_SERVER_VERSION = "0.6.3";
 const DEFAULT_HTTP_PORT = 3100;
 const MCP_HTTP_PATH = "/mcp";
+const MAX_REQUEST_BODY_BYTES = 1024 * 1024; // 1 MB
 
 const siteSummarySchema = z.object({
   name: z.string(),
@@ -91,7 +92,7 @@ async function withResourceError<T>(callback: () => Promise<T>): Promise<T> {
     return await callback();
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new Error(message);
+    throw new Error(message, { cause: error });
   }
 }
 
@@ -781,6 +782,15 @@ export function createHttpHandler(options: HttpTransportOptions) {
     if (remoteAddr && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(remoteAddr)) {
       res.writeHead(403, { "Content-Type": "text/plain" });
       res.end("Forbidden: localhost only\n");
+      return;
+    }
+
+    // Reject oversized request bodies before processing.
+    const contentLength = parseInt(req.headers["content-length"] ?? "0", 10);
+
+    if (contentLength > MAX_REQUEST_BODY_BYTES) {
+      res.writeHead(413, { "Content-Type": "text/plain" });
+      res.end("Payload Too Large\n");
       return;
     }
 
