@@ -8,95 +8,22 @@ AI-DDTK is a unified toolkit that gives AI coding agents (Claude Code, Augment, 
 Scan → Triage → Fix → Verify → Ship
 ```
 
----
-
-## Core Features
-
-### WP Code Check (WPCC) — 54-Pattern Static Scanner
-
-Catch security holes and performance killers before they reach production.
-
-```bash
-wpcc --paths ./my-plugin --format json
-```
-
-- **Security**: eval injection, hardcoded credentials, missing nonce checks, shell exec, SQL injection vectors
-- **Performance**: N+1 queries in loops, unbounded `posts_per_page`, `ORDER BY RAND()`, missing HTTP timeouts
-- **WooCommerce**: coupon logic in thank-you pages, smart coupon performance traps
-- **Headless/GraphQL**: missing error handling, Next.js revalidation gaps, API key exposure
-- **Node.js**: command injection, path traversal, eval patterns
-- **AI triage**: Agent reviews findings, filters false positives, outputs structured JSON with confidence scores
-
-### Playwright Auth (pw-auth) — Passwordless WordPress Login
-
-Authenticate headless browsers against wp-admin in one command. No stored passwords.
-
-```bash
-pw-auth login --site-url http://my-site.local --site my-site
-pw-auth status
-pw-auth check dom --url http://my-site.local/wp-admin/
-```
-
-- One-time login URLs via WP-CLI (expire in 5 minutes, deleted after use)
-- 12-hour session caching with live validation before reuse
-- Blocks production-detected sites (`WP_ENVIRONMENT_TYPE`)
-- DOM inspection writes structured artifacts for AI agents to analyze
-
-### Query Monitor Profiling — Headless Performance Analysis
-
-Profile any WordPress page without opening a browser. Get database queries, cache stats, HTTP calls, and timing data through MCP.
-
-- **`qm_profile_page`** — Full page profile with all QM collectors
-- **`qm_slow_queries`** — Filter queries above a threshold (default 50ms)
-- **`qm_duplicate_queries`** — Detect N+1 patterns automatically
-- Auto-integrates with Hypercart Performance Timer for hierarchical callback timing
-- Profiles saved to `temp/qm-profiles/` for historical analysis
-
-### WordPress MCP Adapter — API-Level CRUD Without a Browser
-
-12 WordPress Abilities exposed via the official [WordPress MCP Adapter](https://github.com/WordPress/mcp-adapter) (requires WP 6.9+). Fast, typed, schema-validated.
-
-**Content CRUD (Phase 1):**
-`create-post` · `update-post` · `list-posts` · `delete-post` · `manage-taxonomy` · `batch-create-posts` · `batch-update-posts`
-
-**Introspection (Phase 2):**
-`get-options` · `list-post-types` · `list-registered-blocks` · `get-active-theme` · `list-plugins`
-
-> **When to use which?** Need to *see* the page → pw-auth + Playwright. Need to *read/write data* → MCP Adapter.
-
-### Fix-Iterate Loop — Guardrailed Autonomous Workflows
-
-A formal pattern for AI agents that scan, fix, verify, and iterate — with hard stops to prevent runaway loops.
-
-- **5 failed iterations = mandatory stop**
-- **10 total iterations max**
-- Confidence tracking between iterations detects wrong-direction drift early
-- Meta-reflection checkpoints force agents to verify assumptions before continuing
+**For detailed agent guidelines, tool usage, and WordPress development rules, see [AGENTS.md](AGENTS.md) — the single source of truth.**
 
 ---
 
-## MCP Server — 18 Tools, One Install
+## What's Inside
 
-The AI-DDTK MCP server auto-discovers via `.mcp.json` and exposes all tools to your AI agent:
+| Capability | What It Does | Details |
+|---|---|---|
+| **WPCC** — 54-Pattern Static Scanner | Security, performance, WooCommerce, headless/GraphQL, and Node.js analysis with AI triage | [AGENTS.md § WPCC](AGENTS.md#wpcc-wp-code-check) · [WPCC Commands](docs/WPCC-COMMANDS.md) |
+| **Playwright Auth (`pw-auth`)** | Passwordless wp-admin login via one-time URLs, 12h session caching, DOM inspection | [AGENTS.md § pw-auth](AGENTS.md#-playwright-auth-pw-auth) · [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) |
+| **Query Monitor Profiling** | Headless page profiling — slow queries, N+1 detection, cache stats | [AGENTS.md § Available Tools](AGENTS.md#available-tools) |
+| **WordPress MCP Adapter** | 13 abilities for API-level CRUD without a browser (WP 6.9+) | [MCP Adapter Setup](docs/MCP-ADAPTER-SETUP.md) · [Ability Schemas](docs/mcp-adapter-abilities.md) |
+| **Fix-Iterate Loop** | Guardrailed autonomous scan→fix→verify workflows (5 fail / 10 total max) | [fix-iterate-loop.md](fix-iterate-loop.md) |
+| **MCP Server** | 21 typed tools across 6 areas, auto-discovered via `.mcp.json` | [AGENTS.md § MCP Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
 
-| Group | Tools | What They Do |
-|-------|:-----:|---|
-| **LocalWP** | 6 | List/select/inspect Local by Flywheel sites, run allowlisted WP-CLI |
-| **WPCC** | 2 | Scan code, list features |
-| **Playwright Auth** | 3 | Login, check status, clear cache |
-| **Query Monitor** | 3 | Profile pages, find slow queries, detect N+1 |
-| **AJAX Testing** | 1 | Test `admin-ajax.php` endpoints with structured results |
-| **Tmux** | 3 | Persistent terminal sessions for long-running tasks |
-
-Plus **4 MCP resources**: auth status, latest scan, latest report, scan-by-ID.
-
-```bash
-# One-time setup
-./install.sh setup-mcp
-./install.sh status
-
-# That's it — Claude Code auto-discovers the server
-```
+> **When to use which?** Need to *see* the page → pw-auth + Playwright. Need to *read/write data* → MCP Adapter. Need to *analyze code* → WPCC. See the [decision tree](docs/mcp-adapter-abilities.md#decision-tree--when-to-use-mcp-adapter-vs-pw-auth) for the full guide.
 
 ---
 
@@ -132,10 +59,12 @@ Plus **4 MCP resources**: auth status, latest scan, latest report, scan-by-ID.
 git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git ~/bin/ai-ddtk
 cd ~/bin/ai-ddtk
 
-# Install (adds tools to PATH)
+# Install (adds tools to PATH, sets up WPCC, and attempts MCP setup when Node.js >= 18)
 ./install.sh
-./install.sh setup-wpcc
 source ~/.zshrc  # or ~/.bashrc
+
+# If MCP was skipped because Node.js was missing or too old
+# ./install.sh setup-mcp
 
 # Verify
 wpcc --help
@@ -171,19 +100,6 @@ WPCC scan → fix finding → verify with pw-auth → iterate (max 5 failures, t
 ```
 pw-auth login (one-time URL, no secrets) → run Playwright tests → auth state as CI artifact
 ```
-
----
-
-## Security Model
-
-AI-DDTK is security-conscious by default:
-
-- **WP-CLI allowlist** — Only read-safe commands through MCP (list, get, SELECT queries). Blocks `eval`, `shell`, `db drop`, `plugin install`, `user delete`
-- **SQL guard** — `db query` enforces single SELECT statements; semicolons blocked
-- **Tmux allowlist** — Only `wpcc` allowed; all shell operators rejected (`&&`, `|`, `;`, `>`, backticks)
-- **No credentials in git** — `temp/` folder for auth, reports, logs (gitignored). `.mcp.json` stays generic
-- **Production block** — pw-auth refuses to authenticate against production-detected sites
-- **One-time login URLs** — Expire in 5 minutes, deleted after use. No stored passwords
 
 ---
 
@@ -237,7 +153,9 @@ Beyond initial setup: `doctor-playwright` (diagnose Playwright issues), `setup-w
 | **Local WP Commands** | [docs/LOCAL-WP-COMMANDS.md](docs/LOCAL-WP-COMMANDS.md) |
 | **Troubleshooting** | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
 | **CI/CD Integration** | [docs/CI-CD-INTEGRATION.md](docs/CI-CD-INTEGRATION.md) |
+| **Weekly UX Audit** | [docs/UX-AUDIT-WEEKLY.md](docs/UX-AUDIT-WEEKLY.md) |
 | **Fix-Iterate Loop Pattern** | [fix-iterate-loop.md](fix-iterate-loop.md) |
+| **Security & Performance Rules** | [AGENTS.md — Security](AGENTS.md#-security-sensitive-data-and-performance-guardrails) |
 
 ### Recipes
 
@@ -262,7 +180,7 @@ AI-DDTK/
 │   ├── aiddtk-tmux       # Resilient tmux session manager
 │   └── mcp-local-config  # Local MCP config merger
 ├── tools/
-│   ├── mcp-server/       # Unified MCP server (18 tools, 4 resources)
+│   ├── mcp-server/       # Unified MCP server (21 tools, 4 resources)
 │   ├── wp-code-check/    # WPCC source + 54 pattern files
 │   ├── wp-ajax-test/     # AJAX test tool source
 │   └── qm-bridge/       # Query Monitor bridge mu-plugin

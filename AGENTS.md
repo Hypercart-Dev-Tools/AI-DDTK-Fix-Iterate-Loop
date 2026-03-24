@@ -1,10 +1,12 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: 2026-03-22 · Toolkit version: see [CHANGELOG.md](CHANGELOG.md)_
+_Last updated: 2026-03-24 · Toolkit version: see [CHANGELOG.md](CHANGELOG.md)_
 
 ## Purpose
 
 Defines principles, constraints, and best practices for AI agents and Humans working with WordPress code to ensure safe, consistent, and maintainable contributions.
+
+[README.md](README.md) is the high-level hub; this file is the canonical source of truth for agent workflow, tool usage, and WordPress-specific guidance.
 
 ---
 
@@ -90,13 +92,14 @@ If you need a **persistent background server** (e.g., for HTTP mode or external 
 
 #### Available MCP Tools
 
-The server exposes **18 typed tools** across 5 areas:
+The server exposes **21 typed tools** across 6 areas:
 
 | Area | Tools |
 |------|-------|
 | **LocalWP** | `local_wp_list_sites`, `local_wp_select_site`, `local_wp_get_active_site`, `local_wp_test_connectivity`, `local_wp_get_site_info`, `local_wp_run` |
 | **WPCC** | `wpcc_run_scan`, `wpcc_list_features` |
 | **Playwright Auth** | `pw_auth_login`, `pw_auth_status`, `pw_auth_clear` |
+| **Query Monitor** | `qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries` |
 | **AJAX Testing** | `wp_ajax_test` |
 | **Tmux** | `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status` |
 
@@ -107,7 +110,8 @@ See `tools/mcp-server/README.md` for detailed tool documentation and examples.
 | Tool | Primary use | Reference |
 |------|-------------|-----------|
 | **WPCC** | WordPress security/performance static analysis | [WPCC Commands](docs/WPCC-COMMANDS.md) |
-| **AI-DDTK MCP Server** | Typed MCP tools for LocalWP, `pw-auth`, WPCC, AJAX, and tmux | [AGENTS.md § MCP Server Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| **AI-DDTK MCP Server** | Typed MCP tools for LocalWP, `pw-auth`, WPCC, QM, AJAX, and tmux | [AGENTS.md § MCP Server Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| **Query Monitor Profiling** | Headless page profiling, slow query detection, N+1 pattern analysis | [AGENTS.md § MCP Tools](AGENTS.md#available-mcp-tools) |
 | **AI-DDTK Tmux Proxy** | Resilient terminal sessions for flaky IDE/agent workflows | [CLI Reference](docs/CLI-REFERENCE.md#aiddtk-tmux) |
 | **Playwright Auth (`pw-auth`)** | Passwordless wp-admin auth + DOM inspection helpers | [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) |
 | **WP AJAX Test** | Structured `admin-ajax.php` testing | [CLI Reference](docs/CLI-REFERENCE.md#wp-ajax-test) |
@@ -136,7 +140,7 @@ For detailed command syntax, parameters, examples, and troubleshooting, see:
 | “terminal froze”, “keep this running”, “long job” | `aiddtk-tmux` / `tmux_*` |
 | “login to WP admin”, “browser automation”, “inspect DOM” | `pw-auth` |
 | “test this AJAX endpoint” | `wp-ajax-test` |
-| “slow”, “bottleneck”, “profile” | WP Performance Timer |
+| “slow”, “bottleneck”, “profile” | QM profiling (`qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries`) + WP Performance Timer |
 | “fix”, “verify”, “iterate”, “debug” | Fix-Iterate Loop |
 
 ### Task Management
@@ -152,7 +156,7 @@ When the AI-DDTK MCP server is available, prefer **typed MCP tools** over raw sh
 ### Preferred flow
 
 1. Establish site context first with `local_wp_list_sites` / `local_wp_select_site` when LocalWP is involved.
-2. Prefer MCP tools such as `wpcc_run_scan`, `pw_auth_login`, `pw_auth_status`, `wp_ajax_test`, and `tmux_*` before ad-hoc shell commands.
+2. Prefer MCP tools such as `wpcc_run_scan`, `pw_auth_login`, `pw_auth_status`, `qm_profile_page`, `qm_slow_queries`, `wp_ajax_test`, and `tmux_*` before ad-hoc shell commands.
 3. Prefer MCP resources such as `wpcc://latest-scan`, `wpcc://latest-report`, and `auth://status/{user}` instead of reparsing files manually.
 4. Use tmux for long-running jobs or flaky terminals; use direct shell for short, simple commands.
 
@@ -187,42 +191,12 @@ Use `pw-auth` for passwordless wp-admin auth and lightweight DOM inspection with
 
 Auth state is stored in the **current working directory** at `./temp/playwright/.auth/<user>.json`, not in the AI-DDTK installation. Each project gets its own auth cache.
 
-### What it does
-
-- creates a one-time login URL through WP-CLI
-- authenticates Playwright into wp-admin
-- caches auth state at `./temp/playwright/.auth/<user>.json`
-- supports authenticated DOM checks with `pw-auth check dom`
-
 ### Required preconditions
 
-1. Install the dev-login mu-plugin at `wp-content/mu-plugins/dev-login-cli.php`.
+1. Install the dev-login mu-plugin: `cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site-root>/wp-content/mu-plugins/`
 2. Ensure `WP_ENVIRONMENT_TYPE` is **not** `production`.
-3. Install Playwright globally and make it resolvable to Node.js.
+3. Install Playwright globally (`npm install -g playwright && npx playwright install chromium`).
 4. For Local by Flywheel sites, always pass `--wp-cli "local-wp <site-name>"`.
-
-### Setup
-
-1. Copy the mu-plugin to your WordPress site:
-   ```bash
-   cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site-root>/wp-content/mu-plugins/
-   ```
-
-2. Set your site's environment type if browser requests would otherwise resolve as `production` (in `wp-config.php`):
-   ```php
-   define('WP_ENVIRONMENT_TYPE', 'local'); // or 'development', 'staging'
-   ```
-   Many Local by Flywheel sites work without this, but imported/proxied sites may still need it explicitly because the mu-plugin blocks `production`.
-
-3. Install Playwright globally:
-   ```bash
-   npm install -g playwright
-   npx playwright install chromium
-   ```
-   `pw-auth` first tries the current Node environment, then auto-attempts `npm root -g` / `NODE_PATH` recovery for global installs. If Node still cannot resolve Playwright, set `NODE_PATH` manually:
-   ```bash
-   export NODE_PATH="$(npm root -g)"
-   ```
 
 ### Recommended command order
 
@@ -233,122 +207,25 @@ pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpadminbar" 
 pw-auth status
 ```
 
-### Full usage examples
+### Behavioral contract
 
-```bash
-# Check readiness before trying login automation
-pw-auth doctor --site-url http://my-site.local --format json
-
-# Authenticate as admin (caches to ./temp/playwright/.auth/admin.json)
-pw-auth login --site-url http://my-site.local
-
-# With Local by Flywheel (always pass --wp-cli for Local sites)
-pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
-
-# Different user, custom redirect
-pw-auth login --site-url http://my-site.local --user=editor --redirect=/wp-admin/site-editor.php
-
-# Force re-auth (skip cache)
-pw-auth login --site-url http://my-site.local --force
-
-# Check cached auth freshness / clear cached auth
-pw-auth status
-pw-auth clear
-
-# Inspect front-end or wp-admin DOM using optional cached auth
-pw-auth check dom --url http://my-site.local/wp-admin/widgets.php --selector "#widgets-right" --extract html --user admin --format json
-
-# Convenience wrapper from the toolkit repo
-./install.sh doctor-playwright --site-url http://my-site.local
-```
-
-### Using cached auth in custom Playwright scripts
-
-```javascript
-const context = await browser.newContext({
-  storageState: 'temp/playwright/.auth/admin.json'
-});
-const page = await context.newPage();
-await page.goto('http://my-site.local/wp-admin/');
-// Already authenticated — no login form needed
-```
-
-### Auth caching and validation
-
-Auth state is cached for 12 hours by default (configurable with `--max-age`). Fresh cached auth files are **live-validated before reuse**; if the saved session no longer reaches `/wp-admin/`, `pw-auth` re-authenticates instead of returning a false success.
-
-### Current behavior to rely on
-
-- cached auth is live-validated before reuse; stale sessions trigger re-auth instead of false success
-- local HTTPS development origins (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`) tolerate self-signed certificates
-- `pw-auth doctor` is the readiness command for Node.js, Playwright resolution, browser availability, launch readiness, and cached auth validation
+- Auth state is cached for 12 hours (configurable with `--max-age`) and **live-validated before reuse** — stale sessions trigger automatic re-auth
+- Local HTTPS origins (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`) tolerate self-signed certificates
+- `pw-auth doctor` is the readiness check; `pw-auth status` is cache metadata only (not a login verifier)
 - `pw-auth check dom` writes structured artifacts under `temp/playwright/checks/<run-id>/` and returns `ok`, `not_found`, `auth_required`, or `error`
-- `pw-auth status` reports cache metadata only; it is not a login verification substitute
-- one-time login URLs are deleted after use and expire after 5 minutes if unused
-- the canonical Local WP-CLI wrapper is `bin/local-wp` (invoked as `local-wp` on PATH)
+- One-time login URLs are deleted after use and expire after 5 minutes if unused
+- The MCP layer exposes `pw_auth_login`, `pw_auth_status`, and `pw_auth_clear` but never raw auth-state JSON
 
-### Readiness checks
+### Quick troubleshooting
 
-Run `pw-auth doctor` first when you need a readiness check:
+| Problem | Fix |
+|---------|-----|
+| `Playwright is not resolvable` | `export NODE_PATH="$(npm root -g)"`, then retry |
+| `WP-CLI command failed` | Install `templates/dev-login-cli.php`, confirm env type is not `production`, verify user exists |
+| Stale auth / `No wordpress_logged_in_ cookie` | `pw-auth login --force` or `pw_auth_login --force` |
+| Flaky IDE terminal | Use `aiddtk-tmux` to preserve output |
 
-```bash
-pw-auth doctor --site-url <url> [--wp-cli "local-wp <site>"] [--format text|json]
-```
-
-It reports `ready`, `partial`, or `blocked` with per-check summaries for:
-- Node.js availability
-- Playwright resolution
-- Browser availability
-- Launch readiness
-- Cached auth validation
-
-Convenience wrapper: `./install.sh doctor-playwright --site-url <url>`
-
-### DOM inspection
-
-Inspect front-end or wp-admin DOM using optional cached auth:
-
-```bash
-pw-auth check dom --url <url> --selector <selector> --extract exists|text|html \
-  [--user <user>] [--auth-state <path>] [--auth-origin <origin>] \
-  [--timeout-ms <ms>] [--format text|json] [--output-dir <dir>]
-```
-
-Writes structured artifacts under `temp/playwright/checks/<run-id>/` and returns `ok`, `not_found`, `auth_required`, or `error`.
-
-### MCP integration
-
-The unified MCP server exposes structured MCP tools for `pw_auth_login`, `pw_auth_status`, and `pw_auth_clear`. The MCP layer never exposes raw auth-state JSON. `pw_auth_login` reports `cacheFreshUntil` as a best-effort cache freshness timestamp derived from the auth file mtime (not a guaranteed WordPress session expiry), and `pw_auth_status.users[]` is the authoritative structured status.
-
-### Flaky terminal fallback
-
-When the IDE terminal transport is flaky, the `aiddtk-tmux` wrapper is a proven fallback for running `pw-auth login` and inspecting the resulting auth artifacts without losing command output.
-
-### Troubleshooting
-
-| Problem | Cause | Fix |
-|---------|-------|-----|
-| `Playwright is not resolvable` | Global install still isn't visible after `pw-auth` auto-tried `npm root -g` | `export NODE_PATH="$(npm root -g)"`, then retry |
-| `ERR_CERT_AUTHORITY_INVALID` on a Local/dev HTTPS site | Chromium does not trust the local certificate | Re-run on the latest `pw-auth`; it now ignores certificate errors for `localhost`, `127.0.0.1`, `::1`, `*.local`, and `*.test` HTTPS origins |
-| `WP-CLI command failed` | mu-plugin missing, host blocked, or requested user doesn't exist | Install `templates/dev-login-cli.php`, confirm `WP_ENVIRONMENT_TYPE` is not `production`, verify the `--user` exists, and ensure the site host is localhost/127.0.0.1/::1 or `*.local` / `*.test` |
-| `Login URL origin mismatch` | `--site-url` doesn't match WP `home_url()` | Check site URL in WP Settings or pass the correct URL |
-| `No wordpress_logged_in_ cookie` | Token expired or environment blocked | Re-run with `--force`, check `WP_ENVIRONMENT_TYPE` |
-
-Fastest WP-CLI diagnostics (swap `wp` for `local-wp <site>` if needed):
-
-```bash
-wp option get home
-wp eval 'echo wp_get_environment_type(), PHP_EOL;'
-wp user get admin --field=user_login
-wp eval 'echo ( file_exists( WP_CONTENT_DIR . "/mu-plugins/dev-login-cli.php" ) ? "mu-plugin present" : "mu-plugin missing" ), PHP_EOL;'
-wp dev login --user=admin --format=url
-```
-
-- If Playwright is still not resolvable after auto-detection, run `export NODE_PATH="$(npm root -g)"`.
-- If login fails, verify `home`, environment type, and user existence with WP-CLI before retrying.
-- If the IDE terminal is flaky, use `aiddtk-tmux` or MCP tmux tools to preserve output.
-
-For comprehensive failure-mode diagnostics covering auth state, Playwright, WordPress environment, database connectivity, MCP server, and performance issues, see **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**.
+**Full reference:** [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) · [CLI Reference](docs/CLI-REFERENCE.md#pw-auth) · [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
 
 ---
 
@@ -559,60 +436,17 @@ These are Hypercart defaults. If a team has project-specific standards, fork or 
 
 ## 🔧 Troubleshooting
 
-### Installation and CLI
+Quick fixes for the most common issues. For comprehensive diagnostics covering auth state, Playwright, WordPress environment, database, MCP server, and performance, see **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**.
 
-**`wpcc: command not found`** — Reload your shell config, then retry:
-```bash
-source ~/.zshrc  # or ~/.bashrc
-```
-If that doesn't work, verify the install:
-```bash
-~/bin/ai-ddtk/install.sh status
-```
-
-**`WPCC not found` or `setup-wpcc` needed** — Run setup again:
-```bash
-cd ~/bin/ai-ddtk && ./install.sh setup-wpcc
-```
-
-### Terminal and IDE
-
-**VS Code AI terminal is non-responsive** — Move the work into a tmux-backed session:
-```bash
-aiddtk-tmux start --cwd /path/to/project
-aiddtk-tmux send --command "~/bin/ai-ddtk/bin/wpcc --paths . --format json --verbose"
-aiddtk-tmux capture --tail 200
-```
-
-If `tmux` is missing, install it first:
-```bash
-brew install tmux
-```
-
-### WPCC Scanning
-
-**WPCC stalls when scanning AI-DDTK itself** — The repository includes embedded WPCC via git subtree. Use exclusions:
-```bash
-# Exclude embedded tools (recommended)
-wpcc --paths . --exclude "tools/,.git/,node_modules/" --format json
-
-# Or scan only specific directories
-wpcc --paths "bin/ recipes/ templates/" --format json
-```
-
-> **Note**: A `.wpcignore` file is included in the repository for future WPCC versions that support automatic exclusions.
-
-### Playwright Auth
-
-See [Playwright Auth → Troubleshooting](#troubleshooting) for the full troubleshooting table and WP-CLI diagnostics.
-
-### MCP Server
-
-- **HTTP MCP 401**: use the bearer token at `~/.ai-ddtk/mcp-token`, then rerun `./install.sh setup-mcp` if needed.
-- **MCP server startup crash loop**: run `./install.sh setup-mcp` to rebuild `dist/` after a fresh clone.
-- **Stale Playwright auth**: rerun `pw_auth_login --force` or `pw-auth login --force`.
-
-For comprehensive failure-mode diagnostics covering auth state, Playwright, WordPress environment, database connectivity, MCP server, and performance issues, see **[docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**.
+| Problem | Fix |
+|---------|-----|
+| `wpcc: command not found` | `source ~/.zshrc` (or `~/.bashrc`), then `~/bin/ai-ddtk/install.sh status` |
+| `WPCC not found` / `setup-wpcc` needed | `cd ~/bin/ai-ddtk && ./install.sh setup-wpcc` |
+| VS Code AI terminal non-responsive | Use `aiddtk-tmux start --cwd <path>` + `aiddtk-tmux send` + `aiddtk-tmux capture` |
+| WPCC stalls scanning AI-DDTK itself | `wpcc --paths . --exclude "tools/,.git/,node_modules/" --format json` |
+| HTTP MCP 401 | Use bearer token at `~/.ai-ddtk/mcp-token`, then `./install.sh setup-mcp` |
+| MCP server crash loop | `./install.sh setup-mcp` to rebuild `dist/` |
+| Stale Playwright auth | `pw-auth login --force` or `pw_auth_login --force` |
 
 ---
 
