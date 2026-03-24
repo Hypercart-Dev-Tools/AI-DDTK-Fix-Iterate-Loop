@@ -1,6 +1,6 @@
 # WordPress Testing Quick Start
 
-_Last updated: v3.0.0 — 2026-03-22_
+_Last updated: 2026-03-22 · Toolkit version: see [CHANGELOG.md](../CHANGELOG.md)_
 
 Get from zero to a working Playwright test against a local WordPress site in about 5 minutes.
 

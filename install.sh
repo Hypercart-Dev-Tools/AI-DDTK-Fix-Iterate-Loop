@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.2.2
+# Version: 1.2.3
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -345,6 +345,10 @@ update_toolkit() {
 show_status() {
     show_banner
 
+    local VERSION
+    VERSION=$(grep -m1 '^# Version:' "$SCRIPT_DIR/install.sh" | sed 's/# Version: *//')
+    echo -e "${CYAN}AI-DDTK v${VERSION}${NC}"
+    echo ""
     echo -e "${CYAN}Installation Status:${NC}"
     echo "  Toolkit Root: $SCRIPT_DIR"
     echo "  Bin Directory: $BIN_DIR"
