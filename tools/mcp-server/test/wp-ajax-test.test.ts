@@ -142,6 +142,75 @@ test("wp_ajax_test rejects non-http URLs before execution", async () => {
   }
 });
 
+test("wp_ajax_test prefers --auth-state over --auth when both are provided", async () => {
+  const fixture = await createFixture();
+
+  try {
+    const handlers = createWpAjaxTestHandlers({
+      repoRoot: fixture.repoRoot,
+      execRunner: async (_file, args): Promise<ExecResult> => {
+        // Should pass --auth-state, not --auth
+        assert.ok(args.includes("--auth-state"), "Expected --auth-state in args");
+        assert.ok(!args.includes("--auth"), "Should not include --auth when --auth-state is provided");
+        assert.ok(args.includes("temp/playwright/.auth/admin.json"), "Expected auth state path in args");
+
+        return {
+          stdout: JSON.stringify({
+            success: true,
+            action: "demo_action",
+            url: "http://demo.local/wp-admin/admin-ajax.php",
+            status_code: 200,
+            response_time_ms: 30,
+            response: { ok: true },
+            headers: {},
+          }),
+          stderr: "",
+          exitCode: 0,
+        };
+      },
+    });
+
+    const result = await handlers.runTest(
+      "http://demo.local",
+      "demo_action",
+      {},
+      "temp/auth.json", // legacy auth — should be ignored
+      "POST",
+      false,
+      false,
+      "temp/playwright/.auth/admin.json", // auth-state — should win
+    );
+
+    assert.equal(result.success, true);
+    assert.equal(result.authProvided, true);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("wp_ajax_test rejects flag-shaped auth-state path", async () => {
+  const fixture = await createFixture();
+  let invoked = false;
+
+  try {
+    const handlers = createWpAjaxTestHandlers({
+      repoRoot: fixture.repoRoot,
+      execRunner: async (): Promise<ExecResult> => {
+        invoked = true;
+        return { stdout: "", stderr: "", exitCode: 0 };
+      },
+    });
+
+    await assert.rejects(
+      () => handlers.runTest("http://demo.local", "demo_action", {}, undefined, "POST", false, false, "--verbose"),
+      /must not start with '-'/,
+    );
+    assert.equal(invoked, false);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
 test("wp_ajax_test throws when exit 0 stdout is not valid JSON", async () => {
   const fixture = await createFixture();
 

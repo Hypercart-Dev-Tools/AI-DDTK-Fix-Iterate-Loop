@@ -346,7 +346,8 @@ export function createServer() {
         url: z.string().url().refine((value) => /^https?:\/\//i.test(value), "Only http:// and https:// URLs are allowed").describe("Full WordPress site URL, for example http://my-site.local"),
         action: z.string().min(1).describe("AJAX action name"),
         data: z.record(z.string(), z.unknown()).default({}).describe("JSON object payload passed to --data"),
-        auth: z.string().min(1).optional().describe("Optional auth JSON file path for authenticated AJAX requests"),
+        authState: z.string().min(1).optional().describe("Playwright auth state file from pw-auth (preferred — no plaintext passwords)"),
+        auth: z.string().min(1).optional().describe("Legacy auth JSON file with username/password (prefer authState)"),
         method: z.enum(["GET", "POST"]).default("POST"),
         nopriv: z.boolean().default(false).describe("Use the nopriv AJAX endpoint"),
         insecure: z.boolean().default(false).describe("Skip SSL certificate verification for local/self-signed dev environments"),
@@ -370,9 +371,9 @@ export function createServer() {
         exitCode: z.number(),
       },
     },
-    async ({ url, action, data, auth, method, nopriv, insecure }) => {
+    async ({ url, action, data, authState, auth, method, nopriv, insecure }) => {
       try {
-        return successResult(await wpAjaxTestHandlers.runTest(url, action, data ?? {}, auth, method ?? "POST", nopriv ?? false, insecure ?? false));
+        return successResult(await wpAjaxTestHandlers.runTest(url, action, data ?? {}, auth, method ?? "POST", nopriv ?? false, insecure ?? false, authState));
       } catch (error) {
         return errorResult(error);
       }

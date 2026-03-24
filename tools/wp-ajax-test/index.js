@@ -8,6 +8,7 @@
  *   wp-ajax-test --url https://site.local --action my_ajax_action
  *   wp-ajax-test --url https://site.local --action my_ajax_action --data '{"key":"value"}'
  *   wp-ajax-test --url https://site.local --action my_ajax_action --auth temp/auth.json
+ *   wp-ajax-test --url https://site.local --action my_ajax_action --auth-state temp/playwright/.auth/admin.json
  */
 
 const { program } = require('commander');
@@ -39,7 +40,8 @@ program
   .requiredOption('-u, --url <url>', 'WordPress site URL')
   .requiredOption('-a, --action <action>', 'AJAX action name')
   .option('-d, --data <json>', 'JSON data payload', '{}')
-  .option('--auth <file>', 'Auth file path (JSON)', null)
+  .option('--auth <file>', 'Auth file path with username/password (JSON) — prefer --auth-state', null)
+  .option('--auth-state <file>', 'Playwright auth state file from pw-auth (no plaintext passwords)', null)
   .option('-f, --format <format>', 'Output format (human|json)', 'human')
   .option('--admin', 'Send the default authenticated/admin-style request flow', true)
   .option('--nopriv', 'Send an unauthenticated request and skip auth/nonce discovery')
@@ -178,31 +180,44 @@ async function main() {
       throw new Error(`Invalid JSON data: ${e.message}`);
     }
 
-    // Load authentication if provided
+    // Auth: prefer --auth-state (pw-auth cookies) over --auth (plaintext credentials)
     let auth = null;
-    if (options.auth && useAuthenticatedFlow) {
+    let authenticatedViaCookies = false;
+
+    if (options.authState && useAuthenticatedFlow) {
+      // Load pre-authenticated cookies from Playwright auth state
+      const cookieCount = loadAuthState(options.authState, options.url);
+      authenticatedViaCookies = true;
+      if (options.verbose) {
+        console.log(`🔐 Loaded ${cookieCount} cookies from auth state: ${options.authState}`);
+      }
+      if (options.auth) {
+        console.error('⚠️  --auth-state takes precedence over --auth. Ignoring --auth.');
+      }
+    } else if (options.auth && useAuthenticatedFlow) {
+      console.error('⚠️  --auth uses plaintext credentials. Consider pw-auth login + --auth-state instead.');
       auth = await loadAuth(options.auth);
       if (options.verbose) {
         console.log(`Loaded auth from: ${options.auth}`);
       }
     }
 
-    if (options.auth && !useAuthenticatedFlow && options.verbose) {
-      console.log('Ignoring --auth because --nopriv sends the request without authentication');
+    if ((options.auth || options.authState) && !useAuthenticatedFlow && options.verbose) {
+      console.log('Ignoring auth options because --nopriv sends the request without authentication');
     }
 
     if (!useAuthenticatedFlow && options.nonceUrl && options.verbose) {
       console.log('Ignoring --nonce-url because --nopriv skips authenticated nonce discovery');
     }
 
-    // Authenticate if needed
+    // Authenticate with username/password if using legacy --auth (not needed for --auth-state)
     if (auth && auth.username && auth.password) {
       await authenticate(options.url, auth);
     }
 
-    // Get nonce if authenticated
+    // Get nonce if authenticated (works with both --auth-state cookies and --auth login)
     let nonce = null;
-    if (auth) {
+    if (auth || authenticatedViaCookies) {
       nonce = await getNonce(options.url, auth, options.nonceUrl, options.nonceField);
       if (options.verbose && nonce) {
         console.log(`Extracted nonce: ${nonce.substring(0, 10)}...`);
@@ -261,7 +276,7 @@ async function main() {
 }
 
 /**
- * Load authentication from file
+ * Load authentication from file (plaintext username/password)
  */
 async function loadAuth(authFile) {
   try {
@@ -274,6 +289,59 @@ async function loadAuth(authFile) {
   } catch (e) {
     throw new Error(`Failed to load auth file: ${e.message}`);
   }
+}
+
+/**
+ * Load cookies from a Playwright auth state file (from pw-auth).
+ * Filters cookies by the target site domain and populates the global cookies object.
+ * Returns the number of cookies loaded.
+ */
+function loadAuthState(authStateFile, siteUrl) {
+  const authStatePath = path.resolve(authStateFile);
+  if (!fs.existsSync(authStatePath)) {
+    throw new Error(`Auth state file not found: ${authStatePath}`);
+  }
+
+  let state;
+  try {
+    state = JSON.parse(fs.readFileSync(authStatePath, 'utf8'));
+  } catch (e) {
+    throw new Error(`Failed to parse auth state file: ${e.message}`);
+  }
+
+  if (!state || !Array.isArray(state.cookies)) {
+    throw new Error('Auth state file does not contain a cookies array. Expected Playwright storageState format.');
+  }
+
+  const targetHost = new URL(siteUrl).hostname;
+  const now = Date.now() / 1000;
+  let loaded = 0;
+
+  for (const cookie of state.cookies) {
+    if (!cookie.name || typeof cookie.value !== 'string') continue;
+
+    // Match domain: Playwright stores "site.local" (no leading dot)
+    const cookieDomain = (cookie.domain || '').replace(/^\./, '');
+    if (cookieDomain !== targetHost) continue;
+
+    // Skip expired cookies
+    if (cookie.expires && cookie.expires > 0 && cookie.expires < now) continue;
+
+    cookies[cookie.name] = cookie.value;
+    loaded++;
+  }
+
+  if (loaded === 0) {
+    throw new Error(`No valid cookies found for ${targetHost} in auth state file. Run pw-auth login first.`);
+  }
+
+  // Verify we have a wordpress_logged_in cookie
+  const hasLoggedInCookie = Object.keys(cookies).some(k => k.startsWith('wordpress_logged_in_'));
+  if (!hasLoggedInCookie) {
+    throw new Error(`Auth state has cookies for ${targetHost} but no wordpress_logged_in_* cookie. Session may have expired — run pw-auth login --force.`);
+  }
+
+  return loaded;
 }
 
 /**
@@ -513,14 +581,17 @@ function handleError(error, format) {
   };
 
   // Add specific suggestions based on error
-  if (error.message.includes('Auth file not found')) {
+  if (error.message.includes('Auth file not found') || error.message.includes('Auth state file not found')) {
     errorObj.error.code = 'AUTH_REQUIRED';
-    errorObj.suggestions.push('Create temp/auth.json with username and password');
-    errorObj.suggestions.push('Use --auth flag to specify auth file location');
+    errorObj.suggestions.push('Run: pw-auth login --site-url <url> --wp-cli "local-wp <site>"');
+    errorObj.suggestions.push('Then: --auth-state temp/playwright/.auth/admin.json');
+  } else if (error.message.includes('No valid cookies found') || error.message.includes('no wordpress_logged_in_')) {
+    errorObj.error.code = 'AUTH_EXPIRED';
+    errorObj.suggestions.push('Run: pw-auth login --site-url <url> --force');
   } else if (error.message.includes('Authentication failed')) {
     errorObj.error.code = 'AUTH_FAILED';
     errorObj.suggestions.push('Check username and password in auth file');
-    errorObj.suggestions.push('Verify WordPress site URL is correct');
+    errorObj.suggestions.push('Consider switching to --auth-state with pw-auth (no plaintext passwords)');
   } else if (error.message.includes('ENOTFOUND') || error.message.includes('ECONNREFUSED')) {
     errorObj.error.code = 'CONNECTION_ERROR';
     errorObj.suggestions.push('Check if WordPress site is running');

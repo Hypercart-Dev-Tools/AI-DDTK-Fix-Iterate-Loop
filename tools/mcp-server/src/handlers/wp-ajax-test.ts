@@ -78,16 +78,16 @@ function toSuggestions(value: unknown): string[] | null {
   return suggestions.length > 0 ? suggestions : null;
 }
 
-function normalizeAuthPath(authFile?: string): string | undefined {
-  if (!authFile) {
+function normalizeFilePath(filePath: string | undefined, label: string): string | undefined {
+  if (!filePath) {
     return undefined;
   }
 
-  if (authFile.startsWith("-")) {
-    throw new Error("wp_ajax_test auth file path must not start with '-'.");
+  if (filePath.startsWith("-")) {
+    throw new Error(`wp_ajax_test ${label} path must not start with '-'.`);
   }
 
-  return authFile;
+  return filePath;
 }
 
 function assertHttpUrl(url: string): void {
@@ -131,12 +131,17 @@ export function createWpAjaxTestHandlers(deps: WpAjaxTestHandlerDeps) {
       method: "GET" | "POST" = "POST",
       nopriv = false,
       insecure = false,
+      authState?: string,
     ): Promise<WpAjaxTestResult> {
       assertHttpUrl(url);
-      const normalizedAuthFile = normalizeAuthPath(authFile);
+      const normalizedAuthState = normalizeFilePath(authState, "auth-state");
+      const normalizedAuthFile = normalizeFilePath(authFile, "auth");
       const args = ["--url", url, "--action", action, "--data", JSON.stringify(data), "--format", "json", "--method", method];
 
-      if (normalizedAuthFile) {
+      // Prefer --auth-state over --auth
+      if (normalizedAuthState) {
+        args.push("--auth-state", normalizedAuthState);
+      } else if (normalizedAuthFile) {
         args.push("--auth", normalizedAuthFile);
       }
 
@@ -163,7 +168,7 @@ export function createWpAjaxTestHandlers(deps: WpAjaxTestHandlerDeps) {
           method,
           nopriv,
           insecure,
-          authProvided: Boolean(normalizedAuthFile),
+          authProvided: Boolean(normalizedAuthState || normalizedAuthFile),
           success: parsed.success === true,
           statusCode: toNumber(parsed.status_code),
           responseTimeMs: toNumber(parsed.response_time_ms),
@@ -186,7 +191,7 @@ export function createWpAjaxTestHandlers(deps: WpAjaxTestHandlerDeps) {
         method,
         nopriv,
         insecure,
-        authProvided: Boolean(normalizedAuthFile),
+        authProvided: Boolean(normalizedAuthState || normalizedAuthFile),
         success: false,
         statusCode: null,
         responseTimeMs: null,
