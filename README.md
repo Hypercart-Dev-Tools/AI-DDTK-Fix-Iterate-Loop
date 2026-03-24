@@ -2,7 +2,9 @@
 
 > **Ship safer, faster WordPress code — with AI agents doing the heavy lifting.**
 
-AI-DDTK is a unified toolkit that gives AI coding agents (Claude Code, Augment, Cline, Cursor, Codex) deep WordPress superpowers: static analysis, browser automation, runtime profiling, content scaffolding, and autonomous fix-iterate workflows — all orchestrated through a single MCP server.
+AI-DDTK is a unified toolkit that gives AI coding agents (Claude Code, Augment, Cline, Cursor, Codex) deep WordPress superpowers: static analysis, browser automation, runtime profiling, content scaffolding, and autonomous fix-iterate workflows.
+
+MCP stands for Model Context Protocol: a standard way for editors and AI tools to discover and call local tools through a structured server instead of ad hoc shell glue.
 
 ```
 Scan → Triage → Fix → Verify → Ship
@@ -21,7 +23,9 @@ Scan → Triage → Fix → Verify → Ship
 | **Query Monitor Profiling** | Headless page profiling — slow queries, N+1 detection, cache stats | [AGENTS.md § Available Tools](AGENTS.md#available-tools) |
 | **WordPress MCP Adapter** | 13 abilities for API-level CRUD without a browser (WP 6.9+) | [MCP Adapter Setup](docs/MCP-ADAPTER-SETUP.md) · [Ability Schemas](docs/mcp-adapter-abilities.md) |
 | **Fix-Iterate Loop** | Guardrailed autonomous scan→fix→verify workflows (5 fail / 10 total max) | [fix-iterate-loop.md](fix-iterate-loop.md) |
-| **MCP Server** | 21 typed tools across 6 areas, auto-discovered via `.mcp.json` | [AGENTS.md § MCP Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| **MCP Server** | 21 typed tools across 6 areas, auto-discovered via `.mcp.json` for supported editors | [AGENTS.md § MCP Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| **Local MCP Config Merge (`mcp-local-config`)** | Safely merge checked-in `.mcp.json` with gitignored local snippets for real site names, paths, and tokens | [docs/CLI-REFERENCE.md](docs/CLI-REFERENCE.md) |
+| **Install + Doctor Commands** | Full setup, PATH management, Playwright diagnostics, version/status checks | [install.sh](install.sh) |
 
 > **When to use which?** Need to *see* the page → pw-auth + Playwright. Need to *read/write data* → MCP Adapter. Need to *analyze code* → WPCC. See the [decision tree](docs/mcp-adapter-abilities.md#decision-tree--when-to-use-mcp-adapter-vs-pw-auth) for the full guide.
 
@@ -29,8 +33,8 @@ Scan → Triage → Fix → Verify → Ship
 
 ## Quick Start
 
-> **macOS required** for full functionality (Local by Flywheel, Homebrew).
-> Core scanning (`wpcc`) works on any Unix-like system with Node.js.
+> **macOS-centric, Linux-friendly.**
+> Full toolkit coverage is best on macOS because Local by Flywheel and the default install examples assume it, but core scanning with `wpcc` works on Linux, WSL, and other Unix-like environments with Node.js.
 
 ### Prerequisites
 
@@ -56,6 +60,7 @@ Scan → Triage → Fix → Verify → Ship
 
 ```bash
 # Clone
+# The target folder name is your choice; these docs use ~/bin/ai-ddtk consistently.
 git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git ~/bin/ai-ddtk
 cd ~/bin/ai-ddtk
 
@@ -127,9 +132,6 @@ The `recipes/performance-audit.md` recipe chains WPCC static analysis with WP Pe
 
 ### CI/CD Without Secrets
 `docs/CI-CD-INTEGRATION.md` shows complete E2E testing in GitHub Actions/GitLab CI using one-time WP-CLI login URLs — no stored WordPress passwords, no credential management. Auth state files become CI artifacts for debugging.
-
-### MCP Config Safety Pattern
-`bin/mcp-local-config` merges the generic `.mcp.json` with local-only snippets from `temp/mcp/local-snippets/` (gitignored). Prevents accidental commits of real site names, tokens, and paths. Supports `--dry-run` preview and guarded `--write-root` with explicit confirmation.
 
 ### `LOCAL_WP_MEMORY_LIMIT`
 Set this env var to override the default 512M PHP memory limit for heavy Local sites. Not in `--help` — documented in the CHANGELOG.
