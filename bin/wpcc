@@ -126,7 +126,7 @@ show_features() {
     if [ "$TEMPLATE_COUNT" -gt 0 ]; then
         echo "  Available templates:"
         for t in "$WPCC_PATH/dist/TEMPLATES/"*.txt; do
-            if [[ "$(basename "$t")" != _* ]]; then
+            if [[ "$(basename "$t")" != "_"* ]]; then
                 echo "    - $(basename "$t" .txt)"
             fi
         done 2>/dev/null

@@ -60,11 +60,13 @@ Reviewer: @mrtwebdesign
 
 ## Low
 
-- [ ] **Unquoted `$log_file` in pipe-pane command** — `bin/aiddtk-tmux` (line 101). Variable should be quoted to prevent word splitting if the path contains spaces.
-  - **Effort: S** | **Risk: Low** — Quote the variable. Note: single quotes inside `tmux pipe-pane` don't expand variables — verify the actual quoting behavior.
+- [x] **Unquoted `$log_file` in pipe-pane command** — `bin/aiddtk-tmux` (line 101). Variable should be quoted to prevent word splitting if the path contains spaces.
+  - **Effort: S** | **Risk: Low**
+  - **Fixed**: Changed single quotes to escaped double quotes so the variable is expanded by the current shell but properly quoted for tmux's `sh -c`.
 
-- [ ] **Unquoted glob pattern in test expression** — `bin/wpcc` (line 128–129). Pattern `_*` in a conditional test should be properly quoted to prevent unexpected glob expansion.
-  - **Effort: S** | **Risk: Low** — **Likely false positive.** Already inside `[[ ]]` which suppresses glob expansion. The `_*` pattern on line 129 is correct bash.
+- [x] **Unquoted glob pattern in test expression** — `bin/wpcc` (line 128–129). Pattern `_*` in a conditional test should be properly quoted to prevent unexpected glob expansion.
+  - **Effort: S** | **Risk: Low** — Was safe inside `[[ ]]` but quoting `"_"*` is clearer.
+  - **Fixed**: Quoted the underscore prefix for clarity.
 
 - [x] **`&> /dev/null` not POSIX-compliant** — `tools/wp-ajax-test/install.sh` (line 17). Should be `>/dev/null 2>&1` for portability.
   - **Effort: S** | **Risk: Low** — One-line change. Script already assumes bash.
@@ -110,8 +112,8 @@ Reviewer: @mrtwebdesign
 |----------|------:|------:|------:|
 | High | 4 | 3 | 1 (node_modules — verify on `development`) |
 | Medium | 7 | 4 | 3 (sed portability, timeout config, pw-auth size) |
-| Low | 9 | 5 | 4 (tmux quoting, glob FP, node version, doc bloat) |
-| **Total actionable** | **20** | **12** | **8** |
+| Low | 9 | 7 | 2 (node version, doc bloat) |
+| **Total actionable** | **20** | **14** | **6** |
 
 ### Remaining items by effort:
 | Item | Effort | Risk |
@@ -120,7 +122,5 @@ Reviewer: @mrtwebdesign
 | `sed -i.bak` portability | S | Low |
 | Scattered timeout config | M | Med |
 | `pw-auth` bash size | XL | High |
-| Unquoted `$log_file` | S | Low |
-| Glob pattern (likely FP) | S | Low |
 | Node.js version extraction | S | Low |
 | Documentation bloat | L | Med |

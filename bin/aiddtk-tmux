@@ -98,7 +98,7 @@ start_session() {
     tmux new-session -d -s "$session" -c "$cwd"
     tmux rename-window -t "$session:0" main >/dev/null 2>&1 || true
     tmux set-option -t "$session" remain-on-exit on >/dev/null 2>&1 || true
-    tmux pipe-pane -o -t "$session:0.0" "cat >> '$log_file'"
+    tmux pipe-pane -o -t "$session:0.0" "cat >> \"$log_file\""
 
     echo "Started session: $session"
     echo "Working directory: $cwd"
