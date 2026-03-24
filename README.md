@@ -153,7 +153,7 @@ Beyond initial setup: `doctor-playwright` (diagnose Playwright issues), `setup-w
 | **Local WP Commands** | [docs/LOCAL-WP-COMMANDS.md](docs/LOCAL-WP-COMMANDS.md) |
 | **Troubleshooting** | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
 | **CI/CD Integration** | [docs/CI-CD-INTEGRATION.md](docs/CI-CD-INTEGRATION.md) |
-| **Weekly UX Audit** | [docs/UX-AUDIT-WEEKLY.md](docs/UX-AUDIT-WEEKLY.md) |
+| **Weekly UX Audit** | [recipes/weekly-ux-audit.md](recipes/weekly-ux-audit.md) |
 | **Fix-Iterate Loop Pattern** | [fix-iterate-loop.md](fix-iterate-loop.md) |
 | **Security & Performance Rules** | [AGENTS.md — Security](AGENTS.md#-security-sensitive-data-and-performance-guardrails) |
 
