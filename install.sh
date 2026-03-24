@@ -53,7 +53,7 @@ WPCC_DIR="$TOOLS_DIR/wp-code-check"
 WPCC_REMOTE="https://github.com/Hypercart-Dev-Tools/WP-Code-Check.git"
 
 # Detect shell config file
-if [ -n "$ZSH_VERSION" ] || [ -f "$HOME/.zshrc" ]; then
+if [ -n "${ZSH_VERSION:-}" ] || [ -f "$HOME/.zshrc" ]; then
     SHELL_CONFIG="$HOME/.zshrc"
 else
     SHELL_CONFIG="$HOME/.bashrc"

@@ -13,6 +13,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.1] - 2026-03-24
+
+### Changed
+- **`install.sh` default flow** — running `./install.sh` now executes a full safe setup sequence (`install_path`, `setup-wpcc`, `setup-mcp`) with idempotent step behavior and a preflight summary before mutations.
+- **`install.sh` shell config writing** — PATH management now uses explicit begin/end markers (`# >>> AI-DDTK >>>` / `# <<< AI-DDTK <<<`) and block replacement instead of fragile line-by-line grep/sed insertion.
+- **`install.sh status` diagnostics** — status now includes doctor-style checks for `wpcc` PATH resolvability and Node.js version-floor compliance (`>= 18`) in addition to existing installation checks.
+- **Install script maintainability** — moved long agent-oriented notes out of script comments into `docs/INSTALL-AGENT-NOTES.md` and left a short pointer in `install.sh`.
+
+### Fixed
+- **`install.sh setup-mcp` correctness** — enforces Node.js `>= 18` before MCP setup and now surfaces npm install/build failures directly instead of potentially reporting false success on piped output.
+- **`install.sh` next-step output** — completion guidance now prints as a copy/paste-ready command block.
+
 ## [1.2.0] - 2026-03-23
 
 ### Added
