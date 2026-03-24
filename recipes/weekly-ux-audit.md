@@ -2,6 +2,10 @@
 
 > Catch doc rot, version drift, and onboarding regressions before users hit them.
 
+## Whos this doc is for
+
+For maintainers and contributors of AI-DDTK OSS Project. And if you are keeping a local copy of the repo and updating the docs for yourself.
+
 ## How to Use This Document
 
 **Users:** Ask your AI coding agent to "run the weekly UX audit" or "run the UX audit recipe." The agent will execute the automated script (Steps 1-3), then perform the AI-assisted review steps (Steps 4-5) by scanning the relevant files for the issues described below.
