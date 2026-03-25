@@ -77,6 +77,31 @@ local-wp --help
 ./install.sh status
 ```
 
+### Getting Started with AI Agents
+
+Before starting any WordPress development task with Claude Code, Augment, Cline, or other AI agents:
+
+**Run the preflight check** (one-time per session):
+
+```bash
+# From any AI-DDTK workspace
+./preflight.sh
+```
+
+Or use the VS Code task palette:
+- Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Linux/Windows)
+- Search for **"AI-DDTK: Preflight Check"**
+- Press Enter
+
+The preflight verifies:
+- ✓ AI-DDTK installation
+- ✓ Shell tools (rg, php, node, python3, git, tmux)
+- ✓ WPCC availability
+- ✓ MCP server configuration
+- ✓ WordPress site context
+
+**Why?** AI agents often forget about third-party tools. Preflight ensures the toolkit is ready before you start coding.
+
 ---
 
 ## Everyday Workflows
@@ -155,6 +180,7 @@ Beyond initial setup: `doctor-playwright` (diagnose Playwright issues), `setup-w
 | **Local WP Commands** | [docs/LOCAL-WP-COMMANDS.md](docs/LOCAL-WP-COMMANDS.md) |
 | **Troubleshooting** | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
 | **CI/CD Integration** | [docs/CI-CD-INTEGRATION.md](docs/CI-CD-INTEGRATION.md) |
+| **Session Preflight (Optional)** | [experimental/preflight.md](experimental/preflight.md) |
 | **Weekly UX Audit** | [recipes/weekly-ux-audit.md](recipes/weekly-ux-audit.md) |
 | **Fix-Iterate Loop Pattern** | [fix-iterate-loop.md](fix-iterate-loop.md) |
 | **Security & Performance Rules** | [AGENTS.md — Security](AGENTS.md#-security-sensitive-data-and-performance-guardrails) |

@@ -13,6 +13,35 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.3.0] - 2026-03-25
+
+### Changed
+- **`preflight.sh` reliability overhaul** — removed `set -e` (failures are expected in a diagnostic script), fixed macOS `wc -l` whitespace issue, added exit-code tracking (exits with count of critical failures), improved WPCC feature detection, and switched to ASCII markers for terminal compatibility.
+- **`experimental/preflight.md` rewrite for consuming projects** — rewrote from the perspective of agents working in external WordPress projects where AI-DDTK is installed as a toolkit, not agents inside the AI-DDTK repo itself. Removed "Session Rules" directive block that other agents flagged as prompt-injection-like. All MCP and WordPress steps are now conditional with skip guidance.
+- **`AGENTS.md` preflight section** — replaced dead link to `temp/PREFLIGHT-INSTALL-INTEGRATION.md` with a table distinguishing shell preflight (`./preflight.sh`) from MCP-aware preflight (`experimental/preflight.md`), clarifying when to use each.
+
+### Removed
+- **`temp/ai-ddtk-preflight-complete.md`** — deleted redundant copy of the preflight checklist (content already lives in `experimental/preflight.md`).
+
+## [1.2.9] - 2026-03-25
+
+### Changed
+- **`README.md` optional preflight discoverability** — added a short documentation-table entry pointing to `experimental/preflight.md` so users can adopt the session-start preflight workflow without repeated manual reminders.
+
+## [1.2.8] - 2026-03-25
+
+### Changed
+- **`experimental/servers.md` troubleshooting hardening** — updated T-2 and T-3 with safer, execution-ready workflows: `local-wp`-scoped commands, DB backup before URL rewrites, `search-replace --dry-run` before apply, and `/etc/hosts` backup before sudo edits.
+
+## [1.2.7] - 2026-03-25
+
+### Added
+- **`experimental/servers-audit.sh` baseline report generator** — added a new hostname/port audit helper that captures listening services, DNS and hosts state, Local WP site metadata, service-manager status, and auto-detected conflict sections into a populated Markdown snapshot. The script mirrors the resilient orchestration patterns used in other experimental tooling and also writes machine-readable artifacts under `temp/servers-audit/<run-id>/`.
+
+### Changed
+- **`experimental/servers.md` usage alignment** — expanded the template’s run instructions to include the new `--focus` and `--previous-snapshot` options plus the artifact-output note so developers can run targeted hostname audits and maintain diff-friendly baselines.
+- **Active-fix guidance for server audits** — expanded the `## AI Agent Instructions` flow in both `experimental/servers.md` and generated audit output to require detect → concrete fix commands → permission-gated execution for privileged actions → post-fix re-audit verification → snapshot diff validation, with explicit iteration stop conditions.
+
 ## [1.2.6] - 2026-03-24
 
 ### Fixed

@@ -30,6 +30,54 @@
   ],
   "tasks": [
     {
+      "label": "AI-DDTK: Preflight Check",
+      "type": "shell",
+      "command": "${workspaceFolder}/preflight.sh",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "focus": true,
+        "clear": false
+      },
+      "runOptions": {
+        "runOn": "folderOpen"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AI-DDTK: Install MCP Server",
+      "type": "shell",
+      "command": "~/bin/ai-ddtk/install.sh",
+      "args": ["setup-mcp"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AI-DDTK: Install WPCC",
+      "type": "shell",
+      "command": "~/bin/ai-ddtk/install.sh",
+      "args": ["setup-wpcc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "AI-DDTK: Check Status",
+      "type": "shell",
+      "command": "~/bin/ai-ddtk/install.sh",
+      "args": ["status"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
       "label": "MCP: Start Server (stdio)",
       "type": "shell",
       "command": "npm run mcp",

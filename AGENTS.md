@@ -1,6 +1,6 @@
 # WordPress Development and Architecture Guidelines for AI Agents
 
-_Last updated: 2026-03-24 · Toolkit version: see [CHANGELOG.md](CHANGELOG.md)_
+_Last updated: 2026-03-25 · Toolkit version: see [CHANGELOG.md](CHANGELOG.md)_
 
 ## Purpose
 
@@ -14,27 +14,51 @@ Defines principles, constraints, and best practices for AI agents and Humans wor
 
 This workspace uses **AI-DDTK** (AI Driven Development ToolKit) installed at `~/bin/ai-ddtk`.
 
+### Session Preflight Check (Recommended First Step)
+
+**Before starting any WordPress task, run a preflight check** to verify the toolkit is ready.
+
+There are two modes — use whichever fits your context:
+
+| Mode | When to use | Command |
+|------|-------------|---------|
+| **Shell preflight** | Quick human/CI check, no MCP needed | `./preflight.sh` |
+| **MCP-aware preflight** | Agent sessions with MCP tools available | Follow the prompt in [experimental/preflight.md](experimental/preflight.md) |
+
+**Shell preflight** (`./preflight.sh`) can also be run from the VS Code task palette:
+- Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Linux/Windows)
+- Search for **"AI-DDTK: Preflight Check"**
+- Press Enter
+
+**What preflight verifies:**
+- AI-DDTK installation at `~/bin/ai-ddtk`
+- Shell tools (rg, php, node, python3, git, tmux)
+- WPCC availability and features
+- MCP server build status and editor configuration
+- WordPress site context (Local WP or WP-CLI)
+
+The **MCP-aware preflight** additionally probes live MCP tool connectivity, WordPress site info, and Playwright auth status.
+
+**Why?** AI agents often forget about third-party tools and don't verify toolkit readiness before starting work. Preflight ensures everything is ready in seconds and suggests exact fix commands if anything is missing.
+
+**If preflight detects missing items:**
+1. Run the suggested command (e.g., `~/bin/ai-ddtk/install.sh setup-mcp`)
+2. Re-run preflight to confirm: `./preflight.sh`
+3. Proceed with your task
+
+---
+
 ### Before Starting Any Task
 
-1. **Verify AI-DDTK is available and read this file**:
-   ```bash
-   ls ~/bin/ai-ddtk/AGENTS.md
-   cat ~/bin/ai-ddtk/AGENTS.md
-   ```
-2. **Inventory capabilities once per session**:
-   - enumerate connected MCP tools/resources when MCP is available
-   - probe shell tools with:
-     ```bash
-     command -v wpcc pw-auth local-wp aiddtk-tmux wp-ajax-test rg php node python3 git tmux
-     ./install.sh status
-     wpcc --features
-     ```
-   - `rg`, `python3`, and `tmux` are **optional but recommended**; if missing, note it to the user as a suggestion (e.g. `brew install ripgrep python3 tmux`) rather than treating it as a blocker
-   - summarize what is available once, keep that summary as session memory, and prefer MCP tools over raw shell when both exist
-3. **Establish WordPress site context early**:
+1. **Run the preflight check** (see above) — this is the fastest way to verify everything
+2. **Establish WordPress site context early**:
    - for LocalWP workflows, list/select the site before site-specific commands
    - for browser or AJAX work, confirm the target URL/origin before changing anything
-4. **Keep runtime and sensitive artifacts under `./temp`** and out of git.
+3. **Keep runtime and sensitive artifacts under `./temp`** and out of git
+4. **Inventory capabilities** (preflight does this automatically, but for reference):
+   - enumerate connected MCP tools/resources when MCP is available
+   - `rg`, `python3`, and `tmux` are **optional but recommended**; if missing, note it to the user as a suggestion (e.g. `brew install ripgrep python3 tmux`) rather than treating it as a blocker
+   - summarize what is available once, keep that summary as session memory, and prefer MCP tools over raw shell when both exist
 
 ### MCP Server Setup and Lifecycle
 
