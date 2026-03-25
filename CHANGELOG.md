@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.9] - 2026-03-25
+
+### Changed
+- **`README.md` optional preflight discoverability** — added a short documentation-table entry pointing to `experimental/preflight.md` so users can adopt the session-start preflight workflow without repeated manual reminders.
+
 ## [1.2.8] - 2026-03-25
 
 ### Changed
