@@ -13,6 +13,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.6] - 2026-03-24
+
+### Fixed
+- **`bin/local-wp` help/list startup path** — deferred PHP auto-detection until after argument parsing so `local-wp --help` and `local-wp --list` no longer silently exit on Linux, WSL, or other environments without Local’s macOS directory layout.
+
+## [1.2.5] - 2026-03-24
+
+### Changed
+- **`README.md` platform framing** — replaced the confusing "macOS required" quick-start note with clearer "macOS-centric, Linux-friendly" messaging so Linux and WSL users understand that core scanning still works.
+- **`README.md` install wording** — clarified that `~/bin/ai-ddtk` is a chosen target path, not a required match to the GitHub repo’s uppercase name, reducing clone-path confusion for first-time users.
+- **`README.md` MCP onboarding** — added a one-sentence explanation of Model Context Protocol near the top of the overview so WordPress developers unfamiliar with MCP are not forced to infer the term from context.
+- **Feature discoverability** — promoted `mcp-local-config` and `install.sh` maintenance/doctor commands from "Hidden Gems" into first-pass discovery areas (`README.md` and `install.sh --help`) so valuable capabilities are visible earlier.
+
 ## [1.2.4] - 2026-03-24
 
 ### Fixed

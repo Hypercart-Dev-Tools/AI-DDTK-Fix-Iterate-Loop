@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================
 # AI-DDTK Install & Maintenance Script
-# Version: 1.2.3
+# Version: 1.2.6
 # ============================================================
 #
 # ┌─────────────────────────────────────────────────────────┐
@@ -93,6 +93,11 @@ show_usage() {
     echo "Optional tools after install:"
     echo "  aiddtk-tmux --help   Resilient tmux-backed sessions for AI agents"
     echo "  local-wp --help      Local by Flywheel WP-CLI wrapper"
+    echo "  mcp-local-config --help  Merge generic MCP config with local-only snippets"
+    echo ""
+    echo "What is MCP?"
+    echo "  Model Context Protocol lets supported editors discover and call local tools"
+    echo "  through a structured server instead of custom shell wrappers."
     echo ""
 }
 

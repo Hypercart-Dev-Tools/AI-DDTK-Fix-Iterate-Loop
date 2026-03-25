@@ -2,7 +2,7 @@
 
 > Catch doc rot, version drift, and onboarding regressions before users hit them.
 
-## Whos this doc is for
+## Who's this doc is for
 
 For maintainers and contributors of AI-DDTK OSS Project. And if you are keeping a local copy of the repo and updating the docs for yourself.
 
