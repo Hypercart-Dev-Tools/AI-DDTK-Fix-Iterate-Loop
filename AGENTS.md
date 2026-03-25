@@ -16,23 +16,28 @@ This workspace uses **AI-DDTK** (AI Driven Development ToolKit) installed at `~/
 
 ### Session Preflight Check (Recommended First Step)
 
-**Before starting any WordPress task, run the preflight check** to verify the toolkit is ready:
+**Before starting any WordPress task, run a preflight check** to verify the toolkit is ready.
 
-```bash
-./preflight.sh
-```
+There are two modes — use whichever fits your context:
 
-Or use the VS Code task palette:
+| Mode | When to use | Command |
+|------|-------------|---------|
+| **Shell preflight** | Quick human/CI check, no MCP needed | `./preflight.sh` |
+| **MCP-aware preflight** | Agent sessions with MCP tools available | Follow the prompt in [experimental/preflight.md](experimental/preflight.md) |
+
+**Shell preflight** (`./preflight.sh`) can also be run from the VS Code task palette:
 - Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Linux/Windows)
 - Search for **"AI-DDTK: Preflight Check"**
 - Press Enter
 
 **What preflight verifies:**
-- ✓ AI-DDTK installation at `~/bin/ai-ddtk`
-- ✓ Shell tools (rg, php, node, python3, git, tmux)
-- ✓ WPCC availability and features
-- ✓ MCP server build status and editor configuration
-- ✓ WordPress site context (Local WP or WP-CLI)
+- AI-DDTK installation at `~/bin/ai-ddtk`
+- Shell tools (rg, php, node, python3, git, tmux)
+- WPCC availability and features
+- MCP server build status and editor configuration
+- WordPress site context (Local WP or WP-CLI)
+
+The **MCP-aware preflight** additionally probes live MCP tool connectivity, WordPress site info, and Playwright auth status.
 
 **Why?** AI agents often forget about third-party tools and don't verify toolkit readiness before starting work. Preflight ensures everything is ready in seconds and suggests exact fix commands if anything is missing.
 
@@ -40,8 +45,6 @@ Or use the VS Code task palette:
 1. Run the suggested command (e.g., `~/bin/ai-ddtk/install.sh setup-mcp`)
 2. Re-run preflight to confirm: `./preflight.sh`
 3. Proceed with your task
-
-For integration details, see: [PREFLIGHT-INSTALL-INTEGRATION.md](temp/PREFLIGHT-INSTALL-INTEGRATION.md)
 
 ---
 
