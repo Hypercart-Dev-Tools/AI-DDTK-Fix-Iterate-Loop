@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.2.8] - 2026-03-25
+
+### Changed
+- **`experimental/servers.md` troubleshooting hardening** — updated T-2 and T-3 with safer, execution-ready workflows: `local-wp`-scoped commands, DB backup before URL rewrites, `search-replace --dry-run` before apply, and `/etc/hosts` backup before sudo edits.
+
 ## [1.2.7] - 2026-03-25
 
 ### Added
