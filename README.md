@@ -77,6 +77,31 @@ local-wp --help
 ./install.sh status
 ```
 
+### Getting Started with AI Agents
+
+Before starting any WordPress development task with Claude Code, Augment, Cline, or other AI agents:
+
+**Run the preflight check** (one-time per session):
+
+```bash
+# From any AI-DDTK workspace
+./preflight.sh
+```
+
+Or use the VS Code task palette:
+- Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Linux/Windows)
+- Search for **"AI-DDTK: Preflight Check"**
+- Press Enter
+
+The preflight verifies:
+- ✓ AI-DDTK installation
+- ✓ Shell tools (rg, php, node, python3, git, tmux)
+- ✓ WPCC availability
+- ✓ MCP server configuration
+- ✓ WordPress site context
+
+**Why?** AI agents often forget about third-party tools. Preflight ensures the toolkit is ready before you start coding.
+
 ---
 
 ## Everyday Workflows
