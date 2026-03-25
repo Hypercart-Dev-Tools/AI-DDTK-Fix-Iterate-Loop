@@ -13,6 +13,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.3.0] - 2026-03-25
+
+### Changed
+- **`preflight.sh` reliability overhaul** — removed `set -e` (failures are expected in a diagnostic script), fixed macOS `wc -l` whitespace issue, added exit-code tracking (exits with count of critical failures), improved WPCC feature detection, and switched to ASCII markers for terminal compatibility.
+- **`experimental/preflight.md` rewrite for consuming projects** — rewrote from the perspective of agents working in external WordPress projects where AI-DDTK is installed as a toolkit, not agents inside the AI-DDTK repo itself. Removed "Session Rules" directive block that other agents flagged as prompt-injection-like. All MCP and WordPress steps are now conditional with skip guidance.
+- **`AGENTS.md` preflight section** — replaced dead link to `temp/PREFLIGHT-INSTALL-INTEGRATION.md` with a table distinguishing shell preflight (`./preflight.sh`) from MCP-aware preflight (`experimental/preflight.md`), clarifying when to use each.
+
+### Removed
+- **`temp/ai-ddtk-preflight-complete.md`** — deleted redundant copy of the preflight checklist (content already lives in `experimental/preflight.md`).
+
 ## [1.2.9] - 2026-03-25
 
 ### Changed
