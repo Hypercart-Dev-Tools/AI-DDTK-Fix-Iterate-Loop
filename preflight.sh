@@ -1,9 +1,11 @@
 #!/bin/bash
 # AI-DDTK Preflight Check
-# Run this once at the start of each work session to verify toolkit readiness
+# Run this from any project to verify AI-DDTK toolkit readiness.
+# Can be invoked as: ~/bin/ai-ddtk/preflight.sh
 # Exit code = number of critical failures (0 = all clear)
 
 FAIL=0
+DDTK_HOME="${DDTK_HOME:-$HOME/bin/ai-ddtk}"
 
 echo ""
 echo "======================================================="
@@ -13,23 +15,49 @@ echo ""
 
 # 1. AI-DDTK Installation
 echo "1. AI-DDTK Installation"
-if [ -d ~/bin/ai-ddtk ]; then
-    echo "   [ok] Found at ~/bin/ai-ddtk"
-    if [ -f ~/bin/ai-ddtk/AGENTS.md ]; then
+if [ -d "$DDTK_HOME" ]; then
+    echo "   [ok] Found at $DDTK_HOME"
+    if [ -f "$DDTK_HOME/AGENTS.md" ]; then
         echo "   [ok] AGENTS.md present"
     else
         echo "   [FAIL] AGENTS.md missing"
         FAIL=$((FAIL + 1))
     fi
 else
-    echo "   [FAIL] Not found at ~/bin/ai-ddtk"
-    echo "   -> Clone: git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git ~/bin/ai-ddtk"
+    echo "   [FAIL] Not found at $DDTK_HOME"
+    echo "   -> Clone: git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git $DDTK_HOME"
     FAIL=$((FAIL + 1))
 fi
 echo ""
 
-# 2. Shell Tools
-echo "2. Shell Tools"
+# 2. AI-DDTK CLI Tools
+echo "2. AI-DDTK CLI Tools"
+for tool in wpcc pw-auth local-wp aiddtk-tmux wp-ajax-test; do
+    if command -v "$tool" &> /dev/null; then
+        echo "   [ok] $tool"
+    else
+        echo "   [FAIL] $tool not in PATH"
+        FAIL=$((FAIL + 1))
+    fi
+done
+echo ""
+
+# 3. WPCC Features
+echo "3. WPCC Features"
+if command -v wpcc &> /dev/null; then
+    pattern_count=$(wpcc --features 2>/dev/null | grep -c "pattern\|rule\|check" || true)
+    if [ "$pattern_count" -gt 0 ]; then
+        echo "   [ok] $pattern_count feature lines detected"
+    else
+        echo "   [warn] wpcc found but --features returned no recognisable output"
+    fi
+else
+    echo "   [--] skipped (wpcc not available)"
+fi
+echo ""
+
+# 4. Shell Tools
+echo "4. Shell Tools"
 for tool in rg php node python3 git tmux; do
     if command -v "$tool" &> /dev/null; then
         echo "   [ok] $tool"
@@ -39,63 +67,39 @@ for tool in rg php node python3 git tmux; do
 done
 echo ""
 
-# 3. WPCC
-echo "3. WPCC (WP Code Check)"
-if command -v wpcc &> /dev/null; then
-    echo "   [ok] wpcc available"
-    pattern_count=$(wpcc --features 2>/dev/null | grep -c "pattern\|rule\|check" || true)
-    if [ "$pattern_count" -gt 0 ]; then
-        echo "   [ok] $pattern_count feature lines detected"
-    else
-        echo "   [warn] wpcc found but --features returned no recognisable output"
-    fi
-else
-    echo "   [FAIL] wpcc not in PATH"
-    if [ -d ~/bin/ai-ddtk ]; then
-        echo "   -> Run: ~/bin/ai-ddtk/install.sh setup-wpcc"
-    else
-        echo "   -> First install AI-DDTK: git clone https://github.com/Hypercart-Dev-Tools/AI-DDTK.git ~/bin/ai-ddtk"
-    fi
-    FAIL=$((FAIL + 1))
-fi
-echo ""
-
-# 4. MCP Server (if available)
-echo "4. MCP Server"
-if [ -f ~/bin/ai-ddtk/tools/mcp-server/dist/src/index.js ]; then
+# 5. MCP Server
+echo "5. MCP Server"
+if [ -f "$DDTK_HOME/tools/mcp-server/dist/src/index.js" ]; then
     echo "   [ok] MCP server built"
     if [ -f .mcp.json ] || [ -f ~/.augment/settings.json ] || [ -f ~/.config/Claude/claude_desktop_config.json ]; then
-        echo "   [ok] MCP config found"
-        echo "   -> MCP tools should be available in your editor"
+        echo "   [ok] MCP config detected"
     else
-        echo "   [warn] MCP config not detected in editor"
-        echo "   -> Setup: ~/bin/ai-ddtk/install.sh setup-mcp (shows config snippets)"
+        echo "   [warn] No MCP config found in current directory or editor settings"
+        echo "   -> Setup: $DDTK_HOME/install.sh setup-mcp"
     fi
 else
     echo "   [warn] MCP server not built yet"
-    echo "   -> Build: ~/bin/ai-ddtk/install.sh setup-mcp"
+    echo "   -> Build: $DDTK_HOME/install.sh setup-mcp"
 fi
 echo ""
 
-# 5. WordPress Site Context
-echo "5. WordPress Site Context"
+# 6. WordPress Site Context
+echo "6. WordPress Site Context"
 if command -v local-wp &> /dev/null; then
     site_count=$(local-wp --list 2>/dev/null | grep -c . || true)
     if [ "$site_count" -gt 0 ]; then
         echo "   [ok] Local WP sites available ($site_count found)"
-        echo "   -> Select a site before starting work"
     else
         echo "   [warn] No Local WP sites found"
     fi
 elif command -v wp &> /dev/null; then
     echo "   [ok] WP-CLI available"
-    echo "   -> Verify WordPress is running and accessible"
 else
     echo "   [--] Neither local-wp nor wp-cli found"
 fi
 echo ""
 
-# 6. Summary
+# 7. Summary
 echo "======================================================="
 echo "PREFLIGHT SUMMARY"
 echo "======================================================="
@@ -107,17 +111,10 @@ else
 fi
 echo ""
 echo "If you see any [FAIL] or [warn] items above:"
-echo "  1. Run the suggested command (e.g., install.sh setup-mcp)"
-echo "  2. Re-run this preflight: ./preflight.sh"
+echo "  1. Run the suggested fix command"
+echo "  2. Re-run preflight: $DDTK_HOME/preflight.sh"
 echo ""
-echo "Before starting work:"
-echo "  1. Select your WordPress site (Local WP or wp-cli)"
-echo "  2. Verify Playwright auth: pw-auth status"
-echo "  3. Start your task!"
-echo ""
-echo "For full details, see:"
-echo "  - ~/bin/ai-ddtk/AGENTS.md (agent guidelines)"
-echo "  - ~/bin/ai-ddtk/install.sh status (detailed status)"
+echo "Reference: $DDTK_HOME/AGENTS.md"
 echo ""
 
 exit "$FAIL"
