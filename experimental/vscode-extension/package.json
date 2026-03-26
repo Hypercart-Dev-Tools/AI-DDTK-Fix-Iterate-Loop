@@ -1,0 +1,148 @@
+{
+  "name": "ai-ddtk",
+  "displayName": "AI-DDTK: WordPress Development Toolkit",
+  "description": "Integrate AI-DDTK tools (WPCC, pw-auth, Query Monitor) into VS Code for WordPress development",
+  "version": "0.1.0",
+  "publisher": "hypercart",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Linters",
+    "Testing"
+  ],
+  "keywords": [
+    "wordpress",
+    "wpcc",
+    "security",
+    "performance",
+    "ai-ddtk",
+    "mcp"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Hypercart-Dev-Tools/AI-DDTK"
+  },
+  "bugs": {
+    "url": "https://github.com/Hypercart-Dev-Tools/AI-DDTK/issues"
+  },
+  "homepage": "https://github.com/Hypercart-Dev-Tools/AI-DDTK#readme",
+  "activationEvents": [
+    "onStartupFinished",
+    "workspaceContains:**/wp-config.php",
+    "workspaceContains:**/wp-content/plugins",
+    "workspaceContains:**/wp-content/themes"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-ddtk.wireProject",
+        "title": "AI-DDTK: Wire Project for MCP",
+        "description": "Set up MCP configuration for this project"
+      },
+      {
+        "command": "ai-ddtk.runPreflight",
+        "title": "AI-DDTK: Run Preflight Check",
+        "description": "Verify AI-DDTK installation and dependencies"
+      },
+      {
+        "command": "ai-ddtk.runWpcc",
+        "title": "AI-DDTK: Scan with WPCC",
+        "description": "Run WordPress code security/performance scan"
+      },
+      {
+        "command": "ai-ddtk.openDocs",
+        "title": "AI-DDTK: Open Documentation",
+        "description": "Open AI-DDTK documentation"
+      },
+      {
+        "command": "ai-ddtk.checkStatus",
+        "title": "AI-DDTK: Check Status",
+        "description": "Check AI-DDTK installation status"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "ai-ddtk.wireProject"
+        },
+        {
+          "command": "ai-ddtk.runPreflight"
+        },
+        {
+          "command": "ai-ddtk.runWpcc"
+        },
+        {
+          "command": "ai-ddtk.openDocs"
+        },
+        {
+          "command": "ai-ddtk.checkStatus"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "ai-ddtk.runWpcc",
+          "group": "ai-ddtk",
+          "when": "resourceFilename =~ /\\.php$/"
+        }
+      ]
+    },
+    "statusBar": [
+      {
+        "id": "ai-ddtk.status",
+        "alignment": "right",
+        "priority": 100
+      }
+    ],
+    "configuration": {
+      "title": "AI-DDTK",
+      "properties": {
+        "ai-ddtk.aiDdtkPath": {
+          "type": "string",
+          "default": "~/bin/ai-ddtk",
+          "description": "Path to AI-DDTK installation"
+        },
+        "ai-ddtk.autoWireOnOpen": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically wire project when opening a WordPress workspace"
+        },
+        "ai-ddtk.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show AI-DDTK status in status bar"
+        },
+        "ai-ddtk.enableMcpServer": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable MCP server integration"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run esbuild-base -- --minify",
+    "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=dist/extension.js --external:vscode --platform=node --target=node18",
+    "esbuild": "npm run esbuild-base -- --sourcemap",
+    "esbuild-watch": "npm run esbuild-base -- --sourcemap --watch",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "esbuild": "^0.19.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {}
+}
+

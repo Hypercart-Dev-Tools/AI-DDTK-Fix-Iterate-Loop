@@ -19,7 +19,7 @@ Scan → Triage → Fix → Verify → Ship
 | Capability | What It Does | Details |
 |---|---|---|
 | **WPCC** — 54-Pattern Static Scanner | Security, performance, WooCommerce, headless/GraphQL, and Node.js analysis with AI triage | [AGENTS.md § WPCC](AGENTS.md#wpcc-wp-code-check) · [WPCC Commands](docs/WPCC-COMMANDS.md) |
-| **Playwright Auth (`pw-auth`)** | Passwordless wp-admin login via one-time URLs, 12h session caching, DOM inspection | [AGENTS.md § pw-auth](AGENTS.md#-playwright-auth-pw-auth) · [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) |
+| **Playwright Auth (`pw-auth`)** | Passwordless wp-admin login via one-time URLs, 12h session caching, DOM inspection with assertions/screenshots | [AGENTS.md § pw-auth](AGENTS.md#-playwright-auth-pw-auth) · [pw-auth Commands](docs/PW-AUTH-COMMANDS.md) |
 | **Query Monitor Profiling** | Headless page profiling — slow queries, N+1 detection, cache stats | [AGENTS.md § Available Tools](AGENTS.md#available-tools) |
 | **WordPress MCP Adapter** | 13 abilities for API-level CRUD without a browser (WP 6.9+) | [MCP Adapter Setup](docs/MCP-ADAPTER-SETUP.md) · [Ability Schemas](docs/mcp-adapter-abilities.md) |
 | **Fix-Iterate Loop** | Guardrailed autonomous scan→fix→verify workflows (5 fail / 10 total max) | [fix-iterate-loop.md](fix-iterate-loop.md) |
