@@ -57,6 +57,8 @@ Focus on:
 
 ### Phase 3: Runtime Profiling
 
+> **Before writing any mu-plugin or instrumentation file**, confirm the target site's mu-plugins path with the user. For Local by Flywheel, this is typically `~/Local Sites/<site-name>/app/public/wp-content/mu-plugins/`. Do not assume the path — show it and get confirmation first.
+
 For each confirmed issue, add performance timers:
 
 ```php
@@ -98,7 +100,18 @@ if (isset($timer) && function_exists('perf_timer_stop')) {
    - NeoLog session files
    - Admin → Tools → Performance Logs
 
-### Phase 5: Report
+### Phase 5: Cleanup
+
+After profiling is complete, remove all instrumentation before merging or deploying:
+
+1. **Remove `perf_timer_start()` / `perf_timer_stop()` wrappers** from the code under test
+2. **Remove `ai-ddtk-test-delays.php`** from `mu-plugins/` if it was installed (see security warning below)
+3. **Remove `PERF_LOG_ALL`** from `wp-config.php` if it was added
+4. **Verify** the site loads cleanly without debug artifacts
+
+> **Security warning:** `ai-ddtk-test-delays.php` has no auth gate — any visitor can trigger `?aiddtk_test_delays=1` to force slow queries, external HTTP calls, and CPU-bound loops. **Never leave it installed on a public-facing site.** It is a fixture for local profiling only.
+
+### Phase 6: Report
 
 Document findings in this format:
 
@@ -159,7 +172,7 @@ tail -100 /path/to/wordpress/wp-content/debug.log | grep PERF
 
 - [WPCC Features](../bin/wpcc) - Run `wpcc --features` for all options
 - [AGENTS.md](../AGENTS.md) - Performance Profiling section
-- [WP Performance Timer](https://github.com/yourusername/wp-performance-timer) - Plugin documentation
+- [Hypercart WP Performance Timer](https://github.com/Hypercart-Dev-Tools/wp-performance-timer) - Plugin documentation
 
 ---
 
@@ -167,9 +180,11 @@ tail -100 /path/to/wordpress/wp-content/debug.log | grep PERF
 
 When user asks for a performance audit:
 
-1. Run WPCC scan on the target path
+1. Run WPCC scan on the target path (prefer `wpcc_run_scan` MCP tool if available; fall back to `wpcc --paths <path> --format json` via shell if MCP is not connected)
 2. Triage findings for performance-related issues
-3. Guide user to add timers around flagged code
-4. Help interpret the runtime metrics
-5. Provide optimization recommendations based on confirmed bottlenecks
+3. **Confirm the target site's mu-plugins path** with the user before writing any files
+4. Guide user to add timers around flagged code
+5. Help interpret the runtime metrics
+6. Provide optimization recommendations based on confirmed bottlenecks
+7. **Run cleanup** — remove all instrumentation, test fixtures, and debug config before finishing
 

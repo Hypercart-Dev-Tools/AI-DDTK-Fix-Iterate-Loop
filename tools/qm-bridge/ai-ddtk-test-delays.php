@@ -30,6 +30,12 @@ add_action( 'template_redirect', function () {
 		return;
 	}
 
+	// Auth gate — only administrators can trigger test delays.
+	// Without this, any visitor could cause slow queries and CPU load via the query param.
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return;
+	}
+
 	// Run the delays early in the page lifecycle so QM captures everything.
 	aiddtk_run_test_delays();
 }, 5 );
@@ -38,6 +44,9 @@ add_action( 'template_redirect', function () {
  * Also register as a shortcode for non-BB pages.
  */
 add_shortcode( 'aiddtk_test_delays', function () {
+	if ( ! current_user_can( 'manage_options' ) ) {
+		return '';
+	}
 	aiddtk_run_test_delays();
 	return '<p style="font-family:monospace;color:#666;">AI-DDTK test delays executed. Check QM for profiling data.</p>';
 } );
