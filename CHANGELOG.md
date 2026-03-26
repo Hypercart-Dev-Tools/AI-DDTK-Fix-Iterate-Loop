@@ -13,6 +13,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.4.1] - 2026-03-26
+
+### Fixed
+- **`tools/qm-bridge/ai-ddtk-test-delays.php`** — added `current_user_can('manage_options')` auth gate to both the `template_redirect` action and the shortcode handler; previously any anonymous visitor could trigger slow queries, external HTTP calls, and CPU-bound loops via `?aiddtk_test_delays=1`.
+
+### Changed
+- **`recipes/performance-audit.md`** — added explicit mu-plugins path confirmation step before writing any instrumentation files; added Phase 5 Cleanup (with security warning about the test-delays fixture); renumbered old Phase 5 Report to Phase 6; updated WP Performance Timer link to the Hypercart-Dev-Tools org; revised agent workflow summary to prefer the `wpcc_run_scan` MCP tool and include a mandatory cleanup step.
+
 ## [1.4.0] - 2026-03-26
 
 ### Added
