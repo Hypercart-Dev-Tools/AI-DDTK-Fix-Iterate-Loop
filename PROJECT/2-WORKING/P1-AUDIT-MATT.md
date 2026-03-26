@@ -11,7 +11,7 @@ Reviewer: @mrtwebdesign
 
 ## High
 
-- [ ] **Committed `node_modules` in repo** — `tools/mcp-server/node_modules/` is tracked in git. Should be in `.gitignore` and installed via `npm ci`. Bloats repo size and risks dependency drift.
+- [x] **Committed `node_modules` in repo** — `tools/mcp-server/node_modules/` is tracked in git. Should be in `.gitignore` and installed via `npm ci`. Bloats repo size and risks dependency drift.
   - **Effort: M** | **Risk: Med** — Requires `git rm -r --cached`, `.gitignore` update, and verifying CI/docs tell users to run `npm ci`. Anyone on a stale clone needs `npm ci` after pulling.
   - **Note**: Not tracked on current branch (`main`). Verify on `development` — may be a false positive.
 
