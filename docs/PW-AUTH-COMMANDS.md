@@ -254,12 +254,12 @@ pw-auth doctor --site-url http://my-site.local --wp-cli "local-wp my-site"
 
 ### `pw-auth check dom`
 
-Inspect a page element using optional cached authentication.
+Inspect one or more page elements using optional cached authentication.
 
 #### Syntax
 
 ```bash
-pw-auth check dom --url <url> --selector <css> --extract <mode> [options]
+pw-auth check dom --url <url> (--selector <css> | --selectors <list>) [options]
 ```
 
 #### Required Options
@@ -267,16 +267,22 @@ pw-auth check dom --url <url> --selector <css> --extract <mode> [options]
 | Option | Description | Example |
 |--------|-------------|---------|
 | `--url` | Page URL to inspect | `http://my-site.local/wp-admin/` |
-| `--selector` | CSS selector to find | `#wpbody` |
-| `--extract` | Extraction mode | `exists`, `text`, or `html` |
+| `--selector` or `--selectors` | Single selector or comma-separated selector list | `#wpbody` or `#wpadminbar, .wrap h1` |
 
 #### Optional Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
+| `--extract` | `exists` | Extraction mode: `exists`, `text`, or `html` |
+| `--assert` | — | Built-in assertion: `visible`, `hidden`, `text-contains`, or `attr-equals` |
+| `--assert-value` | — | Expected text/attribute value for assertion modes that require one |
+| `--assert-attr` | — | Attribute name for `--assert attr-equals` |
+| `--screenshot` | `never` | Screenshot policy: `never`, `on-failure`, or `always` |
+| `--wait-for` | — | Wait for a selector before evaluating checks |
 | `--user` | — | Resolve auth from `./temp/playwright/.auth/<user>.json` |
 | `--auth-state` | — | Explicit Playwright storageState file path |
 | `--auth-origin` | inferred | Cookie origin for auth reuse |
+| `--timeout` | `15000` | Alias for `--timeout-ms` |
 | `--timeout-ms` | `15000` | Navigation/selector timeout in milliseconds |
 | `--format` | `text` | Output format: `text` or `json` |
 | `--output-dir` | `temp/playwright/checks/<run-id>/` | Directory for artifacts |
@@ -286,6 +292,13 @@ pw-auth check dom --url <url> --selector <css> --extract <mode> [options]
 **Check if element exists:**
 ```bash
 pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract exists
+```
+
+**Check multiple selectors in one call:**
+```bash
+pw-auth check dom \
+  --url http://my-site.local/wp-admin/ \
+  --selectors "#wpadminbar, .wrap h1"
 ```
 
 **Extract element text:**
@@ -300,7 +313,7 @@ pw-auth check dom --url http://my-site.local/wp-admin/plugins.php --selector "#t
 
 **With custom timeout:**
 ```bash
-pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract exists --timeout-ms 30000
+pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract exists --timeout 30000
 ```
 
 **JSON output:**
@@ -308,45 +321,148 @@ pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --ex
 pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract exists --format json
 ```
 
+**Wait for AJAX content, assert visibility, and capture failure screenshots:**
+```bash
+pw-auth check dom \
+  --url http://my-site.local/wp-admin/ \
+  --selectors "#wpadminbar, .wrap h1" \
+  --wait-for ".ajax-ready" \
+  --assert visible \
+  --screenshot on-failure \
+  --user admin \
+  --format json
+```
+
+**Assert text content:**
+```bash
+pw-auth check dom \
+  --url http://my-site.local/wp-admin/plugins.php \
+  --selector ".notice-success" \
+  --assert text-contains \
+  --assert-value "Settings saved" \
+  --user admin
+```
+
+**Assert an attribute value:**
+```bash
+pw-auth check dom \
+  --url http://my-site.local/wp-admin/ \
+  --selector "body" \
+  --assert attr-equals \
+  --assert-attr data-theme \
+  --assert-value classic \
+  --user admin
+```
+
 #### Output
 
-**exists mode (text):**
-```
-✓ Element found: #wpbody
-```
+The command returns an aggregate result plus a per-selector `results` array.
 
-**exists mode (JSON):**
+Aggregate `status` is one of:
+- `ok` — all selectors were found and all assertions passed
+- `not_found` — at least one selector was missing
+- `assertion_failed` — selectors were found but at least one assertion failed
+- `auth_required` — the page redirected to login
+- `error` — navigation/runtime failure
+
+**Single-selector `exists` output (JSON):**
 ```json
 {
   "status": "ok",
   "selector": "#wpbody",
-  "found": true,
-  "message": "Element found"
+  "selectors": ["#wpbody"],
+  "extract": "exists",
+  "auth_used": false,
+  "value": true,
+  "results": [
+    {
+      "selector": "#wpbody",
+      "status": "ok",
+      "match_count": 1,
+      "value": true,
+      "assertion": null,
+      "screenshot_path": null,
+      "errors": []
+    }
+  ],
+  "artifacts": {
+    "output_dir": "temp/playwright/checks/<run-id>",
+    "result_json": "temp/playwright/checks/<run-id>/result.json",
+    "extract_file": null,
+    "failure_screenshot": null
+  },
+  "errors": []
 }
 ```
 
-**text mode (text):**
+**Multi-selector assertion failure (JSON):**
 ```
-Plugins
-
-(extracted text from .wp-heading-inline)
-```
-
-**html mode (JSON):**
-```json
 {
-  "status": "ok",
-  "selector": "#the-list",
-  "html": "<tr><td>...</td></tr>",
-  "message": "HTML extracted"
+  "status": "assertion_failed",
+  "selector": null,
+  "selectors": ["#wpadminbar", ".wrap h1"],
+  "extract": "exists",
+  "wait_for": ".ajax-ready",
+  "assertion": {
+    "type": "visible",
+    "value": null,
+    "attribute": null
+  },
+  "auth_used": true,
+  "value": false,
+  "results": [
+    {
+      "selector": "#wpadminbar",
+      "status": "ok",
+      "match_count": 1,
+      "value": true,
+      "assertion": {
+        "type": "visible",
+        "passed": true,
+        "expected": true,
+        "actual": true,
+        "message": null
+      },
+      "screenshot_path": null,
+      "errors": []
+    },
+    {
+      "selector": ".wrap h1",
+      "status": "assertion_failed",
+      "match_count": 1,
+      "value": true,
+      "assertion": {
+        "type": "visible",
+        "passed": false,
+        "expected": true,
+        "actual": false,
+        "message": "Assertion failed for .wrap h1: expected element to be visible."
+      },
+      "screenshot_path": "temp/playwright/checks/<run-id>/selector-02-wrap-h1-failure.png",
+      "errors": ["Assertion failed for .wrap h1: expected element to be visible."]
+    }
+  ],
+  "artifacts": {
+    "output_dir": "temp/playwright/checks/<run-id>",
+    "result_json": "temp/playwright/checks/<run-id>/result.json",
+    "extract_file": null,
+    "failure_screenshot": null
+  },
+  "errors": ["Assertion failed for .wrap h1: expected element to be visible."]
 }
 ```
 
-**Failure (text):**
+**Text output:**
 ```
-✗ Element not found: #wpbody
-  Timeout: 15000ms
-  URL: http://my-site.local/wp-admin/
+[pw-auth] DOM check status: ok
+[pw-auth] URL: http://my-site.local/wp-admin/
+[pw-auth] Selectors: #wpbody
+[pw-auth] Extract: exists
+[pw-auth] Auth used: yes
+[pw-auth] Result JSON: temp/playwright/checks/<run-id>/result.json
+[pw-auth] Results:
+[pw-auth]   - ok: #wpbody (matches: 1)
+[pw-auth]     value: true
 ```
 
 ---
@@ -491,11 +607,12 @@ Structured output for scripting and CI/CD:
 | Code | Meaning |
 |------|---------|
 | `0` | Success |
-| `1` | General error (auth failed, file not found, etc.) |
-| `2` | Configuration error (missing option, invalid path) |
-| `3` | Prerequisite not met (Playwright not installed, WP-CLI not found) |
-| `4` | Permission denied |
-| `5` | Timeout |
+| `1` | `pw-auth login` general failure |
+| `2` | Configuration error (missing option, invalid path, invalid assertion config) |
+| `3` | `pw-auth check dom` selector failure (`not_found`) |
+| `4` | `pw-auth check dom` authentication required (`auth_required`) |
+| `5` | Runtime or prerequisite failure |
+| `6` | `pw-auth check dom` assertion failure (`assertion_failed`) |
 | `127` | Command not found |
 
 ---

@@ -227,7 +227,7 @@ Auth state is stored in the **current working directory** at `./temp/playwright/
 ```bash
 pw-auth doctor --site-url http://my-site.local --wp-cli "local-wp my-site"
 pw-auth login --site-url http://my-site.local --wp-cli "local-wp my-site"
-pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpadminbar" --extract html --user admin --format json
+pw-auth check dom --url http://my-site.local/wp-admin/ --selectors "#wpadminbar, .wrap h1" --assert visible --screenshot on-failure --user admin --format json
 pw-auth status
 ```
 
@@ -236,7 +236,7 @@ pw-auth status
 - Auth state is cached for 12 hours (configurable with `--max-age`) and **live-validated before reuse** — stale sessions trigger automatic re-auth
 - Local HTTPS origins (`localhost`, `127.0.0.1`, `::1`, `*.local`, `*.test`) tolerate self-signed certificates
 - `pw-auth doctor` is the readiness check; `pw-auth status` is cache metadata only (not a login verifier)
-- `pw-auth check dom` writes structured artifacts under `temp/playwright/checks/<run-id>/` and returns `ok`, `not_found`, `auth_required`, or `error`
+- `pw-auth check dom` accepts single or multiple selectors, supports built-in assertions and screenshots, writes structured artifacts under `temp/playwright/checks/<run-id>/`, and returns `ok`, `not_found`, `assertion_failed`, `auth_required`, or `error`
 - One-time login URLs are deleted after use and expire after 5 minutes if unused
 - The MCP layer exposes `pw_auth_login`, `pw_auth_status`, and `pw_auth_clear` but never raw auth-state JSON
 

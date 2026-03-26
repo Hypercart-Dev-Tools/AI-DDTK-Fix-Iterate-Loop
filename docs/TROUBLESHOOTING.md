@@ -1474,9 +1474,11 @@ NODE_OPTIONS="--max-old-space-size=2048" wpcc --paths /path/to/large-plugin
 | `0` | All | Success |
 | `1` | `pw-auth login` | Login failed (check `--format json` for details) |
 | `1` | `pw-auth doctor` | One or more readiness checks failed |
-| `1` | `pw-auth check dom` | Element not found (`not_found` status) |
-| `2` | `pw-auth check dom` | Authentication required (`auth_required` status) |
-| `3` | `pw-auth check dom` | General error (`error` status) |
+| `2` | `pw-auth check dom` | Invalid command configuration |
+| `3` | `pw-auth check dom` | Element not found (`not_found` status) |
+| `4` | `pw-auth check dom` | Authentication required (`auth_required` status) |
+| `5` | `pw-auth check dom` | General error (`error` status) |
+| `6` | `pw-auth check dom` | Assertion failure (`assertion_failed` status) |
 | `1` | `wpcc` | Scan completed with findings |
 | `2` | `wpcc` | Scan error (configuration or file access issue) |
 | `1` | `local-wp` | WP-CLI command failed |

@@ -33,10 +33,10 @@ Real-world feedback from production WordPress development identified **10 critic
 - [x] **Phase 2.5**: README Consolidation & AGENTS.md Expansion (NEW)
 - [x] **Phase 3**: WordPress Testing Quick Start (5-min setup)
 - [x] **Phase 4**: CI/CD Integration Examples (GitHub Actions, GitLab CI) ✅ COMPLETE
-- [ ] **Phase 5**: Playwright Test Runner Integration (@playwright/test)
+- [x] **Phase 5**: Expand `pw-auth check dom` capabilities (multi-selector, assertions, screenshots) ✅ COMPLETE
 - [ ] **Phase 6**: Feature Enhancements (env vars, multi-auth, logging)
 
-**Overall Progress**: 5/7 phases complete (71.4%)
+**Overall Progress**: 6/7 phases complete (85.7%)
 
 ---
 
@@ -222,18 +222,24 @@ Provide production-ready CI/CD workflows:
 
 ---
 
-### Phase 5: Playwright Test Runner Integration
-**Risk: MEDIUM | Effort: MEDIUM | Duration: 3-4 days**
+### Phase 5: Expand `pw-auth check dom` Capabilities
+**Risk: LOW | Effort: MEDIUM | Duration: 2-3 days**
 
-Provide @playwright/test framework examples:
-- Test fixtures with reusable auth state
-- Parallel execution with different clones
-- Best practices for WordPress testing
-- Integration with CI/CD
+Make `check dom` powerful enough that agents don't need a separate test runner for verification steps:
+- Multi-selector checks in a single call (check 3 elements, get one result)
+- Built-in assertions (element visible, text contains, attribute equals)
+- Screenshot capture on failure (artifact under `temp/playwright/checks/`)
+- Wait-for-condition support (element appears within timeout, useful for AJAX-rendered content)
+
+**Benefits**:
+- Agents can verify complex page state without writing throwaway test files
+- Fix-iterate loops get richer pass/fail signals (not just "selector found or not")
+- Screenshots give humans visual proof when reviewing agent work
+- Stays within AI-DDTK's scope (tool for agents, not a test framework)
 
 **Deliverables**:
-- `examples/playwright-test-runner/` (complete example project)
-- `docs/PLAYWRIGHT-TEST-RUNNER.md`
+- Updated `pw-auth check dom` with multi-selector, assertions, and screenshot support
+- Updated `docs/PW-AUTH-COMMANDS.md` with new options and examples
 
 ---
 
@@ -371,26 +377,25 @@ RISK
 
 ---
 
-### Phase 5: Playwright Test Runner Integration
+### Phase 5: Expand `pw-auth check dom` Capabilities
 
-**Example Project Structure**:
-```
-examples/playwright-test-runner/
-├── playwright.config.ts
-├── tests/
-│   ├── fixtures/auth.ts (reusable auth fixture)
-│   ├── admin.spec.ts
-│   ├── frontend.spec.ts
-│   └── api.spec.ts
-├── package.json
-└── README.md
+**New `check dom` options**:
+- `--selectors "#el1, .el2, [data-id]"` — check multiple selectors, report each
+- `--assert visible|hidden|text-contains|attr-equals` — built-in assertions
+- `--screenshot on-failure|always|never` — capture page state as PNG
+- `--wait-for <selector>` + `--timeout <ms>` — wait for AJAX-rendered content
+
+**Example**:
+```bash
+pw-auth check dom \
+  --url http://site.local/wp-admin/ \
+  --selectors "#wpadminbar, .wrap h1" \
+  --assert visible \
+  --screenshot on-failure \
+  --user admin --format json
 ```
 
-**Key Features**:
-- Shared auth fixture
-- Parallel execution
-- Multiple clone support
-- WordPress-specific helpers
+**Output contract**: returns array of check results, each with `selector`, `status` (`ok|not_found|assertion_failed`), and optional `screenshot_path`
 
 ---
 

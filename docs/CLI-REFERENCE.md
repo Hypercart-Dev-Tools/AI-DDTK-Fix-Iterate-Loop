@@ -108,19 +108,26 @@ pw-auth doctor --site-url http://my-site.local --wp-cli "local-wp my-site"
 ---
 
 #### `pw-auth check dom`
-Inspect a page element using optional cached authentication.
+Inspect one or more page elements using optional cached authentication.
 
 ```bash
-pw-auth check dom --url <url> --selector <css> --extract <mode> [options]
+pw-auth check dom --url <url> (--selector <css> | --selectors <list>) [options]
 ```
 
 **Options:**
 - `--url <url>` — Page URL to inspect (required)
-- `--selector <css>` — CSS selector to find (required)
-- `--extract <mode>` — One of: `exists`, `text`, `html` (required)
+- `--selector <css>` — Single CSS selector to find
+- `--selectors <list>` — Comma-separated selector list for a single run
+- `--extract <mode>` — One of: `exists`, `text`, `html` (default: `exists`)
+- `--assert <mode>` — One of: `visible`, `hidden`, `text-contains`, `attr-equals`
+- `--assert-value <value>` — Expected text or attribute value for assertion modes that require one
+- `--assert-attr <name>` — Attribute name for `--assert attr-equals`
+- `--screenshot <mode>` — One of: `never`, `on-failure`, `always`
+- `--wait-for <css>` — Wait for a selector before evaluating checks
 - `--user <login>` — Resolve auth from `./temp/playwright/.auth/<user>.json`
 - `--auth-state <path>` — Explicit Playwright storageState file
 - `--auth-origin <origin>` — Cookie origin for auth reuse (default: inferred from `--url`)
+- `--timeout <ms>` — Alias for `--timeout-ms`
 - `--timeout-ms <ms>` — Navigation/selector timeout (default: `15000`)
 - `--format <text|json>` — Output format (default: `text`)
 - `--output-dir <dir>` — Directory for artifacts (default: `temp/playwright/checks/<run-id>/`)
@@ -137,13 +144,17 @@ pw-auth check dom --url http://my-site.local/wp-admin/ --selector ".wp-heading-i
 pw-auth check dom --url http://my-site.local/wp-admin/plugins.php --selector "#the-list" --extract html --user admin --format json
 
 # With custom timeout
-pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract exists --timeout-ms 30000
+pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract exists --timeout 30000
+
+# Multi-selector verification with assertions and screenshots
+pw-auth check dom --url http://my-site.local/wp-admin/ --selectors "#wpadminbar, .wrap h1" --assert visible --screenshot on-failure --user admin --format json
 ```
 
 **Output:**
-- **exists:** `ok`, `not_found`, `auth_required`, or `error`
-- **text/html:** Extracted content or error message
-- **JSON:** Structured result with metadata
+- Aggregate `status` is `ok`, `not_found`, `assertion_failed`, `auth_required`, or `error`
+- JSON output includes a top-level `results` array with one entry per selector
+- On multi-selector text/html runs, extracted values are written to `extracts.json`
+- Screenshots are written under the selected output directory when `--screenshot` is enabled
 
 ---
 

@@ -462,6 +462,99 @@ EOF
     return 0
 }
 
+test_pw_auth_filters_noisy_wp_cli_stderr_on_login_failure() {
+    local test_root=""
+    local fake_bin=""
+    local tmp_dir=""
+    local fake_wp=""
+    local fake_node=""
+    local log_file=""
+    local status=""
+
+    test_root="$(make_temp_dir)" || return 1
+    fake_bin="$test_root/bin"
+    tmp_dir="$test_root/tmp"
+    fake_wp="$fake_bin/fake-wp"
+    fake_node="$fake_bin/node"
+    log_file="$test_root/pw-auth-noisy-wpcli.log"
+
+    mkdir -p "$fake_bin" "$tmp_dir"
+
+    cat > "$fake_wp" <<'EOF'
+#!/usr/bin/env bash
+printf '%s\n' 'Deprecated: noisy deprecation from plugin' >&2
+printf '%s\n' 'Notice: noisy notice from plugin' >&2
+printf '%s\n' "Error: 'dev' is not a registered wp command." >&2
+exit 1
+EOF
+
+    cat > "$fake_node" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-e" ]; then
+    exit 0
+fi
+
+script_path="$1"
+script_contents="$(cat "$script_path")"
+
+case "$script_contents" in
+    *"tokens.push(current);"*)
+        printf '%s\n' 'fake-wp'
+        exit 0
+        ;;
+esac
+
+echo "unexpected fake node invocation: $*" >&2
+exit 97
+EOF
+    chmod +x "$fake_wp" "$fake_node"
+
+    (
+        cd "$test_root" || exit 1
+        TMPDIR="$tmp_dir" PATH="$fake_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            bash "$TOOLKIT_DIR/bin/pw-auth" login --site-url "https://example.local" --wp-cli fake-wp
+    ) > "$log_file" 2>&1
+    status=$?
+
+    if [ "$status" -ne 1 ]; then
+        echo "Expected pw-auth login to return 1 after fake wp-cli failure, got $status"
+        cat "$log_file"
+        cleanup_test_root "$test_root"
+        return 1
+    fi
+
+    if grep -Fq 'Deprecated: noisy deprecation from plugin' "$log_file"; then
+        echo "Expected deprecated stderr noise to be suppressed"
+        cat "$log_file"
+        cleanup_test_root "$test_root"
+        return 1
+    fi
+
+    if grep -Fq 'Notice: noisy notice from plugin' "$log_file"; then
+        echo "Expected notice stderr noise to be suppressed"
+        cat "$log_file"
+        cleanup_test_root "$test_root"
+        return 1
+    fi
+
+    grep -Fq "Error: 'dev' is not a registered wp command." "$log_file" || {
+        echo "Expected actionable wp-cli error to remain in output"
+        cat "$log_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq 'Suppressed 2 noisy PHP notice/deprecation line(s).' "$log_file" || {
+        echo "Expected noisy stderr suppression summary in output"
+        cat "$log_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    cleanup_test_root "$test_root"
+    return 0
+}
+
 test_pw_auth_doctor_reports_partial_json_with_fake_runtime() {
     local test_root=""
     local fake_bin=""
@@ -491,33 +584,39 @@ if [ "${1:-}" = "-e" ]; then
     exit 0
 fi
 
-if [ "${1:-}" != "-" ]; then
+    if [ "${1:-}" = "-" ]; then
+        script="$(cat)"
+
+        case "$script" in
+            *"executablePath="*)
+                printf '%s\n' 'executablePath=/tmp/fake-chromium'
+                printf '%s\n' 'binaryExists=true'
+                printf '%s\n' 'launchOk=true'
+                printf '%s\n' 'launchMessage=Chromium launched successfully.'
+                exit 0
+                ;;
+        esac
+
+        echo 'unexpected fake node stdin payload' >&2
+        exit 98
+    fi
+
+    script_path="$1"
+    script_contents="$(cat "$script_path")"
+
+    case "$script_contents" in
+        *"console.log(new URL("*)
+            printf '%s\n' 'http://example.local'
+            exit 0
+            ;;
+        *"tokens.push(current);"*)
+            printf '%s\n' 'fake-wp'
+            exit 0
+            ;;
+    esac
+
     echo "unexpected fake node invocation: $*" >&2
     exit 97
-fi
-
-script="$(cat)"
-
-case "$script" in
-    *"new URL(process.argv[2]).origin"*)
-        printf '%s\n' 'http://example.local'
-        exit 0
-        ;;
-    *"const tokens = []"*)
-        printf '%s\n' 'fake-wp'
-        exit 0
-        ;;
-    *"executablePath="*)
-        printf '%s\n' 'executablePath=/tmp/fake-chromium'
-        printf '%s\n' 'binaryExists=true'
-        printf '%s\n' 'launchOk=true'
-        printf '%s\n' 'launchMessage=Chromium launched successfully.'
-        exit 0
-        ;;
-esac
-
-echo 'unexpected fake node stdin payload' >&2
-exit 98
 EOF
     chmod +x "$fake_wp" "$fake_node"
 
@@ -605,12 +704,6 @@ fi
 
 if [ "${1:-}" = "-" ]; then
     script="$(cat)"
-    case "$script" in
-        *"new URL(process.argv[2]).origin"*)
-            printf '%s\n' 'http://example.local'
-            exit 0
-            ;;
-    esac
     echo 'unexpected fake node stdin payload' >&2
     exit 98
 fi
@@ -619,6 +712,10 @@ script_path="$1"
 script_contents="$(cat "$script_path")"
 
 case "$script_contents" in
+    *"console.log(new URL("*)
+        printf '%s\n' 'http://example.local'
+        exit 0
+        ;;
     *"pw-auth: Playwright DOM inspection"*)
         check_url="$2"
         selector="$3"
@@ -730,12 +827,6 @@ fi
 
 if [ "${1:-}" = "-" ]; then
     script="$(cat)"
-    case "$script" in
-        *"new URL(process.argv[2]).origin"*)
-            printf '%s\n' 'http://example.local'
-            exit 0
-            ;;
-    esac
     echo 'unexpected fake node stdin payload' >&2
     exit 98
 fi
@@ -744,6 +835,10 @@ script_path="$1"
 script_contents="$(cat "$script_path")"
 
 case "$script_contents" in
+    *"console.log(new URL("*)
+        printf '%s\n' 'http://example.local'
+        exit 0
+        ;;
     *"pw-auth: Playwright DOM inspection"*)
         result_json="$7"
         mkdir -p "$(dirname "$result_json")"
@@ -809,6 +904,179 @@ EOF
     return 0
 }
 
+test_pw_auth_check_dom_supports_multi_selector_assertions_and_screenshots_with_fake_runtime() {
+    local test_root=""
+    local fake_bin=""
+    local tmp_dir=""
+    local fake_node=""
+    local output_dir=""
+    local output_file=""
+    local status=""
+
+    test_root="$(make_temp_dir)" || return 1
+    fake_bin="$test_root/bin"
+    tmp_dir="$test_root/tmp"
+    output_dir="$test_root/custom-output"
+    fake_node="$fake_bin/node"
+    output_file="$test_root/pw-auth-check-multi.json"
+
+    mkdir -p "$fake_bin" "$tmp_dir" "$output_dir"
+
+    cat > "$fake_node" <<'EOF'
+#!/usr/bin/env bash
+if [ "${1:-}" = "-e" ]; then
+    exit 0
+fi
+
+if [ "${1:-}" = "-" ]; then
+    script="$(cat)"
+    echo 'unexpected fake node stdin payload' >&2
+    exit 98
+fi
+
+script_path="$1"
+script_contents="$(cat "$script_path")"
+
+case "$script_contents" in
+    *"console.log(new URL("*)
+        printf '%s\n' 'http://example.local'
+        exit 0
+        ;;
+    *"pw-auth: Playwright DOM inspection"*)
+        result_json="$7"
+        output_format="${10}"
+        selectors="${11}"
+        wait_for_selector="${12}"
+        assert_mode="${13}"
+        assert_value="${14}"
+        assert_attr="${15}"
+        screenshot_mode="${16}"
+        mkdir -p "$(dirname "$result_json")"
+        cat > "$result_json" <<JSON
+{
+  "status": "assertion_failed",
+  "url": "$2",
+  "selector": null,
+  "selectors": ["#wpadminbar", ".wrap h1"],
+  "extract": "exists",
+  "wait_for": "$wait_for_selector",
+  "assertion": {
+    "type": "$assert_mode",
+    "value": "$assert_value",
+    "attribute": null
+  },
+  "auth_used": false,
+  "value": false,
+  "results": [
+    {
+      "selector": "#wpadminbar",
+      "status": "ok",
+      "match_count": 1,
+      "value": true,
+      "assertion": {"type": "visible", "passed": true, "expected": true, "actual": true, "message": null},
+      "screenshot_path": null,
+      "errors": []
+    },
+    {
+      "selector": ".wrap h1",
+      "status": "assertion_failed",
+      "match_count": 1,
+      "value": true,
+      "assertion": {"type": "visible", "passed": false, "expected": true, "actual": false, "message": "Assertion failed for .wrap h1: expected element to be visible."},
+      "screenshot_path": "custom-output/selector-02-wrap-h1-failure.png",
+      "errors": ["Assertion failed for .wrap h1: expected element to be visible."]
+    }
+  ],
+  "artifacts": {
+    "output_dir": "custom-output",
+    "result_json": "custom-output/result.json",
+    "extract_file": null,
+    "failure_screenshot": null
+  },
+  "errors": ["Assertion failed for .wrap h1: expected element to be visible."]
+}
+JSON
+        if [ "$output_format" = "json" ]; then
+            cat "$result_json"
+        else
+            printf '%s\n' '[pw-auth] DOM check status: assertion_failed'
+        fi
+        [ -n "$selectors" ] || exit 94
+        [ "$wait_for_selector" = '.ajax-ready' ] || exit 93
+        [ "$assert_mode" = 'visible' ] || exit 92
+        [ -z "$assert_value" ] || exit 91
+        [ -z "$assert_attr" ] || exit 90
+        [ "$screenshot_mode" = 'on-failure' ] || exit 89
+        exit 6
+        ;;
+esac
+
+echo "unexpected fake node invocation: $*" >&2
+exit 97
+EOF
+    chmod +x "$fake_node"
+
+    (
+        cd "$test_root" || exit 1
+        TMPDIR="$tmp_dir" PATH="$fake_bin:/usr/bin:/bin:/usr/sbin:/sbin" \
+            bash "$TOOLKIT_DIR/bin/pw-auth" check dom \
+                --url "http://example.local/wp-admin/" \
+                --selectors "#wpadminbar, .wrap h1" \
+                --assert visible \
+                --screenshot on-failure \
+                --wait-for ".ajax-ready" \
+                --timeout 25000 \
+                --format json \
+                --output-dir custom-output
+    ) > "$output_file" 2>&1
+    status=$?
+
+    if [ "$status" -ne 6 ]; then
+        echo "Expected pw-auth check dom to return 6 for assertion failure, got $status"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    fi
+
+    grep -Fq '"status": "assertion_failed"' "$output_file" || {
+        echo "Expected assertion_failed status in pw-auth check dom output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '"selectors": [' "$output_file" || {
+        echo "Expected selectors key in pw-auth check dom output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '"#wpadminbar"' "$output_file" || {
+        echo "Expected first selector in pw-auth check dom output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq '".wrap h1"' "$output_file" || {
+        echo "Expected second selector in pw-auth check dom output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    grep -Fq 'custom-output/selector-02-wrap-h1-failure.png' "$output_file" || {
+        echo "Expected failure screenshot path in pw-auth check dom output"
+        cat "$output_file"
+        cleanup_test_root "$test_root"
+        return 1
+    }
+
+    cleanup_test_root "$test_root"
+    return 0
+}
+
 echo ""
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════╗${NC}"
 echo -e "${BLUE}║   AI-DDTK Wrapper Cleanup Regression Test Suite      ║${NC}"
@@ -819,9 +1087,11 @@ run_test "dev-login validates incoming request hosts" test_dev_login_request_hos
 run_test "local-wp exact-matches site config and cleans unique temp ini" test_local_wp_exact_match_lookup_and_cleanup
 run_test "local-wp supports modern Local run layout and prefers the active socket" test_local_wp_modern_layout_prefers_active_socket
 run_test "pw-auth cleans temp files after validate/login failure paths" test_pw_auth_cleans_temp_files_after_validate_and_login_failures
+run_test "pw-auth filters noisy wp-cli stderr on login failure" test_pw_auth_filters_noisy_wp_cli_stderr_on_login_failure
 run_test "pw-auth doctor reports partial JSON with fake runtime" test_pw_auth_doctor_reports_partial_json_with_fake_runtime
 run_test "pw-auth check dom writes JSON + extract artifacts with fake runtime" test_pw_auth_check_dom_writes_json_and_extract_artifacts_with_fake_runtime
 run_test "pw-auth check dom returns selector failure exit code with fake runtime" test_pw_auth_check_dom_returns_selector_failure_exit_code_with_fake_runtime
+run_test "pw-auth check dom supports multi-selector assertions with fake runtime" test_pw_auth_check_dom_supports_multi_selector_assertions_and_screenshots_with_fake_runtime
 
 echo ""
 echo "============================================================"

@@ -13,6 +13,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.3.1] - 2026-03-25
+
+### Added
+- **`pw-auth check dom` assertion workflow** — added multi-selector checks via `--selectors`, built-in assertions (`visible`, `hidden`, `text-contains`, `attr-equals`), optional `--wait-for` gating for AJAX-rendered content, and screenshot capture policies (`never`, `on-failure`, `always`) so agents can verify richer page state without writing throwaway Playwright scripts.
+
+### Changed
+- **`pw-auth check dom` result contract** — JSON output now includes a per-selector `results` array, aggregate `assertion_failed` status, selector-level screenshot paths, and multi-selector extract aggregation, while preserving the existing top-level result artifact flow under `temp/playwright/checks/<run-id>/`.
+- **`pw-auth login` noisy-WP-CLI hardening** — login failure reporting now suppresses PHP `Deprecated` / `Notice` stderr noise and keeps actionable WP-CLI errors visible, while login URL extraction is more defensive when stdout contains extra lines.
+- **Documentation and project tracking** — updated `docs/PW-AUTH-COMMANDS.md`, `docs/CLI-REFERENCE.md`, `README.md`, `AGENTS.md`, `docs/TROUBLESHOOTING.md`, and `PROJECT/2-WORKING/P1-SCD-FEEDBACK.md` to document the new `pw-auth check dom` capabilities, exit semantics, and Phase 5 completion status.
+- **Real-environment validation** — verified the new multi-selector `visible` flow and a second `--wait-for` + `text-contains` assertion flow against a live LocalWP admin surface using cached auth, confirming the expanded `check dom` contract works outside the fake-runtime harness.
+
 ## [1.3.0] - 2026-03-25
 
 ### Changed

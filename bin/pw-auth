@@ -16,6 +16,7 @@
 #   pw-auth login --site-url http://my-site.local --redirect /wp-admin/site-editor.php
 #   pw-auth doctor --site-url http://my-site.local
 #   pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody" --extract text
+#   pw-auth check dom --url http://my-site.local/wp-admin/ --selectors "#wpadminbar, .wrap h1" --assert visible
 #   pw-auth status
 #   pw-auth clear
 #
@@ -67,11 +68,18 @@ Options (doctor):
 
 Options (check dom):
   --url <url>            Page URL to open (required)
-  --selector <css>       CSS selector to inspect (required)
-  --extract <mode>       One of: exists, text, html (required)
+    --selector <css>       CSS selector to inspect
+    --selectors <list>     Comma-separated selectors to inspect in one run
+    --extract <mode>       One of: exists, text, html (default: exists)
+    --assert <mode>        One of: visible, hidden, text-contains, attr-equals
+    --assert-value <val>   Expected text/attribute value for assertion modes that need one
+    --assert-attr <name>   Attribute name for --assert attr-equals
+    --screenshot <mode>    One of: never, on-failure, always (default: never)
+    --wait-for <css>       Wait for a selector before checking results (useful for AJAX content)
   --user <login>         Resolve default auth state from ./temp/playwright/.auth/<user>.json
   --auth-state <path>    Explicit Playwright storageState file to use if present
   --auth-origin <origin> Cookie origin to inspect for auth reuse (default: inferred from --url)
+    --timeout <ms>         Alias for --timeout-ms
   --timeout-ms <ms>      Navigation/selector timeout in milliseconds (default: 15000)
   --format <text|json>   Output format (default: text)
   --output-dir <dir>     Directory for result artifacts (default: temp/playwright/checks/<run-id>/)
@@ -107,6 +115,9 @@ Examples:
 
   # Inspect a wp-admin surface using cached auth
   pw-auth check dom --url http://my-site.local/wp-admin/widgets.php --selector "#widgets-right" --extract html --user admin --format json
+
+    # Check multiple selectors with assertions and screenshots
+    pw-auth check dom --url http://my-site.local/wp-admin/ --selectors "#wpadminbar, .wrap h1" --assert visible --screenshot on-failure --user admin --format json
 EOF
 }
 
@@ -310,6 +321,59 @@ json_escape() {
     printf '%s' "$value"
 }
 
+is_wp_cli_noise_line() {
+    local line="${1:-}"
+
+    case "$line" in
+        ''|Deprecated:*|Notice:*|PHP\ Deprecated:*|PHP\ Notice:*)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+report_wp_cli_stderr() {
+    local stderr_path="$1"
+    local line=""
+    local noisy_count=0
+    local actionable_count=0
+
+    [ -s "$stderr_path" ] || return 0
+
+    while IFS= read -r line || [ -n "$line" ]; do
+        if is_wp_cli_noise_line "$line"; then
+            noisy_count=$((noisy_count + 1))
+            continue
+        fi
+
+        actionable_count=$((actionable_count + 1))
+        log_error "  $line"
+    done < "$stderr_path"
+
+    if [ "$actionable_count" -eq 0 ] && [ "$noisy_count" -gt 0 ]; then
+        log_error "  WP-CLI stderr only contained PHP notices/deprecations."
+    fi
+
+    if [ "$noisy_count" -gt 0 ]; then
+        log_error "  Suppressed $noisy_count noisy PHP notice/deprecation line(s)."
+    fi
+}
+
+extract_login_url_from_output() {
+    local raw_output="$1"
+    local extracted_url=""
+
+    extracted_url="$(printf '%s\n' "$raw_output" | sed -nE 's#.*(https?://[^[:space:]]+).*#\1#p' | tail -n 1)"
+    if [ -n "$extracted_url" ]; then
+        printf '%s\n' "$extracted_url"
+        return 0
+    fi
+
+    printf '%s\n' "$raw_output" | tail -n 1 | tr -d '[:space:]'
+}
+
 # Check if a file is older than N hours
 file_age_hours() {
     local file="$1"
@@ -357,10 +421,16 @@ run_playwright_dom_check() {
     local extract_file="$7"
     local timeout_ms="$8"
     local output_format="$9"
+    local selectors="${10}"
+    local wait_for_selector="${11}"
+    local assert_mode="${12}"
+    local assert_value="${13}"
+    local assert_attr="${14}"
+    local screenshot_mode="${15}"
     local exit_code
 
     set +e
-    node "${SCRIPT_DIR}/pw-auth-helpers/dom-check.js" "$check_url" "$selector" "$extract_mode" "$auth_file" "$auth_origin" "$result_json" "$extract_file" "$timeout_ms" "$output_format"
+    node "${SCRIPT_DIR}/pw-auth-helpers/dom-check.js" "$check_url" "$selector" "$extract_mode" "$auth_file" "$auth_origin" "$result_json" "$extract_file" "$timeout_ms" "$output_format" "$selectors" "$wait_for_selector" "$assert_mode" "$assert_value" "$assert_attr" "$screenshot_mode"
     exit_code=$?
     set -e
 
@@ -502,9 +572,7 @@ do_login() {
         log_error "WP-CLI command failed while generating the one-time login URL."
         if [ -s "$stderr_file" ]; then
             log_error "WP-CLI stderr:"
-            while IFS= read -r line; do
-                log_error "  $line"
-            done < "$stderr_file"
+            report_wp_cli_stderr "$stderr_file"
         fi
         log_error "  Template: ~/bin/ai-ddtk/templates/dev-login-cli.php"
         log_error "  Install:  cp ~/bin/ai-ddtk/templates/dev-login-cli.php <site>/wp-content/mu-plugins/"
@@ -520,7 +588,7 @@ do_login() {
     cleanup_temp_file "$stderr_file"
 
     # Trim any whitespace / extra lines — take only the last line (the URL)
-    login_url="$(echo "$login_url" | tail -n 1 | tr -d '[:space:]')"
+    login_url="$(extract_login_url_from_output "$login_url")"
 
     if [ -z "$login_url" ]; then
         log_error "No login URL returned from WP-CLI."
@@ -909,7 +977,13 @@ NODE
 do_check_dom() {
     local check_url=""
     local selector=""
-    local extract_mode=""
+    local selectors=""
+    local extract_mode="exists"
+    local assert_mode=""
+    local assert_value=""
+    local assert_attr=""
+    local screenshot_mode="never"
+    local wait_for_selector=""
     local wp_user="admin"
     local auth_state=""
     local auth_origin=""
@@ -925,10 +999,17 @@ do_check_dom() {
         case "$1" in
             --url)         check_url="$2"; shift 2 ;;
             --selector)    selector="$2"; shift 2 ;;
+            --selectors)   selectors="$2"; shift 2 ;;
             --extract)     extract_mode="$2"; shift 2 ;;
+            --assert)      assert_mode="$2"; shift 2 ;;
+            --assert-value) assert_value="$2"; shift 2 ;;
+            --assert-attr) assert_attr="$2"; shift 2 ;;
+            --screenshot)  screenshot_mode="$2"; shift 2 ;;
+            --wait-for)    wait_for_selector="$2"; shift 2 ;;
             --user)        wp_user="$2"; shift 2 ;;
             --auth-state)  auth_state="$2"; shift 2 ;;
             --auth-origin) auth_origin="$2"; shift 2 ;;
+            --timeout)     timeout_ms="$2"; shift 2 ;;
             --timeout-ms)  timeout_ms="$2"; shift 2 ;;
             --format)      output_format="$2"; shift 2 ;;
             --output-dir)  output_dir="$2"; shift 2 ;;
@@ -937,10 +1018,15 @@ do_check_dom() {
         esac
     done
 
-    if [ -z "$check_url" ] || [ -z "$selector" ] || [ -z "$extract_mode" ]; then
-        log_error "--url, --selector, and --extract are required"
+    if [ -z "$check_url" ] || { [ -z "$selector" ] && [ -z "$selectors" ]; }; then
+        log_error "--url and either --selector or --selectors are required"
         echo ""
         show_help
+        exit 2
+    fi
+
+    if [ -n "$selector" ] && [ -n "$selectors" ]; then
+        log_error "Pass either --selector or --selectors, not both"
         exit 2
     fi
 
@@ -950,6 +1036,39 @@ do_check_dom() {
         *)
             log_error "--extract must be one of: exists, text, html"
             exit 2
+            ;;
+    esac
+
+    case "$assert_mode" in
+        ''|visible|hidden|text-contains|attr-equals)
+            ;;
+        *)
+            log_error "--assert must be one of: visible, hidden, text-contains, attr-equals"
+            exit 2
+            ;;
+    esac
+
+    case "$screenshot_mode" in
+        never|on-failure|always)
+            ;;
+        *)
+            log_error "--screenshot must be one of: never, on-failure, always"
+            exit 2
+            ;;
+    esac
+
+    case "$assert_mode" in
+        text-contains)
+            if [ -z "$assert_value" ]; then
+                log_error "--assert text-contains requires --assert-value"
+                exit 2
+            fi
+            ;;
+        attr-equals)
+            if [ -z "$assert_attr" ] || [ -z "$assert_value" ]; then
+                log_error "--assert attr-equals requires both --assert-attr and --assert-value"
+                exit 2
+            fi
             ;;
     esac
 
@@ -1020,7 +1139,7 @@ do_check_dom() {
             ;;
     esac
 
-    run_playwright_dom_check "$check_url" "$selector" "$extract_mode" "$auth_file" "$auth_origin" "$result_json" "$extract_file" "$timeout_ms" "$output_format"
+    run_playwright_dom_check "$check_url" "$selector" "$extract_mode" "$auth_file" "$auth_origin" "$result_json" "$extract_file" "$timeout_ms" "$output_format" "$selectors" "$wait_for_selector" "$assert_mode" "$assert_value" "$assert_attr" "$screenshot_mode"
     exit $?
 }
 
