@@ -13,6 +13,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.4.0] - 2026-03-26
+
+### Added
+- **`experimental/vscode-extension`** — new VS Code extension providing a status bar indicator and command palette integration for AI-DDTK; includes 5 commands (`Wire Project for MCP`, `Run Preflight Check`, `Scan with WPCC`, `Open Docs`, `Check Status`), TypeScript source (`extension.ts`, `manager.ts`, `statusBar.ts`, `commands.ts`), esbuild bundle pipeline, ESLint config, and `.vscode/launch.json` + `.vscode/tasks.json` for one-click F5 debugging by contributors.
+- **`experimental/wire-project`** — CLI script that automates per-project MCP configuration by generating `.mcp.local.json`, updating `.gitignore`, and creating a `CLAUDE.md` agent reference in any WordPress project directory.
+- **`experimental/README.md`** — documents the purpose, usage, and future roadmap for all experimental features.
+
+### Changed
+- **`experimental/P1-ONBOARDING.md`** — moved from `PROJECT/2-WORKING/` into `experimental/` alongside the tools it describes.
+- **`PROJECT/3-DONE/P1-AUDIT-MATT.md`** — moved from `PROJECT/2-WORKING/` to mark the audit as complete.
+- **`README-AI-DDTK.md`** — minor update.
+
 ## [1.3.1] - 2026-03-25
 
 ### Added
