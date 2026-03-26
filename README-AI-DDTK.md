@@ -67,8 +67,12 @@ cd ~/bin/ai-ddtk
 ./install.sh
 source ~/.zshrc  # or ~/.bashrc
 
+# If MCP was skipped because Node.js was missing or too old
+# ./install.sh setup-mcp
+
 # Verify
 wpcc --help
+local-wp --help
 ./install.sh status
 ```
 
@@ -76,34 +80,44 @@ wpcc --help
 
 AI-DDTK is installed once but used from your WordPress project workspaces. To connect a project:
 
-**Copy the setup file into your project root:**
+**Option A: Agent-assisted setup (recommended)**
+
+Copy this file into your project root and let the agent handle the rest:
 
 ```bash
-cp ~/bin/ai-ddtk/templates/ai-ddtk-setup.md /path/to/your-project/
+cp ~/bin/ai-ddtk/README-AI-DDTK.md /path/to/your-project/
 ```
 
-**Then tell your AI agent:**
+Then tell your AI agent:
 
-> I've added ai-ddtk-setup.md to this project. Please follow the setup instructions in it.
+> Read README-AI-DDTK.md and run the project setup at the bottom.
 
-The agent will:
-1. Verify AI-DDTK is installed locally
-2. Create `.mcp.local.json` (so your editor auto-discovers the MCP tools)
-3. Add `.mcp.local.json` to `.gitignore` (local paths stay local)
-4. Add a reference line to `CLAUDE.md` (Claude Code users)
-5. Let you know setup is done — you can delete the setup file after
+The agent will create `.mcp.local.json`, update `.gitignore`, and optionally add a `CLAUDE.md` reference. See [First-Time Project Setup](#first-time-project-setup) below for what it does.
 
-**That's it.** Your AI agent now has access to all 21 MCP tools — WPCC scanning, Playwright auth, Query Monitor profiling, and more — directly from your project workspace.
+**Option B: Manual one-liner**
 
-**Manual setup alternative:** If you prefer not to use the agent-assisted setup, see [AGENTS.md § Wiring into Your Editor](AGENTS.md#wiring-into-your-editor) for manual `.mcp.json` configuration.
+```bash
+cp ~/bin/ai-ddtk/templates/.mcp.json /path/to/your-project/.mcp.local.json
+# Edit the file to replace /Users/CHANGEME with your actual home directory
+# Add .mcp.local.json to your .gitignore
+```
+
+> **Note:** We use `.mcp.local.json` rather than `.mcp.json` so local paths don't get committed to git. If your project already has a checked-in `.mcp.json`, use `mcp-local-config merge` to combine them — see [CLI Reference](docs/CLI-REFERENCE.md).
 
 ### Step 3: Verify (optional)
 
-Run the preflight check from any directory to confirm everything is ready:
+Run the preflight check to confirm everything is ready:
 
 ```bash
 ~/bin/ai-ddtk/preflight.sh
 ```
+
+Or use the VS Code task palette:
+- Press `Cmd+Shift+P` (macOS) or `Ctrl+Shift+P` (Linux/Windows)
+- Search for **"AI-DDTK: Preflight Check"**
+- Press Enter
+
+The preflight verifies AI-DDTK installation, shell tools, WPCC availability, MCP server configuration, and WordPress site context.
 
 ---
 
@@ -261,3 +275,54 @@ For runtime observability alongside WPCC's static analysis:
 Apache License 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE) for details.
 
 The [Fix-Iterate Loop](fix-iterate-loop.md) methodology is licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+---
+
+## First-Time Project Setup
+
+This section is for projects that have copied this file to connect to AI-DDTK. If you're reading this in the AI-DDTK repo itself, you can skip it.
+
+AI-DDTK is installed at `~/bin/ai-ddtk`. The MCP server provides 21 typed tools (WPCC scanning, Playwright auth, Query Monitor profiling, AJAX testing, LocalWP, tmux). For this project to use them, the following need to be in place.
+
+### 1. Verify AI-DDTK is installed and built
+
+The file `~/bin/ai-ddtk/tools/mcp-server/dist/src/index.js` should exist. If not:
+
+```bash
+cd ~/bin/ai-ddtk && ./install.sh setup-mcp
+```
+
+### 2. Create MCP config for this project
+
+Create `.mcp.local.json` in this project's root directory (if it does not already exist):
+
+```json
+{
+  "mcpServers": {
+    "ai-ddtk": {
+      "command": "bash",
+      "args": ["HOME_DIR/bin/ai-ddtk/tools/mcp-server/start.sh"]
+    }
+  }
+}
+```
+
+Replace `HOME_DIR` with the actual absolute home directory path (e.g., `/Users/yourname`). Run `echo $HOME` to get it.
+
+### 3. Add to .gitignore
+
+Add `.mcp.local.json` to this project's `.gitignore` — local paths should not be committed.
+
+### 4. Add CLAUDE.md reference (Claude Code users)
+
+If this project has a `CLAUDE.md`, add this line near the top:
+
+```
+AI-DDTK is installed at ~/bin/ai-ddtk — see ~/bin/ai-ddtk/AGENTS.md for available tools and workflows.
+```
+
+If there is no `CLAUDE.md`, create one with just that line.
+
+### 5. Done
+
+Restart the editor/agent session so it discovers the new MCP config. Run `~/bin/ai-ddtk/preflight.sh` to verify. This file (`README-AI-DDTK.md`) can remain in the project as reference or be deleted — the `.mcp.local.json` and `CLAUDE.md` entry handle tool discovery from here.
