@@ -30,9 +30,7 @@ export class StatusBarManager implements vscode.Disposable {
     if (status.wordPressProject) {
       if (status.mcpConfigured) {
         this.statusBarItem.text = '$(check) AI-DDTK Ready';
-        this.statusBarItem.backgroundColor = new vscode.ThemeColor(
-          'statusBarItem.warningBackground'
-        );
+        this.statusBarItem.backgroundColor = undefined;
         this.statusBarItem.tooltip = 'AI-DDTK is configured for this project';
       } else {
         this.statusBarItem.text = '$(warning) AI-DDTK Setup';

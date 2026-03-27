@@ -74,8 +74,10 @@ export class AiDdtkManager {
     }
 
     const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    const mcpLocalPath = path.join(workspaceRoot, '.mcp.local.json');
-    return fs.existsSync(mcpLocalPath);
+    return (
+      fs.existsSync(path.join(workspaceRoot, '.mcp.local.json')) ||
+      fs.existsSync(path.join(workspaceRoot, '.mcp.json'))
+    );
   }
 
   async isWordPressProject(): Promise<boolean> {
@@ -84,18 +86,47 @@ export class AiDdtkManager {
     }
 
     const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
-    const indicators = [
+
+    // Check for full WordPress installs
+    const wpIndicators = [
       'wp-config.php',
       'wp-content/plugins',
       'wp-content/themes',
       'wp-includes',
     ];
 
-    for (const indicator of indicators) {
-      const fullPath = path.join(workspaceRoot, indicator);
-      if (fs.existsSync(fullPath)) {
+    for (const indicator of wpIndicators) {
+      if (fs.existsSync(path.join(workspaceRoot, indicator))) {
         return true;
       }
+    }
+
+    // Check for WordPress theme (style.css with Theme Name header)
+    const styleCss = path.join(workspaceRoot, 'style.css');
+    if (fs.existsSync(styleCss)) {
+      try {
+        const head = fs.readFileSync(styleCss, 'utf8').slice(0, 2048);
+        if (/Theme Name:/i.test(head)) {
+          return true;
+        }
+      } catch {
+        // ignore read errors
+      }
+    }
+
+    // Check for WordPress plugin (any root .php with Plugin Name header)
+    try {
+      const rootFiles = fs.readdirSync(workspaceRoot);
+      for (const file of rootFiles) {
+        if (file.endsWith('.php')) {
+          const head = fs.readFileSync(path.join(workspaceRoot, file), 'utf8').slice(0, 2048);
+          if (/Plugin Name:/i.test(head)) {
+            return true;
+          }
+        }
+      }
+    } catch {
+      // ignore read errors
     }
 
     return false;

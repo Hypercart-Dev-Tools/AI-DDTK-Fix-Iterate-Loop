@@ -53,9 +53,8 @@ cat > "$MCP_LOCAL_FILE" << EOF
 {
   "mcpServers": {
     "ai-ddtk": {
-      "command": "node",
-      "args": ["$HOME_DIR/bin/ai-ddtk/tools/mcp-server/dist/src/index.js"],
-      "cwd": "$HOME_DIR/bin/ai-ddtk"
+      "command": "bash",
+      "args": ["$HOME_DIR/bin/ai-ddtk/tools/mcp-server/start.sh"]
     }
   }
 }
@@ -77,38 +76,21 @@ fi
 
 echo -e "${GREEN}✓${NC}"
 
-# Step 5: Create/update CLAUDE.md
-echo -n "Creating CLAUDE.md reference... "
+# Step 5: Add CLAUDE.md reference (append, never overwrite)
+echo -n "Adding CLAUDE.md reference... "
 CLAUDE_MD="$PROJECT_PATH/CLAUDE.md"
+CLAUDE_REF="AI-DDTK is installed at ~/bin/ai-ddtk — see ~/bin/ai-ddtk/AGENTS.md for available tools and workflows."
 
 if [[ ! -f "$CLAUDE_MD" ]]; then
-  cat > "$CLAUDE_MD" << 'EOF'
-# AI Agent Configuration
-
-This project is configured for AI-DDTK integration.
-
-## MCP Server
-
-The `.mcp.local.json` file configures the AI-DDTK MCP server for this project.
-
-**Do not commit `.mcp.local.json`** — it contains local paths and is in `.gitignore`.
-
-## Getting Started
-
-1. Ensure AI-DDTK is installed: `~/bin/ai-ddtk/install.sh`
-2. Run preflight check: `~/bin/ai-ddtk/preflight.sh`
-3. Restart your editor/agent session
-4. Start using AI-DDTK tools
-
-## Available Tools
-
-- `wpcc` — WordPress code scanner
-- `pw-auth` — Passwordless wp-admin login
-- `local-wp` — Local by Flywheel wrapper
-- `aiddtk-tmux` — Resilient terminal sessions
-
-See `~/bin/ai-ddtk/AGENTS.md` for full documentation.
-EOF
+  echo "# CLAUDE.md" > "$CLAUDE_MD"
+  echo "" >> "$CLAUDE_MD"
+  echo "$CLAUDE_REF" >> "$CLAUDE_MD"
+elif ! grep -q "ai-ddtk/AGENTS.md" "$CLAUDE_MD"; then
+  # Prepend reference after the first line (title)
+  sed -i '' "1a\\
+\\
+$CLAUDE_REF
+" "$CLAUDE_MD"
 fi
 
 echo -e "${GREEN}✓${NC}"

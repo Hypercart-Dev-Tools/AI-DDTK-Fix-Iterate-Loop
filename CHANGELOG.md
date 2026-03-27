@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.4.2] - 2026-03-26
+
+### Added
+- **`PROJECT/1-INBOX/P1-UX-REFACTOR.md`** — replaced a transient UX feedback transcript with a structured three-phase remediation plan covering assumption cleanup, supported project wiring and readiness checks, and safety hardening. The plan explicitly includes removing maintainer-local paths and environmental assumptions from shipped template files.
+
 ## [1.4.1] - 2026-03-26
 
 ### Fixed
