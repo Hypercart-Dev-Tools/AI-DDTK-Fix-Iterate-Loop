@@ -100,12 +100,13 @@ Tracked here for visibility. Reference: VS Code full MCP spec blog post (June 20
 
 ### Phase 2 — `wire-project` multi-client
 
-- [ ] Detect VS Code and write `.vscode/mcp.json` (VS Code Copilot format) in addition to `.mcp.local.json`
-- [ ] Detect Augment Code (`~/.augment/`) and offer to merge entry into `~/.augment/settings.json`
-- [ ] Detect Cursor (`~/.cursor/`) and write `~/.cursor/mcp.json`
-- [ ] Write `AGENTS.md` reference in addition to `CLAUDE.md` (Augment Code and OpenAI agents read `AGENTS.md`, not `CLAUDE.md`)
-- [ ] Add `--client` flag (e.g. `--client=vscode`, `--client=augment`, `--client=all`) for non-interactive use
-- [ ] Verify `.mcp.local.json` and `.vscode/mcp.json` are both gitignored in generated projects
+- [x] Detect VS Code and write `.vscode/mcp.json` (VS Code Copilot format) in addition to `.mcp.local.json`
+- [x] Detect Augment Code (`~/.augment/`) and merge entry into `~/.augment/settings.json`
+- [x] Detect Cursor (`~/.cursor/`) and write `~/.cursor/mcp.json`
+- [x] Write `AGENTS.md` reference in addition to `CLAUDE.md` (Augment Code and OpenAI agents read `AGENTS.md`, not `CLAUDE.md`)
+- [x] Add `--client` flag (`--client=claude-code|vscode|augment|cursor|all`) for non-interactive use
+- [x] `.mcp.local.json` and `.vscode/mcp.json` are both gitignored in generated projects
+- [x] Add `tools/mcp-server/mcp-configs/cursor.json` template
 
 ### Phase 3 — MCP server full-spec primitives (stretch)
 

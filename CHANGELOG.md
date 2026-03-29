@@ -13,6 +13,16 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.6.0] - 2026-03-29
+
+### Added
+- **`wire-project` — multi-client support** — rewrote the script to detect and configure all installed AI editors in a single run. Writes `.mcp.local.json` (Claude Code), `.vscode/mcp.json` (Copilot/Cline), `~/.augment/settings.json` (Augment Code), and `~/.cursor/mcp.json` (Cursor); always creates `AGENTS.md` so Augment/OpenAI agents get the reference alongside `CLAUDE.md`.
+- **`wire-project --client` flag** — non-interactive client selection (`--client=claude-code|vscode|augment|cursor|all`); default is auto-detect based on installed editors.
+- **`tools/mcp-server/mcp-configs/cursor.json`** — template for manual Cursor MCP configuration (`mcpServers` schema, matching Claude Code format).
+
+### Changed
+- **`wire-project` gitignore** — now gitignores both `.mcp.local.json` and `.vscode/mcp.json` in the target project.
+
 ## [1.5.0] - 2026-03-29
 
 ### Added

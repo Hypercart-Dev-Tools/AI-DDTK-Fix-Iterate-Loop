@@ -1,103 +1,151 @@
 #!/bin/bash
 # wire-project — Wire a WordPress project for AI-DDTK MCP integration
-# Usage: wire-project [project_path]
-# If no path provided, uses current directory
+# Usage: wire-project [--client=<client>] [project_path]
+#   --client: claude-code | vscode | augment | cursor | all (default: auto-detect)
 
 set -e
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+RED='\033[0;31m'; GREEN='\033[0;32m'; BLUE='\033[0;34m'; NC='\033[0m'
 
-# Get project path (default to current directory)
-PROJECT_PATH="${1:-.}"
+# Parse arguments
+CLIENT_MODE="auto"
+PROJECT_PATH="."
+for arg in "$@"; do
+  case "$arg" in
+    --client=*) CLIENT_MODE="${arg#--client=}" ;;
+    -*) echo -e "${RED}Unknown option: $arg${NC}"; exit 1 ;;
+    *) PROJECT_PATH="$arg" ;;
+  esac
+done
 
-# Resolve to absolute path
-if [[ ! "$PROJECT_PATH" = /* ]]; then
-  PROJECT_PATH="$(cd "$PROJECT_PATH" && pwd)"
-fi
-
-# Verify project path exists
-if [[ ! -d "$PROJECT_PATH" ]]; then
-  echo -e "${RED}✗ Error: Project path does not exist: $PROJECT_PATH${NC}"
-  exit 1
-fi
+[[ "$PROJECT_PATH" != /* ]] && PROJECT_PATH="$(cd "$PROJECT_PATH" && pwd)"
+[[ -d "$PROJECT_PATH" ]] || { echo -e "${RED}✗ Error: path not found: $PROJECT_PATH${NC}"; exit 1; }
 
 echo -e "${BLUE}Wiring project for AI-DDTK...${NC}"
-echo "Project path: $PROJECT_PATH"
-echo ""
+echo "Project: $PROJECT_PATH  |  Client mode: $CLIENT_MODE"; echo ""
 
-# Step 1: Check AI-DDTK installation
-echo -n "Checking AI-DDTK installation... "
-if [[ ! -d "$HOME/bin/ai-ddtk" ]]; then
-  echo -e "${RED}✗${NC}"
-  echo -e "${RED}Error: AI-DDTK not found at $HOME/bin/ai-ddtk${NC}"
-  echo "Please run: ~/bin/ai-ddtk/install.sh"
-  exit 1
-fi
+echo -n "Checking AI-DDTK... "
+[[ -d "$HOME/bin/ai-ddtk" ]] || { echo -e "${RED}✗ Not found at ~/bin/ai-ddtk${NC}"; echo "Run: ~/bin/ai-ddtk/install.sh"; exit 1; }
 echo -e "${GREEN}✓${NC}"
 
-# Step 2: Detect home directory
-echo -n "Detecting home directory... "
-HOME_DIR="$HOME"
-echo -e "${GREEN}✓${NC} ($HOME_DIR)"
+MCP_START="$HOME/bin/ai-ddtk/tools/mcp-server/start.sh"
+GITIGNORE="$PROJECT_PATH/.gitignore"
+AGENTS_REF="AI-DDTK is installed at ~/bin/ai-ddtk — see ~/bin/ai-ddtk/AGENTS.md for available tools and workflows."
+WIRED=()
 
-# Step 3: Create .mcp.local.json
-echo -n "Creating .mcp.local.json... "
-MCP_LOCAL_FILE="$PROJECT_PATH/.mcp.local.json"
+add_gitignore() {
+  [[ -f "$GITIGNORE" ]] || touch "$GITIGNORE"
+  grep -qF "$1" "$GITIGNORE" 2>/dev/null || echo "$1" >> "$GITIGNORE"
+}
 
-cat > "$MCP_LOCAL_FILE" << EOF
+add_md_ref() {
+  local file="$1" title="$2"
+  if [[ ! -f "$file" ]]; then
+    printf "# %s\n\n%s\n" "$title" "$AGENTS_REF" > "$file"
+  elif ! grep -qF "ai-ddtk/AGENTS.md" "$file"; then
+    sed -i '' "1a\\
+\\
+$AGENTS_REF
+" "$file"
+  fi
+}
+
+wire_claude_code() {
+  echo -n "Claude Code — .mcp.local.json... "
+  cat > "$PROJECT_PATH/.mcp.local.json" <<EOF
 {
   "mcpServers": {
     "ai-ddtk": {
       "command": "bash",
-      "args": ["$HOME_DIR/bin/ai-ddtk/tools/mcp-server/start.sh"]
+      "args": ["$MCP_START"]
     }
   }
 }
 EOF
+  add_gitignore ".mcp.local.json"
+  add_md_ref "$PROJECT_PATH/CLAUDE.md" "CLAUDE.md"
+  WIRED+=(".mcp.local.json" "CLAUDE.md")
+  echo -e "${GREEN}✓${NC}"
+}
 
-echo -e "${GREEN}✓${NC}"
+wire_vscode() {
+  echo -n "VS Code (Copilot/Cline) — .vscode/mcp.json... "
+  mkdir -p "$PROJECT_PATH/.vscode"
+  cat > "$PROJECT_PATH/.vscode/mcp.json" <<'EOF'
+{
+  "servers": {
+    "ai-ddtk": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["${env:HOME}/bin/ai-ddtk/tools/mcp-server/start.sh"]
+    }
+  }
+}
+EOF
+  add_gitignore ".vscode/mcp.json"
+  WIRED+=(".vscode/mcp.json")
+  echo -e "${GREEN}✓${NC}"
+}
 
-# Step 4: Update .gitignore
-echo -n "Updating .gitignore... "
-GITIGNORE_FILE="$PROJECT_PATH/.gitignore"
+wire_augment() {
+  echo -n "Augment Code — ~/.augment/settings.json... "
+  local settings="$HOME/.augment/settings.json"
+  mkdir -p "$HOME/.augment"
+  [[ -f "$settings" ]] || echo '{"mcpServers":{}}' > "$settings"
+  python3 - "$settings" "$MCP_START" <<'PYEOF'
+import json, sys
+f, start = sys.argv[1], sys.argv[2]
+with open(f) as fp: data = json.load(fp)
+data.setdefault("mcpServers", {})["ai-ddtk"] = {"command": "bash", "args": [start]}
+with open(f, "w") as fp: json.dump(data, fp, indent=2)
+PYEOF
+  WIRED+=("~/.augment/settings.json")
+  echo -e "${GREEN}✓${NC}"
+}
 
-if [[ ! -f "$GITIGNORE_FILE" ]]; then
-  touch "$GITIGNORE_FILE"
-fi
+wire_cursor() {
+  echo -n "Cursor — ~/.cursor/mcp.json... "
+  local cursor_mcp="$HOME/.cursor/mcp.json"
+  mkdir -p "$HOME/.cursor"
+  [[ -f "$cursor_mcp" ]] || echo '{"mcpServers":{}}' > "$cursor_mcp"
+  python3 - "$cursor_mcp" "$MCP_START" <<'PYEOF'
+import json, sys
+f, start = sys.argv[1], sys.argv[2]
+with open(f) as fp: data = json.load(fp)
+data.setdefault("mcpServers", {})["ai-ddtk"] = {"command": "bash", "args": [start]}
+with open(f, "w") as fp: json.dump(data, fp, indent=2)
+PYEOF
+  WIRED+=("~/.cursor/mcp.json")
+  echo -e "${GREEN}✓${NC}"
+}
 
-if ! grep -q "^\.mcp\.local\.json$" "$GITIGNORE_FILE"; then
-  echo ".mcp.local.json" >> "$GITIGNORE_FILE"
-fi
+# Auto-detect installed editors
+VS_CODE=false; AUGMENT=false; CURSOR=false
+command -v code >/dev/null 2>&1 && VS_CODE=true
+[[ -d "$HOME/.augment" ]] && AUGMENT=true
+{ [[ -d "$HOME/.cursor" ]] || command -v cursor >/dev/null 2>&1; } && CURSOR=true
 
-echo -e "${GREEN}✓${NC}"
+case "$CLIENT_MODE" in
+  auto)
+    wire_claude_code
+    $VS_CODE && wire_vscode || true
+    $AUGMENT && wire_augment || true
+    $CURSOR && wire_cursor || true
+    ;;
+  claude-code) wire_claude_code ;;
+  vscode)      wire_vscode ;;
+  augment)     wire_augment ;;
+  cursor)      wire_cursor ;;
+  all)         wire_claude_code; wire_vscode; wire_augment; wire_cursor ;;
+  *) echo -e "${RED}Unknown --client value: $CLIENT_MODE (claude-code|vscode|augment|cursor|all)${NC}"; exit 1 ;;
+esac
 
-# Step 5: Add CLAUDE.md reference (append, never overwrite)
-echo -n "Adding CLAUDE.md reference... "
-CLAUDE_MD="$PROJECT_PATH/CLAUDE.md"
-CLAUDE_REF="AI-DDTK is installed at ~/bin/ai-ddtk — see ~/bin/ai-ddtk/AGENTS.md for available tools and workflows."
+# Always add AGENTS.md reference — Augment Code and OpenAI agents read AGENTS.md
+add_md_ref "$PROJECT_PATH/AGENTS.md" "AGENTS.md"
+WIRED+=("AGENTS.md")
 
-if [[ ! -f "$CLAUDE_MD" ]]; then
-  echo "# CLAUDE.md" > "$CLAUDE_MD"
-  echo "" >> "$CLAUDE_MD"
-  echo "$CLAUDE_REF" >> "$CLAUDE_MD"
-elif ! grep -q "ai-ddtk/AGENTS.md" "$CLAUDE_MD"; then
-  # Prepend reference after the first line (title)
-  sed -i '' "1a\\
-\\
-$CLAUDE_REF
-" "$CLAUDE_MD"
-fi
-
-echo -e "${GREEN}✓${NC}"
-
-# Step 6: Summary
 echo ""
-echo -e "${GREEN}✓ Project wired! Ready to use AI-DDTK.${NC}"
+echo -e "${GREEN}✓ Project wired!${NC}"
 echo ""
 echo "Next steps:"
 echo "  1. Restart your editor/agent session"
@@ -105,7 +153,5 @@ echo "  2. Run: ~/bin/ai-ddtk/preflight.sh"
 echo "  3. Start coding!"
 echo ""
 echo "Files created/updated:"
-echo "  • .mcp.local.json (local MCP configuration)"
-echo "  • .gitignore (added .mcp.local.json)"
-echo "  • CLAUDE.md (AI agent reference)"
+for f in "${WIRED[@]}"; do echo "  • $f"; done
 

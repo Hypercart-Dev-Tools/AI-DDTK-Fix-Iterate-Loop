@@ -1,0 +1,10 @@
+{
+  "_comment": "Add this entry to ~/.cursor/mcp.json under mcpServers. wire-project --client=cursor does this automatically.",
+  "mcpServers": {
+    "ai-ddtk": {
+      "command": "bash",
+      "args": ["~/bin/ai-ddtk/tools/mcp-server/start.sh"]
+    }
+  }
+}
+
