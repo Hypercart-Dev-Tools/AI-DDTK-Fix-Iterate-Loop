@@ -127,7 +127,19 @@ The server exposes **21 typed tools** across 6 areas:
 | **AJAX Testing** | `wp_ajax_test` |
 | **Tmux** | `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status` |
 
-See `tools/mcp-server/README.md` for detailed tool documentation and examples.
+#### Available MCP Prompts
+
+Prompts surface as **slash commands** in VS Code Copilot (`/mcp.ai-ddtk.<name>`) and as selectable prompts in Cline, Claude Desktop, and other MCP clients.
+
+| Prompt | Description |
+|--------|-------------|
+| `preflight` | Run a session preflight check across all toolkit components |
+| `scan` | WPCC scan on a plugin/theme path with automatic triage |
+| `profile-page` | Profile a WordPress page with Query Monitor |
+| `triage-scan` | Load the latest WPCC scan and triage for false positives |
+| `wire-project` | Wire a project for AI-DDTK MCP integration |
+
+See `tools/mcp-server/README.md` for detailed tool and prompt documentation.
 
 ### Available Tools
 

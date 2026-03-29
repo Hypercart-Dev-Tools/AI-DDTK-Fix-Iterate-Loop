@@ -1,8 +1,8 @@
 # AI-DDTK MCP Server
 
-> Version: 0.6.3
+> Version: 0.7.0
 
-Unified MCP server for AI-DDTK. It exposes LocalWP, WPCC, `pw-auth`, `wp-ajax-test`, and tmux workflows through one MCP endpoint for Claude Code, Claude Desktop, Cline, and other MCP-compatible clients.
+Unified MCP server for AI-DDTK. Exposes LocalWP, WPCC, `pw-auth`, `wp-ajax-test`, tmux, and Query Monitor workflows as typed **Tools**, **Resources**, and **Prompts** — compatible with Claude Code, GitHub Copilot, Cline, Augment Code, Cursor, Claude Desktop, and any MCP-capable client.
 
 ## Quick Start
 
@@ -17,11 +17,17 @@ This builds `tools/mcp-server/dist/`, installs Node.js dependencies, and prints 
 
 ## Client Config
 
-- **Claude Code**: auto-discovers `.mcp.json` in this repo.
-- **Claude Desktop**: copy `tools/mcp-server/mcp-configs/claude-desktop.json` into your desktop config.
-- **Cline**: copy `tools/mcp-server/mcp-configs/cline.json` into MCP settings.
+| Client | Discovery method | Template |
+|--------|-----------------|----------|
+| **Claude Code** | Auto-discovers `.mcp.json` in repo root | `.mcp.json` |
+| **GitHub Copilot / Cline / Continue** | VS Code extension auto-registers via `mcpServerDefinitionProviders`; or manual `.vscode/mcp.json` | `mcp-configs/vscode.json` |
+| **Augment Code** | Manual `~/.augment/settings.json` entry (or run `wire-project`) | See `AGENTS.md` |
+| **Cursor** | Manual `~/.cursor/mcp.json` entry (or run `wire-project`) | `mcp-configs/cursor.json` |
+| **Claude Desktop** | Manual config file | `mcp-configs/claude-desktop.json` |
 
-All tracked configs launch the stdio server with:
+Run `wire-project [--client=auto|claude-code|vscode|augment|cursor|all]` to write all applicable config files automatically.
+
+All configs launch the stdio server with:
 
 ```bash
 node tools/mcp-server/dist/src/index.js
@@ -48,13 +54,32 @@ npm run mcp:http
 | Playwright auth | `pw_auth_login`, `pw_auth_status`, `pw_auth_clear` | Create, inspect, and clear cached wp-admin auth state |
 | AJAX | `wp_ajax_test` | Test `admin-ajax.php` endpoints with structured inputs |
 | tmux | `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status` | Run resilient long-lived commands and inspect output |
+| Query Monitor | `qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries` | Profile pages, find slow queries, detect N+1 patterns |
 
 ## Resources
 
-- `wpcc://latest-scan`
-- `wpcc://latest-report`
-- `wpcc://scan/{id}`
-- `auth://status/{user}`
+| URI | MIME type | Description |
+|-----|-----------|-------------|
+| `wpcc://latest-scan` | `application/json` | Most recent WPCC JSON scan artifact |
+| `wpcc://latest-report` | `text/html` | Most recent WPCC HTML report |
+| `wpcc://scan/{id}` | `application/json` | Specific WPCC scan by timestamp id |
+| `auth://status/{user}` | `application/json` | Playwright auth cache metadata by WordPress user (no raw cookies) |
+
+## Prompts
+
+Prompts surface as **slash commands** in VS Code Copilot (`/mcp.ai-ddtk.<name>`) and as selectable prompts in Cline, Claude Desktop, and other MCP clients.
+
+| Prompt | Args | Description |
+|--------|------|-------------|
+| `preflight` | — | Run a session preflight check across all toolkit components |
+| `scan` | `path` | Run a WPCC scan on a plugin/theme path and triage findings |
+| `profile-page` | `siteUrl`, `path` | Profile a WordPress page with Query Monitor |
+| `triage-scan` | — | Load `wpcc://latest-scan` and triage for false positives |
+| `wire-project` | `projectPath?`, `client?` | Wire a project for AI-DDTK MCP integration |
+
+## Sampling
+
+MCP Sampling (`server.createMessage()`) is available in the SDK and allows the server to request LLM calls via the connected client's model subscription. It is not currently used by this server — client support varies and requires explicit user opt-in per the MCP spec. Candidates for future use: on-server WPCC triage summarisation, automated fix suggestions.
 
 ## Recommended Usage Pattern
 

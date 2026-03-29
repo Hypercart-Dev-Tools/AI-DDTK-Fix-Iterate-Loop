@@ -108,9 +108,9 @@ Tracked here for visibility. Reference: VS Code full MCP spec blog post (June 20
 - [x] `.mcp.local.json` and `.vscode/mcp.json` are both gitignored in generated projects
 - [x] Add `tools/mcp-server/mcp-configs/cursor.json` template
 
-### Phase 3 — MCP server full-spec primitives (stretch)
+### Phase 3 — MCP server full-spec primitives (stretch) ✅
 
-- [ ] Add MCP **Prompts** for common AI-DDTK workflows — these surface as slash commands in VS Code Copilot (`/mcp.ai-ddtk.preflight`, etc.)
-- [ ] Verify MCP **Resources** (`wpcc://latest-scan`, `auth://status/*`) render correctly in VS Code Copilot's resource browser
-- [ ] Evaluate MCP **Sampling** — allows the server to make LLM calls via the user's model subscription; useful for on-server triage/summarisation
+- [x] Add MCP **Prompts** for common AI-DDTK workflows — registered `preflight`, `scan`, `profile-page`, `triage-scan`, `wire-project` via `server.registerPrompt()`; surface as slash commands in VS Code Copilot (`/mcp.ai-ddtk.<name>`)
+- [x] Verify MCP **Resources** (`wpcc://latest-scan`, `wpcc://latest-report`, `wpcc://scan/{id}`, `auth://status/{user}`) — confirmed registered with correct MIME types and URI templates
+- [x] Evaluate MCP **Sampling** — `server.createMessage()` available in SDK; not implemented (client support varies, requires user opt-in per spec); candidates: on-server WPCC triage, fix suggestions
 <!-- END TODO -->

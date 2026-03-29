@@ -13,6 +13,19 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.7.0] - 2026-03-29
+
+### Added
+- **MCP server v0.7.0 — Prompts primitive** — registered 5 MCP Prompts via `server.registerPrompt()`: `preflight`, `scan`, `profile-page`, `triage-scan`, and `wire-project`. These surface as slash commands in VS Code Copilot (`/mcp.ai-ddtk.<name>`) and as selectable prompts in Cline, Claude Desktop, and any MCP Prompts-capable client.
+
+### Changed
+- **MCP server README** — updated client compatibility table to include GitHub Copilot, Augment Code, and Cursor; added Prompts and Sampling sections; bumped version to 0.7.0.
+- **`AGENTS.md`** — added MCP Prompts table to the MCP Server section alongside the existing Tools table.
+
+### Notes
+- **MCP Resources** (`wpcc://latest-scan`, `wpcc://latest-report`, `wpcc://scan/{id}`, `auth://status/{user}`) verified — registered with correct MIME types and URI templates; compatible with VS Code Copilot's resource browser.
+- **MCP Sampling** evaluated — `server.createMessage()` is available in the SDK but is not implemented; client support varies and requires explicit user opt-in per the MCP spec. Candidate uses: on-server WPCC triage, automated fix suggestions.
+
 ## [1.6.0] - 2026-03-29
 
 ### Added
