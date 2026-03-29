@@ -76,7 +76,8 @@ export class AiDdtkManager {
     const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
     return (
       fs.existsSync(path.join(workspaceRoot, '.mcp.local.json')) ||
-      fs.existsSync(path.join(workspaceRoot, '.mcp.json'))
+      fs.existsSync(path.join(workspaceRoot, '.mcp.json')) ||
+      fs.existsSync(path.join(workspaceRoot, '.vscode', 'mcp.json'))
     );
   }
 

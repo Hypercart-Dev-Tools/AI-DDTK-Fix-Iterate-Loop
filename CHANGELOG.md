@@ -13,6 +13,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.5.0] - 2026-03-29
+
+### Added
+- **VS Code extension — `contributes.mcpServerDefinitionProviders`** — the extension now registers the AI-DDTK MCP server directly with VS Code's agent runtime via `vscode.lm.registerMcpServerDefinitionProvider`. GitHub Copilot, Cline, Continue, and any future VS Code MCP client auto-discover the server the moment the extension is installed — no manual config files required.
+- **`tools/mcp-server/mcp-configs/vscode.json`** — template for users who prefer manual `.vscode/mcp.json` setup (VS Code Copilot workspace config format; uses `"servers"` root key and `"type": "stdio"`).
+
+### Changed
+- **VS Code extension `engines.vscode`** — bumped from `^1.85.0` to `^1.100.0` (MCP provider API requires VS Code 1.100+, May 2025).
+- **VS Code extension `isMcpConfigured()`** — now also recognises `.vscode/mcp.json` alongside `.mcp.json` / `.mcp.local.json` when checking project wiring state.
+- **`.mcp.README.md`** — retitled from "for Claude Code" to client-agnostic; added a client config reference table covering Claude Code, VS Code Copilot, Augment Code, Cursor, and Claude Desktop.
+
 ## [1.4.2] - 2026-03-26
 
 ### Added

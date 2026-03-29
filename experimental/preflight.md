@@ -91,11 +91,12 @@ Tracked here for visibility. Reference: VS Code full MCP spec blog post (June 20
 
 ### Phase 1 — Config portability
 
-- [ ] Add `tools/mcp-server/mcp-configs/vscode.json` template using VS Code Copilot schema (`"servers"` root key, `"type": "stdio"`)
+- [x] Add `tools/mcp-server/mcp-configs/vscode.json` template using VS Code Copilot schema (`"servers"` root key, `"type": "stdio"`)
 - [ ] Add `tools/mcp-server/mcp-configs/cursor.json` template (uses same `"mcpServers"` schema as Claude Code)
-- [ ] Retitle `.mcp.README.md` from "for Claude Code" to client-agnostic (e.g. "MCP Server Configuration")
+- [x] Retitle `.mcp.README.md` from "for Claude Code" to client-agnostic — now includes client config reference table
+- [x] VS Code extension now auto-registers via `contributes.mcpServerDefinitionProviders` — Copilot/Cline see it with no config files needed
 - [ ] Add VS Code Copilot setup instructions to `AGENTS.md` (alongside existing Claude Code / Augment Code sections)
-- [ ] Document the two config schemas side-by-side somewhere (`.mcp.json` vs `.vscode/mcp.json`)
+- [x] Document the two config schemas side-by-side in `.mcp.README.md` client table
 
 ### Phase 2 — `wire-project` multi-client
 

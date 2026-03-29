@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "ai-ddtk": {
+      "type": "stdio",
+      "command": "bash",
+      "args": ["${env:HOME}/bin/ai-ddtk/tools/mcp-server/start.sh"]
+    }
+  }
+}
+
