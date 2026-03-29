@@ -77,6 +77,15 @@ This builds the server at `tools/mcp-server/dist/src/index.js` and installs Node
 
 #### Wiring into Your Editor
 
+> **Why some configs go in the workspace, others in your home directory:**
+> VS Code-based clients (Claude Code, GitHub Copilot, Cline) are workspace-aware — they read config files from the repo root or `.vscode/`. Augment Code and Cursor are editor-level and read from your home directory (`~/.augment/`, `~/.cursor/`). This is why `wire-project` writes `.mcp.local.json` / `.vscode/mcp.json` into the project and merges `~/.augment/settings.json` / `~/.cursor/mcp.json` at the home level.
+>
+> **Fastest setup for any project:** run `~/bin/ai-ddtk/experimental/wire-project` — it auto-detects which editors are installed and writes the right config for each.
+
+**GitHub Copilot / Cline / Continue (VS Code):**
+- **Zero config** if the AI-DDTK VS Code extension is installed — it auto-registers the server via `mcpServerDefinitionProviders`
+- Manual fallback: copy `tools/mcp-server/mcp-configs/vscode.json` to `.vscode/mcp.json` in your project (gitignore it; `wire-project` does this automatically)
+
 **Claude Code in VS Code:**
 - Auto-discovers `.mcp.json` in the repo root
 - No additional setup needed
@@ -97,13 +106,17 @@ This builds the server at `tools/mcp-server/dist/src/index.js` and installs Node
   ```
 - Replace `/path/to/AI-DDTK` with your actual installation path (e.g., `/Users/noel/Documents/GitHub/AI-DDTK-Fix-Iterate-Loop`)
 
+**Cursor:**
+- Config file: `~/.cursor/mcp.json`
+- Copy template from `tools/mcp-server/mcp-configs/cursor.json`, or run `wire-project --client=cursor` to auto-write it
+
 **Claude Desktop:**
 - Copy the template from `tools/mcp-server/mcp-configs/claude-desktop.json`
 - Add to `~/Library/Application Support/Claude/claude_desktop_config.json` under `mcpServers`
 
 **Cline (VS Code):**
-- Copy the template from `tools/mcp-server/mcp-configs/cline.json`
-- Paste into Cline settings: VS Code → Cline → MCP Servers → Edit Config
+- Auto-configured if the AI-DDTK VS Code extension is installed (see GitHub Copilot above)
+- Manual fallback: copy `tools/mcp-server/mcp-configs/cline.json` into Cline settings: VS Code → Cline → MCP Servers → Edit Config
 
 #### Server Lifecycle
 

@@ -15,6 +15,8 @@ Run through this checklist at the start of a session when:
 
 If none of the above apply, skip this entirely.
 
+> **If you're working inside the AI-DDTK repo itself** (`~/bin/ai-ddtk` or a clone), skip this checklist — the toolkit _is_ the project. Read `AGENTS.md` directly for workflow guidance.
+
 ---
 
 ## Steps
@@ -89,13 +91,13 @@ Tracked here for visibility. Reference: VS Code full MCP spec blog post (June 20
 > **Context:** The MCP server itself is generic. The wiring/onboarding layer is Claude Code-first.
 > Goal: support VS Code Copilot, Augment Code, and Cursor without breaking Claude Code.
 
-### Phase 1 — Config portability
+### Phase 1 — Config portability ✅
 
 - [x] Add `tools/mcp-server/mcp-configs/vscode.json` template using VS Code Copilot schema (`"servers"` root key, `"type": "stdio"`)
-- [ ] Add `tools/mcp-server/mcp-configs/cursor.json` template (uses same `"mcpServers"` schema as Claude Code)
+- [x] Add `tools/mcp-server/mcp-configs/cursor.json` template (uses same `"mcpServers"` schema as Claude Code)
 - [x] Retitle `.mcp.README.md` from "for Claude Code" to client-agnostic — now includes client config reference table
 - [x] VS Code extension now auto-registers via `contributes.mcpServerDefinitionProviders` — Copilot/Cline see it with no config files needed
-- [ ] Add VS Code Copilot setup instructions to `AGENTS.md` (alongside existing Claude Code / Augment Code sections)
+- [x] Add VS Code Copilot + Cursor setup instructions to `AGENTS.md` (alongside Claude Code / Augment Code sections; includes workspace-vs-home config rationale)
 - [x] Document the two config schemas side-by-side in `.mcp.README.md` client table
 
 ### Phase 2 — `wire-project` multi-client
@@ -112,5 +114,5 @@ Tracked here for visibility. Reference: VS Code full MCP spec blog post (June 20
 
 - [x] Add MCP **Prompts** for common AI-DDTK workflows — registered `preflight`, `scan`, `profile-page`, `triage-scan`, `wire-project` via `server.registerPrompt()`; surface as slash commands in VS Code Copilot (`/mcp.ai-ddtk.<name>`)
 - [x] Verify MCP **Resources** (`wpcc://latest-scan`, `wpcc://latest-report`, `wpcc://scan/{id}`, `auth://status/{user}`) — confirmed registered with correct MIME types and URI templates
-- [x] Evaluate MCP **Sampling** — `server.createMessage()` available in SDK; not implemented (client support varies, requires user opt-in per spec); candidates: on-server WPCC triage, fix suggestions
+- [x] Evaluate MCP **Sampling** — `server.createMessage()` available in SDK; **decision: wait for client adoption**. Rationale: as of 2026-03, GitHub Copilot and Augment Code do not yet expose Sampling to MCP servers; Claude Code supports it but requires explicit user opt-in per the MCP spec. Implementing it now would be Claude Code-only, contradicting the genericisation goal. Revisit when ≥2 major clients ship stable Sampling support. Candidates when that threshold is reached: on-server WPCC triage summarisation, automated fix suggestions.
 <!-- END TODO -->
