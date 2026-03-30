@@ -4,8 +4,9 @@
 - Reduce redundancy/duplication unless critical.
 - New docs: High-level TOC at top; checklist + phased format; actionable items visible. Suggest Phase 0 technical spike (1-2h max) to validate assumptions/critical paths first.
 - Do not create new MD/text files unless instructed. Append to existing project docs.
-- Add things to remember to MEMORY.md
+- Add things to remember to MEMORY.md.
 - General workflow: 1-2 step ad-hoc requests to direct implementation. If 4-5 steps with multiple phases, write project MD file first.
+- If technical spike and other tests are done, always write back findings results to project file.
 - Slight pushback OK if security/maintainability/destructive risk ahead.
 
 ## UI Design
@@ -59,6 +60,7 @@
 - Alerts should be actionable. If a threshold fires, the runbook or next step should be obvious. No alert without a documented response.
 - For WordPress/WooCommerce: hook into `query_monitor` data, log slow queries (>500ms), and monitor Action Scheduler queue depth from the start.
 - Dashboards and log queries are deliverables, not afterthoughts. Include them in the PR or project doc alongside the code.
+- CI Job Timeout & Test Exit Contract: Always configure a hard job timeout (timeout-minutes: 10–15) on every CI job. For test runners that manage async lifecycles (Jest, Mocha, etc.), explicitly enable forced exit after tests complete (e.g. --forceExit for Jest) to prevent open handles — timers, intervals, open connections — from blocking process termination and consuming CI minutes indefinitely.
 
 ## Testing & Mock Harnesses
 
