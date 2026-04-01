@@ -205,3 +205,174 @@ test("pw-auth auth status resources list users and return metadata without expos
     await fixture.cleanup();
   }
 });
+
+test("pw_auth_doctor returns structured readiness result for ready status", async () => {
+  const fixture = await createPwAuthFixture();
+  const calls: Array<{ args: string[] }> = [];
+
+  try {
+    const handlers = createPwAuthHandlers({
+      repoRoot: fixture.repoRoot,
+      workingDir: fixture.workingDir,
+      execRunner: async (_file, args): Promise<ExecResult> => {
+        calls.push({ args });
+        return {
+          stdout: JSON.stringify({
+            status: "ready",
+            site_url: "http://demo.local",
+            user: "admin",
+            checks: [
+              { name: "node", status: "pass", summary: "Node.js detected: v20.0.0", detail: null },
+              { name: "playwright_module", status: "pass", summary: "Playwright is resolvable.", detail: null },
+            ],
+            auth: { exists: true, file_path: "temp/playwright/.auth/admin.json", status: "valid" },
+            remediations: [],
+          }),
+          stderr: "",
+          exitCode: 0,
+        };
+      },
+    });
+
+    const result = await handlers.doctor("http://demo.local", "Demo Site");
+
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0]?.args, [
+      "doctor",
+      "--site-url", "http://demo.local",
+      "--wp-cli", "local-wp 'Demo Site'",
+      "--user", "admin",
+      "--format", "json",
+    ]);
+    assert.equal(result.status, "ready");
+    assert.equal(result.siteUrl, "http://demo.local");
+    assert.equal(result.user, "admin");
+    assert.equal(result.checks.length, 2);
+    assert.equal(result.checks[0]?.name, "node");
+    assert.equal(result.checks[0]?.status, "pass");
+    assert.equal(result.auth.exists, true);
+    assert.equal(result.auth.authStatus, "valid");
+    assert.equal(result.remediations.length, 0);
+    assert.equal(result.exitCode, 0);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("pw_auth_doctor returns structured result for blocked status (non-zero exit)", async () => {
+  const fixture = await createPwAuthFixture();
+
+  try {
+    const handlers = createPwAuthHandlers({
+      repoRoot: fixture.repoRoot,
+      workingDir: fixture.workingDir,
+      execRunner: async (): Promise<ExecResult> => {
+        throw new ExecFileTextError("Command failed", JSON.stringify({
+          status: "blocked",
+          site_url: "http://demo.local",
+          user: "admin",
+          checks: [{ name: "node", status: "fail", summary: "Node.js is not installed.", detail: null }],
+          auth: { exists: false, file_path: "temp/playwright/.auth/admin.json", status: "missing" },
+          remediations: ["Install Node.js and retry."],
+        }), "", 2, false);
+      },
+    });
+
+    const result = await handlers.doctor("http://demo.local", "Demo Site");
+
+    assert.equal(result.status, "blocked");
+    assert.equal(result.auth.exists, false);
+    assert.equal(result.auth.authStatus, "missing");
+    assert.equal(result.remediations.length, 1);
+    assert.equal(result.exitCode, 2);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("pw_auth_check_dom returns structured ok result for a matched selector", async () => {
+  const fixture = await createPwAuthFixture();
+  const calls: Array<{ args: string[] }> = [];
+
+  try {
+    const handlers = createPwAuthHandlers({
+      repoRoot: fixture.repoRoot,
+      workingDir: fixture.workingDir,
+      execRunner: async (_file, args): Promise<ExecResult> => {
+        calls.push({ args });
+        return {
+          stdout: JSON.stringify({
+            status: "ok",
+            url: "http://demo.local/wp-admin/",
+            selector: "#wpadminbar",
+            selectors: ["#wpadminbar"],
+            extract: "exists",
+            wait_for: null,
+            assertion: null,
+            auth_used: true,
+            value: true,
+            results: [{ selector: "#wpadminbar", status: "ok", match_count: 1, value: true, assertion: null, screenshot_path: null, errors: [] }],
+            artifacts: { output_dir: "temp/playwright/checks/run1", result_json: "temp/playwright/checks/run1/result.json", extract_file: null, failure_screenshot: null },
+            errors: [],
+          }),
+          stderr: "",
+          exitCode: 0,
+        };
+      },
+    });
+
+    const result = await handlers.checkDom("http://demo.local/wp-admin/", "#wpadminbar", undefined);
+
+    assert.ok(calls[0]?.args.includes("check"));
+    assert.ok(calls[0]?.args.includes("dom"));
+    assert.ok(calls[0]?.args.includes("--selector"));
+    assert.ok(calls[0]?.args.includes("#wpadminbar"));
+    assert.ok(calls[0]?.args.includes("--format"));
+    assert.ok(calls[0]?.args.includes("json"));
+    assert.equal(result.status, "ok");
+    assert.equal(result.authUsed, true);
+    assert.equal(result.value, true);
+    assert.equal(result.results.length, 1);
+    assert.equal(result.results[0]?.status, "ok");
+    assert.equal(result.artifacts.resultJson, "temp/playwright/checks/run1/result.json");
+    assert.equal(result.exitCode, 0);
+  } finally {
+    await fixture.cleanup();
+  }
+});
+
+test("pw_auth_check_dom returns structured result for not_found (non-zero exit)", async () => {
+  const fixture = await createPwAuthFixture();
+
+  try {
+    const handlers = createPwAuthHandlers({
+      repoRoot: fixture.repoRoot,
+      workingDir: fixture.workingDir,
+      execRunner: async (): Promise<ExecResult> => {
+        throw new ExecFileTextError("Command failed", JSON.stringify({
+          status: "not_found",
+          url: "http://demo.local/wp-admin/",
+          selector: "#missing-element",
+          selectors: ["#missing-element"],
+          extract: "exists",
+          wait_for: null,
+          assertion: null,
+          auth_used: true,
+          value: false,
+          results: [{ selector: "#missing-element", status: "not_found", match_count: 0, value: false, assertion: null, screenshot_path: null, errors: ["Selector not found: #missing-element"] }],
+          artifacts: { output_dir: "temp/playwright/checks/run2", result_json: "temp/playwright/checks/run2/result.json", extract_file: null, failure_screenshot: null },
+          errors: ["Selector not found: #missing-element"],
+        }), "", 3, false);
+      },
+    });
+
+    const result = await handlers.checkDom("http://demo.local/wp-admin/", "#missing-element", undefined);
+
+    assert.equal(result.status, "not_found");
+    assert.equal(result.value, false);
+    assert.equal(result.errors.length, 1);
+    assert.equal(result.exitCode, 3);
+  } finally {
+    await fixture.cleanup();
+  }
+});

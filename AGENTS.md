@@ -129,13 +129,13 @@ If you need a **persistent background server** (e.g., for HTTP mode or external 
 
 #### Available MCP Tools
 
-The server exposes **21 typed tools** across 6 areas:
+The server exposes **23 typed tools** across 6 areas:
 
 | Area | Tools |
 |------|-------|
 | **LocalWP** | `local_wp_list_sites`, `local_wp_select_site`, `local_wp_get_active_site`, `local_wp_test_connectivity`, `local_wp_get_site_info`, `local_wp_run` |
 | **WPCC** | `wpcc_run_scan`, `wpcc_list_features` |
-| **Playwright Auth** | `pw_auth_login`, `pw_auth_status`, `pw_auth_clear` |
+| **Playwright Auth** | `pw_auth_login`, `pw_auth_status`, `pw_auth_clear`, `pw_auth_doctor`, `pw_auth_check_dom` |
 | **Query Monitor** | `qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries` |
 | **AJAX Testing** | `wp_ajax_test` |
 | **Tmux** | `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status` |
@@ -205,7 +205,7 @@ When the AI-DDTK MCP server is available, prefer **typed MCP tools** over raw sh
 ### Preferred flow
 
 1. Establish site context first with `local_wp_list_sites` / `local_wp_select_site` when LocalWP is involved.
-2. Prefer MCP tools such as `wpcc_run_scan`, `pw_auth_login`, `pw_auth_status`, `qm_profile_page`, `qm_slow_queries`, `wp_ajax_test`, and `tmux_*` before ad-hoc shell commands.
+2. Prefer MCP tools such as `wpcc_run_scan`, `pw_auth_doctor`, `pw_auth_login`, `pw_auth_check_dom`, `pw_auth_status`, `qm_profile_page`, `qm_slow_queries`, `wp_ajax_test`, and `tmux_*` before ad-hoc shell commands.
 3. Prefer MCP resources such as `wpcc://latest-scan`, `wpcc://latest-report`, and `auth://status/{user}` instead of reparsing files manually.
 4. Use tmux for long-running jobs or flaky terminals; use direct shell for short, simple commands.
 
@@ -263,7 +263,7 @@ pw-auth status
 - `pw-auth doctor` is the readiness check; `pw-auth status` is cache metadata only (not a login verifier)
 - `pw-auth check dom` accepts single or multiple selectors, supports built-in assertions and screenshots, writes structured artifacts under `temp/playwright/checks/<run-id>/`, and returns `ok`, `not_found`, `assertion_failed`, `auth_required`, or `error`
 - One-time login URLs are deleted after use and expire after 5 minutes if unused
-- The MCP layer exposes `pw_auth_login`, `pw_auth_status`, and `pw_auth_clear` but never raw auth-state JSON
+- The MCP layer exposes `pw_auth_login`, `pw_auth_status`, `pw_auth_clear`, `pw_auth_doctor`, and `pw_auth_check_dom` but never raw auth-state JSON
 
 ### Quick troubleshooting
 

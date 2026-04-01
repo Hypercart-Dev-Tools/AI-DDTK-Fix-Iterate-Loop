@@ -16,7 +16,7 @@ import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, c
 import { SessionStore, SiteState } from "./state.js";
 import { loadOrGenerateToken, getTokenFilePath } from "./utils/token.js";
 
-const MCP_SERVER_VERSION = "0.7.0";
+const MCP_SERVER_VERSION = "0.8.0";
 const DEFAULT_HTTP_PORT = 3100;
 const MCP_HTTP_PATH = "/mcp";
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024; // 1 MB
@@ -48,6 +48,42 @@ const authStatusEntrySchema = z.object({
   validationStatus: z.enum(["fresh", "stale", "missing"]),
   filePath: z.string().nullable(),
   sizeBytes: z.number().nullable(),
+});
+
+const pwAuthDoctorCheckSchema = z.object({
+  name: z.string(),
+  status: z.string(),
+  summary: z.string(),
+  detail: z.string().nullable(),
+});
+
+const pwAuthDoctorAuthSchema = z.object({
+  exists: z.boolean(),
+  filePath: z.string().nullable(),
+  authStatus: z.string(),
+});
+
+const pwAuthCheckDomAssertionSchema = z.object({
+  type: z.string(),
+  passed: z.boolean(),
+  message: z.string(),
+});
+
+const pwAuthCheckDomItemResultSchema = z.object({
+  selector: z.string(),
+  status: z.string(),
+  match_count: z.number(),
+  value: z.union([z.string(), z.boolean()]).nullable(),
+  assertion: pwAuthCheckDomAssertionSchema.nullable(),
+  screenshot_path: z.string().nullable(),
+  errors: z.array(z.string()),
+});
+
+const pwAuthCheckDomArtifactsSchema = z.object({
+  outputDir: z.string().nullable(),
+  resultJson: z.string().nullable(),
+  extractFile: z.string().nullable(),
+  failureScreenshot: z.string().nullable(),
 });
 
 const tmuxSessionSummarySchema = z.object({
@@ -332,6 +368,85 @@ export function createServer() {
     async ({ user }) => {
       try {
         return successResult(await pwAuthHandlers.clear(user));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "pw_auth_doctor",
+    {
+      description:
+        "Run pw-auth doctor to check Playwright + WordPress readiness for a Local site before attempting login. Returns a structured pass/warn/fail checklist and remediation steps. Use this before pw_auth_login when troubleshooting.",
+      inputSchema: {
+        siteUrl: z.string().url().describe("Full WordPress site URL, for example http://my-site.local"),
+        site: z.string().min(1).describe("Local site name used to construct the internal local-wp command prefix"),
+        user: z.string().min(1).default("admin").describe("WordPress username to check auth state for"),
+      },
+      outputSchema: {
+        status: z.string().describe("Overall readiness: ready, partial, or blocked"),
+        siteUrl: z.string(),
+        user: z.string(),
+        checks: z.array(pwAuthDoctorCheckSchema).describe("Ordered list of readiness checks with pass/warn/fail/skip status"),
+        auth: pwAuthDoctorAuthSchema.describe("Auth file presence and validity for the requested user"),
+        remediations: z.array(z.string()).describe("Actionable steps to resolve any failing checks"),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number().describe("0=ready, 1=partial, 2=blocked"),
+      },
+    },
+    async ({ siteUrl, site, user }) => {
+      try {
+        return successResult(await pwAuthHandlers.doctor(siteUrl, site, user ?? "admin"));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "pw_auth_check_dom",
+    {
+      description:
+        "Inspect a page's DOM using Playwright and optional cached auth. Supports single or multi-selector checks, content extraction (exists/text/html), assertions (visible/hidden/text-contains/attr-equals), and screenshots. Use for verifying WordPress admin UI state without writing custom Playwright scripts.",
+      inputSchema: {
+        url: z.string().url().describe("Page URL to open"),
+        selector: z.string().min(1).optional().describe("Single CSS selector to inspect. Use this or selectors, not both"),
+        selectors: z.string().min(1).optional().describe("Comma-separated CSS selectors to inspect in one run. Use this or selector, not both"),
+        extract: z.enum(["exists", "text", "html"]).default("exists").describe("What to extract from matching element(s)"),
+        assert: z.enum(["visible", "hidden", "text-contains", "attr-equals"]).optional().describe("Assertion to run on each matched element"),
+        assertValue: z.string().optional().describe("Expected value for text-contains or attr-equals assertions"),
+        assertAttr: z.string().optional().describe("Attribute name for attr-equals assertion"),
+        screenshot: z.enum(["never", "on-failure", "always"]).default("never").describe("When to capture screenshots"),
+        waitFor: z.string().optional().describe("Wait for this selector to appear before checking results — useful for AJAX-rendered content"),
+        user: z.string().min(1).default("admin").describe("WordPress username whose cached auth state to use"),
+        timeoutMs: z.number().int().positive().default(15_000).describe("Playwright navigation/selector timeout in milliseconds"),
+      },
+      outputSchema: {
+        status: z.string().describe("ok | not_found | assertion_failed | auth_required | error"),
+        url: z.string(),
+        selector: z.string().nullable(),
+        selectors: z.array(z.string()),
+        extract: z.string(),
+        waitFor: z.string().nullable(),
+        assertion: z.record(z.string(), z.unknown()).nullable(),
+        authUsed: z.boolean(),
+        value: z.union([z.string(), z.boolean()]).nullable().describe("Extracted value for single-selector runs; null for multi-selector"),
+        results: z.array(pwAuthCheckDomItemResultSchema).describe("Per-selector results including match count, value, and assertion outcome"),
+        artifacts: pwAuthCheckDomArtifactsSchema.describe("Paths to result JSON, extracted content, and screenshots written under temp/playwright/checks/"),
+        errors: z.array(z.string()),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number().describe("0=ok, 3=not_found, 4=auth_required, 5=error, 6=assertion_failed"),
+      },
+    },
+    async ({ url, selector, selectors, extract, assert: assertMode, assertValue, assertAttr, screenshot, waitFor, user, timeoutMs }) => {
+      try {
+        return successResult(await pwAuthHandlers.checkDom(
+          url, selector, selectors, extract ?? "exists", assertMode, assertValue, assertAttr,
+          screenshot ?? "never", waitFor, user ?? "admin", timeoutMs ?? 15_000,
+        ));
       } catch (error) {
         return errorResult(error);
       }

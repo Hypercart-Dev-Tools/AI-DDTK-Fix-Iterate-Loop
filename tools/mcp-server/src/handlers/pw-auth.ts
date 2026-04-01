@@ -48,6 +48,72 @@ export type PwAuthClearResult = Record<string, unknown> & {
   cleared: boolean;
 };
 
+export type PwAuthDoctorCheck = {
+  name: string;
+  status: string;
+  summary: string;
+  detail: string | null;
+};
+
+export type PwAuthDoctorAuth = {
+  exists: boolean;
+  filePath: string | null;
+  authStatus: string;
+};
+
+export type PwAuthDoctorResult = Record<string, unknown> & {
+  status: string;
+  siteUrl: string;
+  user: string;
+  checks: PwAuthDoctorCheck[];
+  auth: PwAuthDoctorAuth;
+  remediations: string[];
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+};
+
+export type PwAuthCheckDomAssertion = {
+  type: string;
+  passed: boolean;
+  message: string;
+};
+
+export type PwAuthCheckDomItemResult = {
+  selector: string;
+  status: string;
+  match_count: number;
+  value: string | boolean | null;
+  assertion: PwAuthCheckDomAssertion | null;
+  screenshot_path: string | null;
+  errors: string[];
+};
+
+export type PwAuthCheckDomArtifacts = {
+  outputDir: string | null;
+  resultJson: string | null;
+  extractFile: string | null;
+  failureScreenshot: string | null;
+};
+
+export type PwAuthCheckDomResult = Record<string, unknown> & {
+  status: string;
+  url: string;
+  selector: string | null;
+  selectors: string[];
+  extract: string;
+  waitFor: string | null;
+  assertion: Record<string, unknown> | null;
+  authUsed: boolean;
+  value: string | boolean | null;
+  results: PwAuthCheckDomItemResult[];
+  artifacts: PwAuthCheckDomArtifacts;
+  errors: string[];
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+};
+
 export type PwAuthResource = {
   uri: string;
   name: string;
@@ -324,6 +390,167 @@ export function createPwAuthHandlers(deps: PwAuthHandlerDeps) {
         filePath: toDisplayPath(workingDir, authFilePath),
         existed,
         cleared: existed,
+      };
+    },
+
+    async doctor(siteUrl: string, site: string, user = "admin"): Promise<PwAuthDoctorResult> {
+      const args = [
+        "doctor",
+        "--site-url", siteUrl,
+        "--wp-cli", buildWpCliPrefix(site),
+        "--user", user,
+        "--format", "json",
+      ];
+
+      let stdout: string;
+      let stderr: string;
+      let exitCode: number;
+
+      try {
+        const result = await runExec(pwAuthBin, args, { cwd: workingDir, timeoutMs });
+        stdout = result.stdout;
+        stderr = result.stderr;
+        exitCode = result.exitCode;
+      } catch (error) {
+        if (error instanceof ExecFileTextError && !error.timedOut) {
+          // doctor exits 1 (partial) or 2 (blocked) — these are expected non-zero exits
+          stdout = error.stdout;
+          stderr = error.stderr;
+          exitCode = error.exitCode;
+        } else {
+          throw error;
+        }
+      }
+
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(stdout.trim()) as Record<string, unknown>;
+      } catch {
+        return {
+          status: "blocked",
+          siteUrl,
+          user,
+          checks: [],
+          auth: { exists: false, filePath: null, authStatus: "missing" },
+          remediations: [],
+          stdout,
+          stderr,
+          exitCode,
+        };
+      }
+
+      const rawAuth = parsed["auth"] as Record<string, unknown> | undefined;
+      return {
+        status: (parsed["status"] as string) ?? "blocked",
+        siteUrl: (parsed["site_url"] as string) ?? siteUrl,
+        user: (parsed["user"] as string) ?? user,
+        checks: (parsed["checks"] as PwAuthDoctorCheck[]) ?? [],
+        auth: {
+          exists: (rawAuth?.["exists"] as boolean) ?? false,
+          filePath: (rawAuth?.["file_path"] as string | null) ?? null,
+          authStatus: (rawAuth?.["status"] as string) ?? "missing",
+        },
+        remediations: (parsed["remediations"] as string[]) ?? [],
+        stdout,
+        stderr,
+        exitCode,
+      };
+    },
+
+    async checkDom(
+      url: string,
+      selector: string | undefined,
+      selectors: string | undefined,
+      extract = "exists",
+      assert?: string,
+      assertValue?: string,
+      assertAttr?: string,
+      screenshot = "never",
+      waitFor?: string,
+      user = "admin",
+      playwrightTimeoutMs = 15_000,
+    ): Promise<PwAuthCheckDomResult> {
+      const args = ["check", "dom", "--url", url];
+
+      if (selector) {
+        args.push("--selector", selector);
+      } else if (selectors) {
+        args.push("--selectors", selectors);
+      }
+
+      args.push("--extract", extract, "--format", "json", "--screenshot", screenshot, "--user", user, "--timeout-ms", String(playwrightTimeoutMs));
+
+      if (assert) { args.push("--assert", assert); }
+      if (assertValue) { args.push("--assert-value", assertValue); }
+      if (assertAttr) { args.push("--assert-attr", assertAttr); }
+      if (waitFor) { args.push("--wait-for", waitFor); }
+
+      let stdout: string;
+      let stderr: string;
+      let exitCode: number;
+
+      try {
+        const result = await runExec(pwAuthBin, args, { cwd: workingDir, timeoutMs });
+        stdout = result.stdout;
+        stderr = result.stderr;
+        exitCode = result.exitCode;
+      } catch (error) {
+        if (error instanceof ExecFileTextError && !error.timedOut) {
+          // check dom exits non-zero for not_found(3), auth_required(4), error(5), assertion_failed(6)
+          stdout = error.stdout;
+          stderr = error.stderr;
+          exitCode = error.exitCode;
+        } else {
+          throw error;
+        }
+      }
+
+      let parsed: Record<string, unknown>;
+      try {
+        parsed = JSON.parse(stdout.trim()) as Record<string, unknown>;
+      } catch {
+        const fallbackSelectors = selector ? [selector] : (selectors ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+        return {
+          status: "error",
+          url,
+          selector: selector ?? null,
+          selectors: fallbackSelectors,
+          extract,
+          waitFor: waitFor ?? null,
+          assertion: null,
+          authUsed: false,
+          value: null,
+          results: [],
+          artifacts: { outputDir: null, resultJson: null, extractFile: null, failureScreenshot: null },
+          errors: ["Failed to parse pw-auth check dom JSON output"],
+          stdout,
+          stderr,
+          exitCode,
+        };
+      }
+
+      const rawArtifacts = parsed["artifacts"] as Record<string, unknown> | undefined;
+      return {
+        status: (parsed["status"] as string) ?? "error",
+        url: (parsed["url"] as string) ?? url,
+        selector: (parsed["selector"] as string | null) ?? null,
+        selectors: (parsed["selectors"] as string[]) ?? [],
+        extract: (parsed["extract"] as string) ?? extract,
+        waitFor: (parsed["wait_for"] as string | null) ?? null,
+        assertion: (parsed["assertion"] as Record<string, unknown> | null) ?? null,
+        authUsed: (parsed["auth_used"] as boolean) ?? false,
+        value: (parsed["value"] as string | boolean | null) ?? null,
+        results: (parsed["results"] as PwAuthCheckDomItemResult[]) ?? [],
+        artifacts: {
+          outputDir: (rawArtifacts?.["output_dir"] as string | null) ?? null,
+          resultJson: (rawArtifacts?.["result_json"] as string | null) ?? null,
+          extractFile: (rawArtifacts?.["extract_file"] as string | null) ?? null,
+          failureScreenshot: (rawArtifacts?.["failure_screenshot"] as string | null) ?? null,
+        },
+        errors: (parsed["errors"] as string[]) ?? [],
+        stdout,
+        stderr,
+        exitCode,
       };
     },
 

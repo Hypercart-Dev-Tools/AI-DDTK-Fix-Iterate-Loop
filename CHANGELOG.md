@@ -13,6 +13,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.0] - 2026-04-01
+
+### Added
+- **MCP server v0.8.0 — `pw_auth_doctor` tool** — exposes `pw-auth doctor` as a typed MCP tool. Returns a structured pass/warn/fail checklist of Playwright + WordPress readiness checks (Node.js, Playwright module, WP-CLI, mu-plugin, site reachability) plus remediation steps. Use before `pw_auth_login` when troubleshooting; exits 0=ready, 1=partial, 2=blocked.
+- **MCP server v0.8.0 — `pw_auth_check_dom` tool** — exposes `pw-auth check dom` as a typed MCP tool. Supports single or comma-separated multi-selector inspection, content extraction (exists/text/html), assertions (visible/hidden/text-contains/attr-equals), screenshots (never/on-failure/always), and a `waitFor` selector for AJAX-rendered content. Returns per-selector results and artifact paths under `temp/playwright/checks/`; exits 0=ok, 3=not_found, 4=auth_required, 5=error, 6=assertion_failed.
+- **Unit tests** — added four new test cases in `pw-auth.test.ts` covering `doctor()` happy path, `doctor()` blocked/non-zero exit, `checkDom()` happy path (ok), and `checkDom()` not_found non-zero exit.
+
+### Changed
+- **`AGENTS.md`** — updated tool count to 23, added `pw_auth_doctor` and `pw_auth_check_dom` to the Playwright Auth row, updated preferred-flow and behavioral-contract lines to reference the new tools.
+- **`README.md`** — updated MCP Server tool count to 23 in both the feature table and the project-copy section.
+
 ## [1.7.0] - 2026-03-29
 
 ### Added
