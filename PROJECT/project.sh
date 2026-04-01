@@ -1,23 +1,32 @@
 #!/usr/bin/env bash
 # =============================================================================
-# project.sh — PROJECT folder hygiene · Phases 1 + 2 + 3
-# version 1.1 - attn: update this number as improvements are added
+# project.sh — PROJECT folder hygiene · Phases 0 + 1 + 2 + 3 + 4
+# version 1.3 - attn: update this number as improvements are added
 # =============================================================================
+# Phase 0 (auto):    pre-check git cleanliness + zip backup before mutations.
 # Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
 # Phase 2 (scan):    extract all markdown links, build bidirectional registry,
 #                    detect broken links, save .xref-registry.json.
 # Phase 3 (meta):    enforce frontmatter metadata on every project doc.
+# Phase 4 (promote): detect done/misplaced docs → recommend folder moves.
 #
 # AI AGENT HOOKS
 #   --json      Emit structured JSON to stdout for agent/MCP consumption
-#   Exit codes  Phase 1: 0=clean · 1=stale found · 2=applied · 99=error
+#   Exit codes  Phase 0: 0=clean · 1=dirty (blocked --apply) · 99=error
+#               Phase 1: 0=clean · 1=stale found · 2=applied · 99=error
 #               Phase 2: 0=clean · 1=broken links found · 99=error
 #               Phase 3: 0=clean · 1=gaps found · 2=applied · 99=error
+#               Phase 4: 0=clean · 1=moves recommended · 2=applied · 99=error
 #   Always emits ##AGENT-CONTEXT and ##AGENT-PROMPTS blocks at end of stdout.
+#
+# PHASE 0 — Pre-check (runs automatically before every phase)
+#   Checks for uncommitted/unpushed changes. On --apply, creates a zip backup
+#   of PROJECT/ under temp/ and blocks if git is dirty (use --force to bypass).
 #
 # USAGE — Phase 1 (prefix hygiene)
 #   ./PROJECT/project.sh                    # dry-run — safe default, no writes
 #   ./PROJECT/project.sh --apply            # rename files (git mv when in repo)
+#   ./PROJECT/project.sh --apply --force    # apply even if git is dirty
 #   ./PROJECT/project.sh --json             # structured JSON output only
 #   ./PROJECT/project.sh --days 14          # custom stale threshold (default: 8)
 #   ./PROJECT/project.sh --include-done     # also scan the 3-DONE/ subfolder
@@ -34,11 +43,17 @@
 #   ./PROJECT/project.sh meta --json        # structured JSON report only
 #   ./PROJECT/project.sh meta --include-done # also scan 3-DONE/ subfolder
 #
+# USAGE — Phase 4 (folder promotion / demotion)
+#   ./PROJECT/project.sh promote            # dry-run — recommend folder moves
+#   ./PROJECT/project.sh promote --apply    # execute moves (git mv when in repo)
+#   ./PROJECT/project.sh promote --json     # structured JSON report only
+#
 # PHASE ROADMAP
+#   Phase 0 (this) — pre-check: git cleanliness gate + zip backup
 #   Phase 1 (this) — scan + P3 prefix/downgrade, xref warnings, agent hooks
 #   Phase 2 (this) — cross-reference registry: detect and record broken links
 #   Phase 3 (this) — enforce frontmatter metadata on every project doc
-#   Phase 4        — scan 2-WORKING for done-folder promotion candidates
+#   Phase 4 (this) — detect done/misplaced docs, recommend folder moves
 #   Phase 5        — git/CHANGELOG correlation for activity detection
 #   Phase 6        — MCP server adapter for continuous hygiene orchestration
 # =============================================================================
@@ -48,20 +63,23 @@ set -euo pipefail
 # ── Defaults ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
-COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3)
+COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4)
 DAYS_THRESHOLD=8
 DRY_RUN=true
 JSON_MODE=false
 INCLUDE_DONE=false
 EXCLUDE_META=true       # skip meta-docs like DOCS-INSTRUCTIONS.md by default
 SCAN_CHECK_ONLY=false   # Phase 2: report without writing registry file
+FORCE=false             # Phase 0: bypass git-dirty gate on --apply
 
 # ── Arg parsing ───────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
     scan)              COMMAND="scan" ;;
     meta)              COMMAND="meta" ;;
+    promote)           COMMAND="promote" ;;
     --apply)           DRY_RUN=false ;;
+    --force)           FORCE=true ;;
     --check)           SCAN_CHECK_ONLY=true ;;
     --json)            JSON_MODE=true ;;
     --include-done)    INCLUDE_DONE=true ;;
@@ -80,6 +98,151 @@ done
 # ── Git detection ─────────────────────────────────────────────────────────────
 USE_GIT=false
 git -C "$SCRIPT_DIR" rev-parse --git-dir &>/dev/null 2>&1 && USE_GIT=true || true
+
+# ── Phase 0: pre-check — git cleanliness + zip backup ───────────────────────
+# Runs automatically before every phase. Warns on dry-run, blocks on --apply.
+REPO_ROOT=""
+$USE_GIT && REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)
+
+phase0_check() {
+  local has_uncommitted=false
+  local has_unpushed=false
+  local has_untracked=false
+  local uncommitted_count=0
+  local unpushed_count=0
+  local untracked_count=0
+
+  if ! $USE_GIT; then
+    # Not a git repo — skip git checks, still do zip backup on --apply
+    return 0
+  fi
+
+  # Check for uncommitted changes (staged + unstaged) in PROJECT/ folder
+  local project_rel="${SCRIPT_DIR#"$REPO_ROOT/"}"
+  uncommitted_count=$(git -C "$REPO_ROOT" diff --name-only -- "$project_rel/" 2>/dev/null | wc -l | tr -d ' ')
+  local staged_count
+  staged_count=$(git -C "$REPO_ROOT" diff --cached --name-only -- "$project_rel/" 2>/dev/null | wc -l | tr -d ' ')
+  uncommitted_count=$((uncommitted_count + staged_count))
+  (( uncommitted_count > 0 )) && has_uncommitted=true
+
+  # Check for untracked files in PROJECT/
+  untracked_count=$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$project_rel/" 2>/dev/null | wc -l | tr -d ' ')
+  (( untracked_count > 0 )) && has_untracked=true
+
+  # Check for unpushed commits on current branch
+  local branch
+  branch=$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+  if [[ -n "$branch" ]] && git -C "$REPO_ROOT" rev-parse --verify "origin/$branch" &>/dev/null; then
+    unpushed_count=$(git -C "$REPO_ROOT" rev-list "origin/$branch..HEAD" 2>/dev/null | wc -l | tr -d ' ')
+    (( unpushed_count > 0 )) && has_unpushed=true
+  fi
+
+  local is_dirty=false
+  ($has_uncommitted || $has_untracked || $has_unpushed) && is_dirty=true
+
+  # ── Build Phase 0 result ─────────────────────────────────────────────────
+  local p0_json
+  p0_json=$(cat <<JSONEOF
+{
+  "tool": "project-precheck",
+  "phase": 0,
+  "version": "1.0.0",
+  "git": {
+    "dirty": $is_dirty,
+    "uncommitted_changes": $uncommitted_count,
+    "untracked_files": $untracked_count,
+    "unpushed_commits": $unpushed_count,
+    "branch": "$branch"
+  }
+}
+JSONEOF
+  )
+
+  # ── Human / agent output ─────────────────────────────────────────────────
+  if $is_dirty; then
+    local p0_prompts=()
+    $has_uncommitted && p0_prompts+=("${uncommitted_count} uncommitted change(s) in PROJECT/ — commit before running --apply for accurate stale detection.")
+    $has_untracked   && p0_prompts+=("${untracked_count} untracked file(s) in PROJECT/ — consider adding them to git.")
+    $has_unpushed    && p0_prompts+=("${unpushed_count} unpushed commit(s) on branch '$branch' — push to preserve your work before mutations.")
+    p0_prompts+=("Ask the user to commit and push, then re-run. Use --force to bypass this check.")
+
+    if ! $JSON_MODE; then
+      echo ""
+      echo "=== project.sh · Phase 0 Pre-Check ==="
+      $has_uncommitted && printf "  Uncommitted : %d change(s) in PROJECT/\n" "$uncommitted_count"
+      $has_untracked   && printf "  Untracked   : %d file(s) in PROJECT/\n" "$untracked_count"
+      $has_unpushed    && printf "  Unpushed    : %d commit(s) on '%s'\n" "$unpushed_count" "$branch"
+      echo ""
+    fi
+
+    # On --apply without --force: block execution
+    if ! $DRY_RUN && ! $FORCE; then
+      if ! $JSON_MODE; then
+        echo "  BLOCKED: --apply requires a clean git state. Commit and push first, or use --force."
+        echo ""
+        echo "##AGENT-CONTEXT"
+        echo "$p0_json"
+        echo "##END-AGENT-CONTEXT"
+        echo ""
+        echo "##AGENT-PROMPTS"
+        for p in "${p0_prompts[@]}"; do echo "- $p"; done
+        echo "##END-AGENT-PROMPTS"
+      else
+        echo "$p0_json"
+      fi
+      exit 1
+    fi
+
+    # On dry-run or --force: warn and continue
+    if ! $JSON_MODE; then
+      if $DRY_RUN; then
+        echo "  (dry-run — continuing with warning)"
+      else
+        echo "  (--force specified — continuing despite dirty state)"
+      fi
+      echo ""
+    fi
+  else
+    $JSON_MODE || true  # silent pass on clean state
+  fi
+
+  return 0
+}
+
+# Create timestamped zip backup before any --apply mutation
+phase0_backup() {
+  if $DRY_RUN; then return 0; fi
+
+  local backup_dir
+  if [[ -n "$REPO_ROOT" ]]; then
+    backup_dir="$REPO_ROOT/temp"
+  else
+    backup_dir="$SCRIPT_DIR/../temp"
+  fi
+  mkdir -p "$backup_dir"
+
+  local timestamp
+  timestamp=$(date +%Y-%m-%d-%H%M%S)
+  local zip_name="project-backup-${timestamp}.zip"
+  local zip_path="$backup_dir/$zip_name"
+
+  # Zip PROJECT/ folder, excluding .xref-registry.json and other generated files
+  if command -v zip &>/dev/null; then
+    (cd "$SCRIPT_DIR/.." && zip -rq "$zip_path" "$(basename "$SCRIPT_DIR")" \
+      -x "*/.*" "*/temp/*" 2>/dev/null) || true
+    if [[ -f "$zip_path" ]]; then
+      $JSON_MODE || echo "  Backup: $zip_name ($(du -h "$zip_path" | cut -f1))"
+      $JSON_MODE || echo ""
+    fi
+  else
+    $JSON_MODE || echo "  Backup: skipped (zip not available)"
+    $JSON_MODE || echo ""
+  fi
+}
+
+# Run Phase 0
+phase0_check
+phase0_backup
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -576,9 +739,396 @@ for f in d['files']:
   exit 0
 }
 
-# ── Route to Phase 2/3 early if subcommand matches ──────────────────────────
-[[ "$COMMAND" == "scan" ]] && run_scan
-[[ "$COMMAND" == "meta" ]] && run_meta
+# ── Phase 4: folder promotion / demotion ─────────────────────────────────────
+run_promote() {
+  command -v python3 &>/dev/null || { echo "ERROR: python3 is required for 'promote' (Phase 4)" >&2; exit 99; }
+
+  # Collect all .md files across 1-INBOX, 2-WORKING, 4-MISC (not 3-DONE — those are done)
+  local md_files=()
+  while IFS= read -r -d '' filepath; do
+    local fname; fname="$(basename "$filepath")"
+    # Skip meta docs and blanks
+    if [[ "$fname" == "DOCS-INSTRUCTIONS.md" || "$fname" == "blank.md" ]]; then continue; fi
+    md_files+=("$filepath")
+  done < <(
+    find "$SCRIPT_DIR" -name "*.md" -not -name "$SCRIPT_NAME" \
+      -not -path "*/3-DONE/*" -print0 2>/dev/null
+  )
+
+  # Build file list JSON
+  local files_json="[" fsep=""
+  for f in "${md_files[@]}"; do
+    files_json+="${fsep}\"$(json_str "$f")\""
+    fsep=","
+  done
+  files_json+="]"
+
+  # Git staleness: days since last commit touching each file
+  local git_stale_json="{}"
+  if $USE_GIT; then
+    git_stale_json=$(
+      local now_ts; now_ts=$(date +%s)
+      for f in "${md_files[@]}"; do
+        local ts; ts=$(git -C "$SCRIPT_DIR" log -1 --format="%ct" -- "$f" 2>/dev/null || true)
+        local days=-1
+        if [[ -n "$ts" ]]; then
+          days=$(( (now_ts - ts) / 86400 ))
+        fi
+        printf '"%s":%d\n' "$(json_str "$f")" "$days"
+      done | paste -sd',' - | sed 's/^/{/;s/$/}/'
+    )
+  fi
+
+  local py_result
+  py_result=$(FILES_JSON="$files_json" GIT_STALE="$git_stale_json" SCAN_ROOT="$SCRIPT_DIR" \
+    DRY_RUN="$DRY_RUN" USE_GIT="$USE_GIT" python3 - <<'PYEOF'
+import json, os, re, sys
+
+scan_root  = os.environ['SCAN_ROOT']
+files      = json.loads(os.environ['FILES_JSON'])
+git_stale  = json.loads(os.environ.get('GIT_STALE', '{}'))
+dry_run    = os.environ.get('DRY_RUN', 'true') == 'true'
+use_git    = os.environ.get('USE_GIT', 'false') == 'true'
+
+# ── Folder detection ──────────────────────────────────────────────────────
+def current_folder(filepath):
+    rel = os.path.relpath(filepath, scan_root)
+    parts = rel.split(os.sep)
+    return parts[0] if len(parts) > 1 else '_root'
+
+def target_folder_for_status(status):
+    return {
+        'inbox': '1-INBOX', 'working': '2-WORKING', 'paused': '2-WORKING',
+        'done': '3-DONE', 'misc': '4-MISC',
+    }.get(status, '1-INBOX')
+
+# ── Parse frontmatter ────────────────────────────────────────────────────
+def parse_frontmatter(content):
+    if not content.startswith('---'):
+        return {}
+    end = content.find('\n---', 3)
+    if end == -1:
+        return {}
+    fields = {}
+    for line in content[3:end].strip().split('\n'):
+        m = re.match(r'^(\w[\w_-]*)\s*:\s*(.*?)$', line)
+        if m:
+            fields[m.group(1).lower().strip()] = m.group(2).strip().strip('"').strip("'")
+    return fields
+
+# ── Checklist analysis ───────────────────────────────────────────────────
+def analyze_checklist(content):
+    checked   = len(re.findall(r'- \[x\]', content, re.IGNORECASE))
+    unchecked = len(re.findall(r'- \[ \]', content))
+    total = checked + unchecked
+    ratio = checked / total if total > 0 else None
+    return {'checked': checked, 'unchecked': unchecked, 'total': total, 'ratio': ratio}
+
+# ── Score a file for "done-ness" ─────────────────────────────────────────
+# Returns: score 0-100, reason string, recommended action
+def score_file(filepath, fm, checklist, stale_days):
+    score = 0
+    reasons = []
+    status = fm.get('status', '').lower()
+
+    # Signal 1: frontmatter status (strongest signal — explicit human intent)
+    if status == 'done':
+        score += 50
+        reasons.append('status=done (+50)')
+    elif status == 'paused':
+        score += 10
+        reasons.append('status=paused (+10)')
+    elif status in ('working', 'inbox'):
+        score += 0
+
+    # Signal 2: checklist completion ratio
+    if checklist['total'] > 0:
+        r = checklist['ratio']
+        if r == 1.0:
+            score += 30
+            reasons.append(f'checklist 100% ({checklist["checked"]}/{checklist["total"]}) (+30)')
+        elif r >= 0.9:
+            score += 20
+            reasons.append(f'checklist {r:.0%} ({checklist["checked"]}/{checklist["total"]}) (+20)')
+        elif r >= 0.7:
+            score += 5
+            reasons.append(f'checklist {r:.0%} ({checklist["checked"]}/{checklist["total"]}) (+5)')
+        else:
+            reasons.append(f'checklist {r:.0%} ({checklist["checked"]}/{checklist["total"]}) (+0)')
+
+    # Signal 3: staleness (days since last git commit)
+    if stale_days >= 0:
+        if stale_days >= 30:
+            score += 15
+            reasons.append(f'{stale_days}d stale (+15)')
+        elif stale_days >= 14:
+            score += 10
+            reasons.append(f'{stale_days}d stale (+10)')
+        elif stale_days >= 7:
+            score += 5
+            reasons.append(f'{stale_days}d stale (+5)')
+        else:
+            reasons.append(f'{stale_days}d stale (+0)')
+
+    return score, reasons
+
+# ── Determine recommended move ───────────────────────────────────────────
+def recommend_move(filepath, fm, score, checklist):
+    cur = current_folder(filepath)
+    status = fm.get('status', '').lower()
+
+    # Case 1: Done candidate (high score in WORKING or INBOX)
+    if score >= 60 and cur in ('2-WORKING', '1-INBOX'):
+        return '3-DONE', 'done-candidate'
+
+    # Case 2: Status says done but file isn't in 3-DONE
+    if status == 'done' and cur != '3-DONE':
+        return '3-DONE', 'status-mismatch'
+
+    # Case 3: Status says working but file is in INBOX
+    # (capacity check is done after all recommendations are collected)
+    if status == 'working' and cur == '1-INBOX':
+        return '2-WORKING', 'activate-candidate'
+
+    # Case 4: Status says paused, high completion, stale → done candidate
+    if status == 'paused' and score >= 50 and checklist['ratio'] is not None and checklist['ratio'] >= 0.9:
+        return '3-DONE', 'paused-but-complete'
+
+    # Case 5: Status says inbox/misc but file is in WORKING (shouldn't be active)
+    if status in ('inbox', 'misc') and cur == '2-WORKING':
+        target = '1-INBOX' if status == 'inbox' else '4-MISC'
+        return target, 'demote-candidate'
+
+    return None, 'no-move'
+
+# ── Process each file ────────────────────────────────────────────────────
+results = []
+moves = []
+
+for filepath in sorted(files):
+    rel = os.path.relpath(filepath, scan_root)
+    try:
+        with open(filepath, 'r', errors='replace') as fh:
+            content = fh.read()
+    except OSError:
+        results.append({'file': rel, 'error': 'Could not read file'})
+        continue
+
+    fm = parse_frontmatter(content)
+    checklist = analyze_checklist(content)
+    stale_days = git_stale.get(filepath, -1)
+    score, reasons = score_file(filepath, fm, checklist, stale_days)
+    target, move_type = recommend_move(filepath, fm, score, checklist)
+
+    entry = {
+        'file': rel,
+        'current_folder': current_folder(filepath),
+        'status': fm.get('status', ''),
+        'priority': fm.get('priority', ''),
+        'score': score,
+        'reasons': reasons,
+        'checklist': checklist,
+        'stale_days': stale_days,
+        'move': None,
+    }
+
+    if target:
+        move_entry = {
+            'file': rel,
+            'from_folder': current_folder(filepath),
+            'to_folder': target,
+            'type': move_type,
+            'score': score,
+            'src': filepath,
+            'dst': os.path.join(scan_root, target, os.path.basename(filepath)),
+        }
+        entry['move'] = {
+            'to_folder': target,
+            'type': move_type,
+        }
+        moves.append(move_entry)
+
+    results.append(entry)
+
+# ── Apply moves ──────────────────────────────────────────────────────────
+applied = 0
+errors = 0
+skipped = 0
+
+if not dry_run:
+    for mv in moves:
+        dst = mv['dst']
+        # Ensure target directory exists
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        if os.path.exists(dst):
+            mv['result'] = 'skipped'
+            skipped += 1
+            continue
+        # Moves are done via git mv in the shell wrapper; here we just record intent
+        mv['result'] = 'pending-shell'
+        applied += 1
+
+# ── Capacity check: max 3 in 2-WORKING per DOCS-INSTRUCTIONS ─────────
+WORKING_MAX = 3
+current_in_working = sum(1 for f in files if os.path.relpath(f, scan_root).startswith('2-WORKING'))
+incoming_to_working = sum(1 for m in moves if m['to_folder'] == '2-WORKING')
+leaving_working = sum(1 for m in moves if m['from_folder'] == '2-WORKING')
+projected_working = current_in_working + incoming_to_working - leaving_working
+capacity_warning = None
+if projected_working > WORKING_MAX:
+    capacity_warning = (
+        f'2-WORKING would have {projected_working} files after moves '
+        f'(max {WORKING_MAX} per DOCS-INSTRUCTIONS). '
+        f'Consider triaging before applying.'
+    )
+
+output = {
+    'tool': 'project-promote',
+    'phase': 4,
+    'version': '1.0.0',
+    'dry_run': dry_run,
+    'stats': {
+        'files_scanned': len(results),
+        'moves_recommended': len(moves),
+        'applied': applied,
+        'skipped': skipped,
+        'errors': errors,
+        'working_current': current_in_working,
+        'working_projected': projected_working,
+        'working_max': WORKING_MAX,
+    },
+    'capacity_warning': capacity_warning,
+    'moves': moves,
+    'files': results,
+}
+print(json.dumps(output, indent=2))
+PYEOF
+  ) || { echo "ERROR: promote analysis failed" >&2; exit 99; }
+
+  local files_scanned moves_recommended
+  files_scanned=$(echo "$py_result"      | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_scanned'])")
+  moves_recommended=$(echo "$py_result"  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['moves_recommended'])")
+
+  # ── Apply moves via shell (git mv or mv) ─────────────────────────────────
+  local applied=0 skipped=0 errors=0
+  if ! $DRY_RUN && (( moves_recommended > 0 )); then
+    while IFS= read -r move_line; do
+      local src dst to_folder move_type
+      src=$(echo "$move_line"       | python3 -c "import json,sys; m=json.load(sys.stdin); print(m['src'])")
+      dst=$(echo "$move_line"       | python3 -c "import json,sys; m=json.load(sys.stdin); print(m['dst'])")
+      to_folder=$(echo "$move_line" | python3 -c "import json,sys; m=json.load(sys.stdin); print(m['to_folder'])")
+      move_type=$(echo "$move_line" | python3 -c "import json,sys; m=json.load(sys.stdin); print(m['type'])")
+
+      # Ensure target dir exists
+      mkdir -p "$(dirname "$dst")"
+
+      if [[ -e "$dst" ]]; then
+        $JSON_MODE || echo "  SKIP (target exists): $(basename "$dst") → $to_folder/" >&2
+        skipped=$((skipped + 1))
+        continue
+      fi
+
+      if $USE_GIT; then
+        git mv "$src" "$dst" \
+          && applied=$((applied + 1)) \
+          || { echo "  ERROR: git mv failed for $(basename "$src")" >&2; errors=$((errors + 1)); }
+      else
+        mv "$src" "$dst" \
+          && applied=$((applied + 1)) \
+          || { echo "  ERROR: mv failed for $(basename "$src")" >&2; errors=$((errors + 1)); }
+      fi
+
+      $JSON_MODE || echo "  ✓  $(basename "$src")  →  $to_folder/"
+    done < <(echo "$py_result" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for m in d['moves']:
+    print(json.dumps(m))
+")
+    $JSON_MODE || echo ""
+  fi
+
+  # ── Capacity warning ────────────────────────────────────────────────────────
+  local capacity_warning
+  capacity_warning=$(echo "$py_result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('capacity_warning') or '')")
+
+  # ── Agent prompts ──────────────────────────────────────────────────────────
+  local prompts=()
+  if (( moves_recommended == 0 )); then
+    prompts+=("All ${files_scanned} files are in their correct folders. Nothing to move.")
+  elif $DRY_RUN; then
+    prompts+=("${moves_recommended} folder move(s) recommended. Run \`./PROJECT/project.sh promote --apply\` to execute them.")
+    [[ -n "$capacity_warning" ]] && prompts+=("⚠️  $capacity_warning")
+    prompts+=("Review the 'moves' array in JSON output for per-file details and scores.")
+  else
+    prompts+=("${applied} file(s) moved. ${skipped} skipped (target existed). ${errors} error(s).")
+    (( applied > 0 )) && prompts+=("Run \`git diff --name-only --cached\` to review staged moves before committing.")
+  fi
+
+  # ── Route output ───────────────────────────────────────────────────────────
+  if $JSON_MODE; then
+    echo "$py_result"
+  else
+    local mode_label="DRY-RUN"; $DRY_RUN || mode_label="APPLY"
+    echo ""
+    echo "=== project.sh · Phase 4 Folder Promotion · ${mode_label} ==="
+    printf "  Files scanned : %s\n" "$files_scanned"
+    printf "  Moves planned : %s\n" "$moves_recommended"
+    $DRY_RUN || printf "  Applied       : %s\n" "$applied"
+    echo ""
+
+    if [[ -n "$capacity_warning" ]]; then
+      echo "  ⚠️  $capacity_warning"
+      echo ""
+    fi
+
+    if (( moves_recommended > 0 )); then
+      echo "  Recommended moves:"
+      echo "$py_result" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for m in d['moves']:
+    print(f'    [{m[\"type\"]}]  {m[\"file\"]}  →  {m[\"to_folder\"]}/  (score: {m[\"score\"]})')
+"
+      echo ""
+      echo "  Score breakdown (all files):"
+      echo "$py_result" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for f in d['files']:
+    move_tag = ''
+    if f.get('move'):
+        move_tag = f'  → {f[\"move\"][\"to_folder\"]}/'
+    cl = f['checklist']
+    cl_str = f'{cl[\"checked\"]}/{cl[\"total\"]}' if cl['total'] > 0 else 'n/a'
+    print(f'    {f[\"file\"]:45s}  score={f[\"score\"]:3d}  status={f[\"status\"]:8s}  checklist={cl_str:6s}  stale={f[\"stale_days\"]}d{move_tag}')
+"
+      echo ""
+    else
+      echo "  ✅ All files are in their correct folders. Nothing to move."
+      echo ""
+    fi
+
+    echo "##AGENT-CONTEXT"
+    echo "$py_result"
+    echo "##END-AGENT-CONTEXT"
+    echo ""
+    echo "##AGENT-PROMPTS"
+    for p in "${prompts[@]}"; do echo "- $p"; done
+    echo "##END-AGENT-PROMPTS"
+  fi
+
+  # ── Exit codes ──────────────────────────────────────────────────────────────
+  (( errors > 0 ))      && exit 99
+  ! $DRY_RUN && (( applied > 0 )) && exit 2
+  (( moves_recommended > 0 )) && exit 1
+  exit 0
+}
+
+# ── Route to Phase 2/3/4 early if subcommand matches ────────────────────────
+[[ "$COMMAND" == "scan" ]]    && run_scan
+[[ "$COMMAND" == "meta" ]]    && run_meta
+[[ "$COMMAND" == "promote" ]] && run_promote
 
 # ── Phase 1: find stale .md files ─────────────────────────────────────────────
 STALE_FILES=()
