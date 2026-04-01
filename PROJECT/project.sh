@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # project.sh — PROJECT folder hygiene · Phases 1 + 2
+# version 1.0 - attn: update this number as improvements are added
 # =============================================================================
 # Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
 # Phase 2 (scan):    extract all markdown links, build bidirectional registry,
