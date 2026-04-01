@@ -1,3 +1,13 @@
+---
+title: "Discovery Preflight"
+status: inbox
+priority: P2
+created: 2026-03-25
+updated: 2026-03-25
+author: noelsaw1
+goal: 
+---
+
 Out-of-the-box suggestions
 1. MCP tool descriptions as the preflight itself
 

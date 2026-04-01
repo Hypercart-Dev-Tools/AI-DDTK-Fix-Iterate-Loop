@@ -1,3 +1,13 @@
+---
+title: "Weekly UX Audit Checklist"
+status: misc
+priority: P3
+created: 2026-03-24
+updated: 2026-03-24
+author: noelsaw1
+goal: 
+---
+
 # Weekly UX Audit Checklist
 
 Purpose: A lightweight, repeatable weekly UX audit to catch friction early and improve first-time and recurring user workflows.
@@ -35,7 +45,7 @@ Run one focused UX audit each week to identify the top usability gaps, prioritiz
 - [ ] Identify and rank top 3 UX issues by user impact.
 - [ ] Define fix scope for each issue (small, medium, large).
 - [ ] Link fixes to owners/issues/PRs.
-- [ ] Record outcomes in `Weekly Outcomes` and update [4X4.md](../4X4.md).
+- [ ] Record outcomes in `Weekly Outcomes` and update [4X4.md](../../4X4.md).
 
 ## Weekly Outcomes
 Use one block per week:

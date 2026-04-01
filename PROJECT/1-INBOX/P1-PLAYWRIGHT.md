@@ -1,13 +1,11 @@
 ---
 title: "P1: Robust Playwright Support"
-status: in_progress
-author: noelsaw
+status: working
+priority: P1
 created: 2026-03-10
 updated: 2026-03-10
-project: AI-DDTK
-category: feature
-priority: P1
-parent: P1-MCP-SERVER.md (follow-up to Phase 3: pw-auth & Playwright tools)
+author: noelsaw
+goal: 
 ---
 
 ## TOC

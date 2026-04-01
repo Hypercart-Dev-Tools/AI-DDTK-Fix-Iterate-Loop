@@ -1,3 +1,13 @@
+---
+title: "GCP Server Infrastructure"
+status: inbox
+priority: P3
+created: 2026-04-01
+updated: 2026-04-01
+author: noelsaw1
+goal: 
+---
+
 # GCP Server Infrastructure
 
 ## Project: `wp-db-toolkit`

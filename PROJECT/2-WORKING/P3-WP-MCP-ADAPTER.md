@@ -1,13 +1,11 @@
 ---
 title: "P1: WordPress MCP Adapter Integration"
-status: Paused after Phase 1 and 2 completed
-author: noelsaw
+status: paused
+priority: P1
 created: 2026-03-22
 updated: 2026-03-22
-project: AI-DDTK
-category: feature
-priority: P1
-parent: null
+author: noelsaw
+goal: 
 ---
 
 <!-- TOC -->

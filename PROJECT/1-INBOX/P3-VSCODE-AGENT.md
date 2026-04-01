@@ -1,3 +1,13 @@
+---
+title: "My Analysis: VS Code Extension for AI-DDTK"
+status: inbox
+priority: P3
+created: 2026-02-07
+updated: 2026-04-01
+author: noelsaw1
+goal: 
+---
+
 ## 🤔 My Analysis: VS Code Extension for AI-DDTK
 
 ### Current State Assessment

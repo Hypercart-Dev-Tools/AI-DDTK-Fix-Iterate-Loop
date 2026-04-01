@@ -1,14 +1,11 @@
 ---
-title: AI-DDTK Roadmap
-status: partially in progress
-author: Perplexity -> Claude Code Reviewed and Edited
-reviewer: Noel Saw
+title: "AI-DDTK Roadmap"
+status: working
+priority: P1
 created: 2026-03-07
 updated: 2026-03-09
-project: AI-DDTK
-category: roadmap
-priority: high
-source: perplexity
+author: "Perplexity -> Claude Code Reviewed and Edited"
+goal: 
 ---
 
 # AI‑DDTK Roadmap (Perplexity Draft)

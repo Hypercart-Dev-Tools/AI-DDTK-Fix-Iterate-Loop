@@ -23,7 +23,7 @@ Scan → Triage → Fix → Verify → Ship
 | **Query Monitor Profiling** | Headless page profiling — slow queries, N+1 detection, cache stats | [AGENTS.md § Available Tools](AGENTS.md#available-tools) |
 | **WordPress MCP Adapter** | 13 abilities for API-level CRUD without a browser (WP 6.9+) | [MCP Adapter Setup](docs/MCP-ADAPTER-SETUP.md) · [Ability Schemas](docs/mcp-adapter-abilities.md) |
 | **Fix-Iterate Loop** | Guardrailed autonomous scan→fix→verify workflows (5 fail / 10 total max) | [fix-iterate-loop.md](fix-iterate-loop.md) |
-| **MCP Server** | 21 typed tools across 6 areas, auto-discovered via `.mcp.json` for supported editors | [AGENTS.md § MCP Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
+| **MCP Server** | 23 typed tools across 6 areas, auto-discovered via `.mcp.json` for supported editors | [AGENTS.md § MCP Setup](AGENTS.md#mcp-server-setup-and-lifecycle) |
 | **Local MCP Config Merge (`mcp-local-config`)** | Safely merge checked-in `.mcp.json` with gitignored local snippets for real site names, paths, and tokens | [docs/CLI-REFERENCE.md](docs/CLI-REFERENCE.md) |
 | **Install + Doctor Commands** | Full setup, PATH management, Playwright diagnostics, version/status checks | [install.sh](install.sh) |
 
@@ -282,7 +282,7 @@ The [Fix-Iterate Loop](fix-iterate-loop.md) methodology is licensed under [CC BY
 
 This section is for projects that have copied this file to connect to AI-DDTK. If you're reading this in the AI-DDTK repo itself, you can skip it.
 
-AI-DDTK is installed at `~/bin/ai-ddtk`. The MCP server provides 21 typed tools (WPCC scanning, Playwright auth, Query Monitor profiling, AJAX testing, LocalWP, tmux). For this project to use them, the following need to be in place.
+AI-DDTK is installed at `~/bin/ai-ddtk`. The MCP server provides 23 typed tools (WPCC scanning, Playwright auth, Query Monitor profiling, AJAX testing, LocalWP, tmux). For this project to use them, the following need to be in place.
 
 ### 1. Verify AI-DDTK is installed and built
 

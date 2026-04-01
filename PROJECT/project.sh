@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # =============================================================================
-# project.sh — PROJECT folder hygiene · Phases 1 + 2
-# version 1.0 - attn: update this number as improvements are added
+# project.sh — PROJECT folder hygiene · Phases 1 + 2 + 3
+# version 1.1 - attn: update this number as improvements are added
 # =============================================================================
 # Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
 # Phase 2 (scan):    extract all markdown links, build bidirectional registry,
 #                    detect broken links, save .xref-registry.json.
+# Phase 3 (meta):    enforce frontmatter metadata on every project doc.
 #
 # AI AGENT HOOKS
 #   --json      Emit structured JSON to stdout for agent/MCP consumption
 #   Exit codes  Phase 1: 0=clean · 1=stale found · 2=applied · 99=error
 #               Phase 2: 0=clean · 1=broken links found · 99=error
+#               Phase 3: 0=clean · 1=gaps found · 2=applied · 99=error
 #   Always emits ##AGENT-CONTEXT and ##AGENT-PROMPTS blocks at end of stdout.
 #
 # USAGE — Phase 1 (prefix hygiene)
@@ -26,11 +28,19 @@
 #   ./PROJECT/project.sh scan --check       # report only, no file written
 #   ./PROJECT/project.sh scan --json        # JSON registry to stdout only
 #
+# USAGE — Phase 3 (frontmatter enforcement)
+#   ./PROJECT/project.sh meta               # dry-run — report missing/incomplete
+#   ./PROJECT/project.sh meta --apply       # inject/normalize frontmatter
+#   ./PROJECT/project.sh meta --json        # structured JSON report only
+#   ./PROJECT/project.sh meta --include-done # also scan 3-DONE/ subfolder
+#
 # PHASE ROADMAP
 #   Phase 1 (this) — scan + P3 prefix/downgrade, xref warnings, agent hooks
 #   Phase 2 (this) — cross-reference registry: detect and record broken links
-#   Phase 3        — auto-update xrefs via search-and-replace
-#   Phase 4        — MCP server adapter for continuous hygiene orchestration
+#   Phase 3 (this) — enforce frontmatter metadata on every project doc
+#   Phase 4        — scan 2-WORKING for done-folder promotion candidates
+#   Phase 5        — git/CHANGELOG correlation for activity detection
+#   Phase 6        — MCP server adapter for continuous hygiene orchestration
 # =============================================================================
 
 set -euo pipefail
@@ -38,7 +48,7 @@ set -euo pipefail
 # ── Defaults ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
-COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2)
+COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3)
 DAYS_THRESHOLD=8
 DRY_RUN=true
 JSON_MODE=false
@@ -50,6 +60,7 @@ SCAN_CHECK_ONLY=false   # Phase 2: report without writing registry file
 while [[ $# -gt 0 ]]; do
   case "$1" in
     scan)              COMMAND="scan" ;;
+    meta)              COMMAND="meta" ;;
     --apply)           DRY_RUN=false ;;
     --check)           SCAN_CHECK_ONLY=true ;;
     --json)            JSON_MODE=true ;;
@@ -256,8 +267,318 @@ for b in d['broken_links']:
   (( broken_count > 0 )) && exit 1 || exit 0
 }
 
-# ── Route to Phase 2 early if subcommand=scan ─────────────────────────────────
+# ── Phase 3: frontmatter enforcement ─────────────────────────────────────────
+run_meta() {
+  command -v python3 &>/dev/null || { echo "ERROR: python3 is required for 'meta' (Phase 3)" >&2; exit 99; }
+
+  # Collect .md files to scan (respects --include-done and --no-exclude-meta)
+  local md_files=()
+  while IFS= read -r -d '' filepath; do
+    local fname; fname="$(basename "$filepath")"
+    if $EXCLUDE_META && [[ "$fname" == "DOCS-INSTRUCTIONS.md" ]]; then continue; fi
+    # Skip non-project docs (SERVERS-GCP etc. are handled if in subfolders)
+    md_files+=("$filepath")
+  done < <(
+    if $INCLUDE_DONE; then
+      find "$SCRIPT_DIR" -name "*.md" -not -name "$SCRIPT_NAME" -print0 2>/dev/null
+    else
+      find "$SCRIPT_DIR" -name "*.md" -not -name "$SCRIPT_NAME" \
+        -not -path "*/3-DONE/*" -print0 2>/dev/null
+    fi
+  )
+
+  # Build file list as JSON array for Python
+  local files_json="[" fsep=""
+  for f in "${md_files[@]}"; do
+    files_json+="${fsep}\"$(json_str "$f")\""
+    fsep=","
+  done
+  files_json+="]"
+
+  # Git dates: build a map of file → {first_commit_date, last_commit_date, author}
+  local git_dates_json="{}"
+  if $USE_GIT; then
+    git_dates_json=$(
+      for f in "${md_files[@]}"; do
+        local rel; rel="${f#"$SCRIPT_DIR/"}"
+        local first last author
+        first=$(git -C "$SCRIPT_DIR" log --diff-filter=A --follow --format="%ai" -- "$f" 2>/dev/null | tail -1 || true)
+        last=$(git -C "$SCRIPT_DIR" log -1 --format="%ai" -- "$f" 2>/dev/null || true)
+        author=$(git -C "$SCRIPT_DIR" log --diff-filter=A --follow --format="%an" -- "$f" 2>/dev/null | tail -1 || true)
+        # Output one JSON fragment per file
+        printf '"%s":{"created":"%s","updated":"%s","author":"%s"}\n' \
+          "$(json_str "$f")" \
+          "${first:0:10}" "${last:0:10}" "$(json_str "$author")"
+      done | paste -sd',' - | sed 's/^/{/;s/$/}/'
+    )
+  fi
+
+  local py_result
+  py_result=$(FILES_JSON="$files_json" GIT_DATES="$git_dates_json" SCAN_ROOT="$SCRIPT_DIR" \
+    DRY_RUN="$DRY_RUN" python3 - <<'PYEOF'
+import json, os, re, sys
+from datetime import date
+
+scan_root  = os.environ['SCAN_ROOT']
+files      = json.loads(os.environ['FILES_JSON'])
+git_dates  = json.loads(os.environ.get('GIT_DATES', '{}'))
+dry_run    = os.environ.get('DRY_RUN', 'true') == 'true'
+
+REQUIRED_FIELDS = ['title', 'status', 'priority', 'created', 'updated', 'author', 'goal']
+
+# ── Folder → status mapping ────────────────────────────────────────────────
+def infer_status(filepath):
+    rel = os.path.relpath(filepath, scan_root)
+    if rel.startswith('1-INBOX'):   return 'inbox'
+    if rel.startswith('2-WORKING'): return 'working'
+    if rel.startswith('3-DONE'):    return 'done'
+    if rel.startswith('4-MISC'):    return 'misc'
+    return 'inbox'
+
+# ── Filename → priority ────────────────────────────────────────────────────
+def infer_priority(filepath):
+    fname = os.path.basename(filepath)
+    m = re.match(r'^[Pp]([123])-', fname)
+    return f'P{m.group(1)}' if m else 'P3'
+
+# ── First heading → title ──────────────────────────────────────────────────
+def infer_title(filepath, content):
+    for line in content.split('\n'):
+        m = re.match(r'^#{1,2}\s+(.+)', line)
+        if m:
+            # Strip leading emoji (common in these docs)
+            title = re.sub(r'^[\U0001f300-\U0001f9ff\u2600-\u27bf]+\s*', '', m.group(1)).strip()
+            return title
+    # Fallback: clean filename
+    fname = os.path.basename(filepath).replace('.md', '')
+    fname = re.sub(r'^[Pp][0-9]-', '', fname)
+    return fname.replace('-', ' ').title()
+
+# ── Parse existing frontmatter ─────────────────────────────────────────────
+def parse_frontmatter(content):
+    """Returns (dict_of_fields, body_after_frontmatter, had_frontmatter)."""
+    if not content.startswith('---'):
+        return {}, content, False
+    end = content.find('\n---', 3)
+    if end == -1:
+        return {}, content, False
+    fm_block = content[3:end].strip()
+    body = content[end+4:].lstrip('\n')
+    fields = {}
+    for line in fm_block.split('\n'):
+        m = re.match(r'^(\w[\w_-]*)\s*:\s*(.*?)$', line)
+        if m:
+            key = m.group(1).lower().strip()
+            val = m.group(2).strip().strip('"').strip("'")
+            fields[key] = val
+    return fields, body, True
+
+# ── Normalize existing field names to canonical ────────────────────────────
+FIELD_ALIASES = {
+    'date': 'created',
+    'category': None,      # drop — not in canonical schema
+    'project': None,       # drop — redundant (always AI-DDTK in this repo)
+    'parent': None,        # drop — not in canonical schema
+    'source': None,        # drop
+    'reviewer': None,      # drop
+}
+
+def normalize_fields(fields):
+    """Map old field names to canonical ones."""
+    out = {}
+    for k, v in fields.items():
+        canon = FIELD_ALIASES.get(k, k)  # None means drop
+        if canon is not None:
+            out[canon] = v
+    return out
+
+# ── Normalize status values ────────────────────────────────────────────────
+STATUS_MAP = {
+    'inbox': 'inbox', 'in_progress': 'working', 'in progress': 'working',
+    'active': 'working', 'working': 'working', 'paused': 'paused',
+    'done': 'done', 'completed': 'done', 'misc': 'misc',
+    'partially in progress': 'working',
+    'paused after phase 1 and 2 completed': 'paused',
+}
+
+def normalize_status(val, filepath):
+    low = val.lower().strip()
+    return STATUS_MAP.get(low, infer_status(filepath))
+
+# ── Build frontmatter string ──────────────────────────────────────────────
+def build_frontmatter(fields):
+    lines = ['---']
+    for key in REQUIRED_FIELDS:
+        val = fields.get(key, '')
+        if ' ' in val or ':' in val or '"' in val:
+            lines.append(f'{key}: "{val}"')
+        else:
+            lines.append(f'{key}: {val}')
+    lines.append('---')
+    return '\n'.join(lines)
+
+# ── Process each file ──────────────────────────────────────────────────────
+results = []
+applied_count = 0
+gap_count = 0
+
+for filepath in sorted(files):
+    rel = os.path.relpath(filepath, scan_root)
+    try:
+        with open(filepath, 'r', errors='replace') as fh:
+            content = fh.read()
+    except OSError:
+        results.append({'file': rel, 'status': 'error', 'message': 'Could not read file'})
+        continue
+
+    existing, body, had_fm = parse_frontmatter(content)
+    existing = normalize_fields(existing)
+
+    # Git-derived dates and author
+    gd = git_dates.get(filepath, {})
+
+    # Build canonical fields, preferring existing values
+    canonical = {}
+    canonical['title']    = existing.get('title', infer_title(filepath, body))
+    raw_status            = existing.get('status', '')
+    canonical['status']   = normalize_status(raw_status, filepath) if raw_status else infer_status(filepath)
+    canonical['priority'] = existing.get('priority', infer_priority(filepath))
+    canonical['created']  = existing.get('created', gd.get('created', str(date.today())))
+    canonical['updated']  = existing.get('updated', gd.get('updated', str(date.today())))
+    canonical['author']   = existing.get('author') or gd.get('author') or 'noelsaw'
+    canonical['goal']     = existing.get('goal', '')
+
+    # Normalize priority format (e.g. "high" → P1)
+    prio = canonical['priority'].upper().strip()
+    if prio in ('HIGH', 'P1'): canonical['priority'] = 'P1'
+    elif prio in ('MEDIUM', 'MED', 'P2'): canonical['priority'] = 'P2'
+    else: canonical['priority'] = 'P3'
+
+    # Truncate dates to YYYY-MM-DD
+    for dk in ('created', 'updated'):
+        canonical[dk] = canonical[dk][:10] if canonical[dk] else str(date.today())
+
+    # Detect missing fields
+    missing = [k for k in REQUIRED_FIELDS if not canonical.get(k)]
+    # goal is allowed to be empty (we won't count it as "missing" for gap detection)
+    missing_required = [k for k in missing if k != 'goal']
+
+    # Compare only canonical fields to detect if update is needed
+    fields_match = had_fm and all(existing.get(k) == canonical.get(k) for k in REQUIRED_FIELDS)
+    needs_update = not had_fm or missing_required or not fields_match
+
+    entry = {
+        'file': rel,
+        'had_frontmatter': had_fm,
+        'missing_fields': missing_required,
+        'canonical': canonical,
+        'needs_update': needs_update,
+    }
+
+    if needs_update:
+        gap_count += 1
+        if not dry_run:
+            new_fm = build_frontmatter(canonical)
+            new_content = new_fm + '\n\n' + body
+            try:
+                with open(filepath, 'w') as fh:
+                    fh.write(new_content)
+                entry['applied'] = True
+                applied_count += 1
+            except OSError as e:
+                entry['applied'] = False
+                entry['error'] = str(e)
+
+    results.append(entry)
+
+output = {
+    'tool': 'project-meta',
+    'phase': 3,
+    'version': '1.0.0',
+    'dry_run': dry_run,
+    'stats': {
+        'files_scanned': len(results),
+        'with_frontmatter': sum(1 for r in results if r.get('had_frontmatter')),
+        'missing_frontmatter': sum(1 for r in results if not r.get('had_frontmatter')),
+        'needs_update': gap_count,
+        'applied': applied_count,
+    },
+    'files': results,
+}
+print(json.dumps(output, indent=2))
+PYEOF
+  ) || { echo "ERROR: meta analysis failed" >&2; exit 99; }
+
+  local files_scanned with_fm missing_fm needs_update applied
+  files_scanned=$(echo "$py_result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_scanned'])")
+  with_fm=$(echo "$py_result"       | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['with_frontmatter'])")
+  missing_fm=$(echo "$py_result"    | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['missing_frontmatter'])")
+  needs_update=$(echo "$py_result"  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['needs_update'])")
+  applied=$(echo "$py_result"       | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['applied'])")
+
+  # ── Agent prompts ──────────────────────────────────────────────────────────
+  local prompts=()
+  if (( needs_update == 0 )); then
+    prompts+=("All ${files_scanned} files have complete, canonical frontmatter. Nothing to do.")
+  elif $DRY_RUN; then
+    prompts+=("${needs_update} of ${files_scanned} file(s) need frontmatter updates. Run \`./PROJECT/project.sh meta --apply\` to fix them.")
+    (( missing_fm > 0 )) && prompts+=("${missing_fm} file(s) have no frontmatter at all — they will get a full block injected.")
+    prompts+=("Review the 'files' array in JSON output for per-file details.")
+  else
+    prompts+=("${applied} file(s) updated with canonical frontmatter.")
+    prompts+=("Run \`git diff\` to review the changes before committing.")
+  fi
+
+  # ── Route output ───────────────────────────────────────────────────────────
+  if $JSON_MODE; then
+    echo "$py_result"
+  else
+    local mode_label="DRY-RUN"; $DRY_RUN || mode_label="APPLY"
+    echo ""
+    echo "=== project.sh · Phase 3 Frontmatter Enforcement · ${mode_label} ==="
+    printf "  Files scanned   : %s\n" "$files_scanned"
+    printf "  Has frontmatter : %s\n" "$with_fm"
+    printf "  Missing entirely: %s\n" "$missing_fm"
+    printf "  Needs update    : %s\n" "$needs_update"
+    $DRY_RUN || printf "  Applied         : %s\n" "$applied"
+    echo ""
+
+    if (( needs_update > 0 )); then
+      echo "  Files needing updates:"
+      echo "$py_result" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for f in d['files']:
+    if not f.get('needs_update'): continue
+    tag = 'NO-FM' if not f['had_frontmatter'] else 'UPDATE'
+    missing = ', '.join(f.get('missing_fields', [])) or 'normalization only'
+    applied = ' ✓ applied' if f.get('applied') else ''
+    print(f'    [{tag}]  {f[\"file\"]}  — {missing}{applied}')
+"
+      echo ""
+    else
+      echo "  ✅ All files have complete, canonical frontmatter."
+      echo ""
+    fi
+
+    echo "##AGENT-CONTEXT"
+    echo "$py_result"
+    echo "##END-AGENT-CONTEXT"
+    echo ""
+    echo "##AGENT-PROMPTS"
+    for p in "${prompts[@]}"; do echo "- $p"; done
+    echo "##END-AGENT-PROMPTS"
+  fi
+
+  # ── Exit codes ──────────────────────────────────────────────────────────────
+  ! $DRY_RUN && (( applied > 0 )) && exit 2
+  (( needs_update > 0 )) && exit 1
+  exit 0
+}
+
+# ── Route to Phase 2/3 early if subcommand matches ──────────────────────────
 [[ "$COMMAND" == "scan" ]] && run_scan
+[[ "$COMMAND" == "meta" ]] && run_meta
 
 # ── Phase 1: find stale .md files ─────────────────────────────────────────────
 STALE_FILES=()

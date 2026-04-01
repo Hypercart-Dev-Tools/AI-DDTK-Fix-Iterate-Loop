@@ -1,8 +1,11 @@
 ---
-Author: GitHub Copilot
-Date: 2026-03-26
-Status: INBOX
-Goal: Reduce onboarding friction by turning AI-DDTK setup from a doc-driven process into a verified, discoverable, and safer product workflow.
+title: "P1 UX Refactor"
+status: inbox
+priority: P1
+created: 2026-03-26
+updated: 2026-03-26
+author: "GitHub Copilot"
+goal: "Reduce onboarding friction by turning AI-DDTK setup from a doc-driven process into a verified, discoverable, and safer product workflow."
 ---
 
 # P1 UX Refactor

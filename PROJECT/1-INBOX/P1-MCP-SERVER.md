@@ -1,13 +1,11 @@
 ---
 title: "P1: AI-DDTK MCP Server"
-status: active
-author: noelsaw
+status: working
+priority: P1
 created: 2026-03-07
 updated: 2026-03-22
-project: AI-DDTK
-category: feature
-priority: P1
-parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
+author: noelsaw
+goal: 
 ---
 
 <!-- TOC -->
@@ -84,7 +82,7 @@ parent: ROADMAP-PERPLEXITY.md (#6 — VS Code & MCP Integration)
 - [x] **Phase 6 — Documentation & Onboarding** · Effort: Low · Risk: Low
   - [x] README for MCP server (setup, config, tool catalog)
   - [x] Update AGENTS.md with MCP tool usage patterns
-  - [x] Update ROADMAP-PERPLEXITY.md — mark #6 complete
+  - [x] Update P3-ROADMAP-PERPLEXITY.md — mark #6 complete
   - [x] Add reference to external WP DB Toolkit and it's MCP server that can be used for database queries outside of MySQL server. https://github.com/Hypercart-Dev-Tools/WP-DB-Toolkit
 
 - [ ] **Phase 7 — Query Monitor Frontend Page Profiling** · Effort: Med · Risk: Med
@@ -522,7 +520,7 @@ Ship repo-tracked integration files plus secure localhost-only HTTP/SSE transpor
 
 2. **AGENTS.md update** — Add MCP tool usage patterns, example prompts, and failure-mode guidance
 
-3. **ROADMAP-PERPLEXITY.md update** — Mark item #6 as complete
+3. **P3-ROADMAP-PERPLEXITY.md update** — Mark item #6 as complete
 
 4. **Optional follow-up demo** — Short screencast or GIF showing: open project → Claude discovers tools → run scan → view results
 
