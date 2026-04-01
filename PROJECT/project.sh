@@ -92,6 +92,30 @@ classify_action() {
 # Minimal JSON string escaper (no control chars expected in filenames)
 json_str() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
+# Returns file age in whole days; -1 means "skip" (dirty/unreadable).
+# Priority: git log commit timestamp (tracked+clean) → mtime (fallback).
+# Dirty files (modified or staged but not committed) are never considered stale.
+get_file_age() {
+  local filepath="$1" ts=""
+  if $USE_GIT; then
+    ts=$(git -C "$SCRIPT_DIR" log -1 --format="%ct" -- "$filepath" 2>/dev/null || true)
+    if [[ -n "$ts" ]]; then
+      # File is git-tracked; treat as not-stale if it has uncommitted changes
+      if ! git -C "$SCRIPT_DIR" diff --quiet -- "$filepath" 2>/dev/null ||
+         ! git -C "$SCRIPT_DIR" diff --cached --quiet -- "$filepath" 2>/dev/null; then
+        echo "-1"; return   # dirty — actively being edited
+      fi
+      echo $(( (NOW - ts) / 86400 )); return
+    fi
+    # Untracked file — fall through to mtime
+  fi
+  # Fallback: portable mtime (macOS stat -f %m · Linux stat -c %Y)
+  if ts=$(stat -f %m "$filepath" 2>/dev/null); then :
+  else ts=$(stat -c %Y "$filepath" 2>/dev/null) || { echo "-1"; return; }
+  fi
+  echo $(( (NOW - ts) / 86400 ))
+}
+
 # ── Phase 2: cross-reference registry ─────────────────────────────────────────
 run_scan() {
   command -v python3 &>/dev/null || { echo "ERROR: python3 is required for 'scan' (Phase 2)" >&2; exit 99; }
@@ -248,14 +272,8 @@ while IFS= read -r -d '' filepath; do
 
   ALL_SCANNED=$((ALL_SCANNED + 1))
 
-  # Portable mtime: macOS stat uses -f %m · Linux stat uses -c %Y
-  if mtime=$(stat -f %m "$filepath" 2>/dev/null); then
-    :
-  else
-    mtime=$(stat -c %Y "$filepath" 2>/dev/null) || continue
-  fi
-
-  age=$(( (NOW - mtime) / 86400 ))
+  age=$(get_file_age "$filepath")
+  (( age < 0 )) && continue   # dirty or unreadable — skip
   if (( age > DAYS_THRESHOLD )); then
     STALE_FILES+=("$filepath")
     STALE_AGES+=("$age")
