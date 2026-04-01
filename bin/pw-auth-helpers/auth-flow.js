@@ -1,9 +1,7 @@
 // pw-auth: Playwright login + storageState capture / validation
 // Usage: node <script> <mode> <site_url> <auth_file> <login_url> <headless>
 
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('playwright-core')); }
+const { chromium } = require('./require-playwright');
 
 const [,, mode, siteUrl, authFile, loginUrl, headlessFlag] = process.argv;
 const headless = headlessFlag !== 'false';

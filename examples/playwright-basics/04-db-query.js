@@ -22,7 +22,7 @@
 
 const { execSync }  = require('child_process');
 const path          = require('path');
-const { chromium }  = require('playwright');
+const { chromium }  = require('../../bin/pw-auth-helpers/require-playwright');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 

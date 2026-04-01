@@ -4,9 +4,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-let chromium;
-try { ({ chromium } = require('playwright')); }
-catch { ({ chromium } = require('playwright-core')); }
+const { chromium } = require('./require-playwright');
 
 const [,, targetUrl, selectorArg, extractModeRaw, authFile, authOrigin, resultJson, extractFile, timeoutMsRaw, outputFormatRaw, selectorsRaw, waitForSelectorRaw, assertionTypeRaw, assertionValueRaw, assertionAttrRaw, screenshotModeRaw] = process.argv;
 const extractMode = extractModeRaw || 'exists';

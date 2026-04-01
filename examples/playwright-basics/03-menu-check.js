@@ -20,7 +20,7 @@
 'use strict';
 
 const path = require('path');
-const { chromium, request } = require('playwright');
+const { chromium, request } = require('../../bin/pw-auth-helpers/require-playwright');
 
 // ── Configuration ────────────────────────────────────────────────────────────
 

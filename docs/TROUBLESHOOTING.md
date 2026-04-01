@@ -1,6 +1,6 @@
 # AI-DDTK Troubleshooting Guide
 
-_Last updated: 2026-03-22 · Toolkit version: see [CHANGELOG.md](../CHANGELOG.md)_
+_Last updated: 2026-03-31 · Toolkit version: see [CHANGELOG.md](../CHANGELOG.md)_
 
 A comprehensive reference for diagnosing and resolving common failures when using AI-DDTK tools including `pw-auth`, `wpcc`, `local-wp`, the MCP server, and associated Playwright workflows.
 
@@ -14,6 +14,7 @@ A comprehensive reference for diagnosing and resolving common failures when usin
    - [1.3 Auth State Missing After Login](#13-auth-state-missing-after-login)
 2. [Playwright Issues](#2-playwright-issues)
    - [2.1 Browser Launch Failure](#21-browser-launch-failure)
+   - [2.1.1 Cross-Repo Module Resolution (Global Playwright Install)](#211-cross-repo-module-resolution-global-playwright-install)
    - [2.2 Navigation or Action Timeout](#22-navigation-or-action-timeout)
    - [2.3 DOM Selector Not Found](#23-dom-selector-not-found)
 3. [WordPress Environment Issues](#3-wordpress-environment-issues)
@@ -341,6 +342,102 @@ playwright install --with-deps chromium
   ```bash
   echo 'export NODE_PATH="$(npm root -g)"' >> ~/.zshrc
   ```
+
+---
+
+### 2.1.1 Cross-Repo Module Resolution (Global Playwright Install)
+
+**Problem**
+
+Playwright is installed globally with `npm install -g playwright`, but Node scripts run from a **different repo** (e.g. an app under test, a sibling workspace, or via a symlinked toolkit at `~/bin/ai-ddtk`) fail with:
+
+```
+Error: Cannot find module 'playwright'
+```
+
+The same command succeeds when `NODE_PATH` is set manually:
+
+```bash
+NODE_PATH="$(npm root -g)" node my-script.js   # ✅ works
+node my-script.js                               # ❌ fails
+```
+
+**Root Cause**
+
+Node's module resolution walks up from the script's directory looking for `node_modules/`. It does **not** automatically search the global npm module root unless `NODE_PATH` is set in the environment. When the toolkit lives in `~/bin/ai-ddtk` and the app under test is in a separate repo with no local `playwright` install, Node cannot find the globally installed package.
+
+**How the Toolkit Handles This**
+
+`pw-auth` (the main shell entrypoint) already includes `ensure_playwright_resolvable()`, which automatically bridges the global npm root into `NODE_PATH` before launching any Node helper. This means `pw-auth login`, `pw-auth doctor`, and `pw-auth check dom` all handle the bridging transparently.
+
+The `bin/pw-auth-helpers/require-playwright.js` shared resolver extends this safety net to **all** toolkit Node scripts and examples. It tries three strategies in order:
+
+1. Standard `require('playwright')` — picks up local installs or an already-set `NODE_PATH`.
+2. `require('playwright-core')` — fallback package.
+3. `npm root -g` bridge — if both fail, it queries `npm root -g`, appends that path to `NODE_PATH` (and to the live module search paths for the current process), then retries.
+
+If all three strategies fail it exits with a clear diagnostic message rather than a raw stack trace.
+
+**Diagnostic Steps**
+
+1. Confirm where Playwright is installed:
+   ```bash
+   npm root -g                         # e.g. /usr/local/lib/node_modules
+   ls "$(npm root -g)/playwright"      # should exist if globally installed
+   node -e "require('playwright')"     # will fail without NODE_PATH
+   NODE_PATH="$(npm root -g)" node -e "require('playwright')" && echo ok
+   ```
+
+2. Run the readiness check — it reports the resolution result and whether the fallback fired:
+   ```bash
+   pw-auth doctor --site-url http://my-site.local
+   ```
+   Look for the `playwright_module` check. A `pass` with the note
+   `Auto-configured NODE_PATH for Playwright` means the bridge was needed and applied.
+
+3. Verify the current `NODE_PATH`:
+   ```bash
+   echo $NODE_PATH
+   node -e "console.log(require.resolve.paths('playwright'))"
+   ```
+
+**Solutions**
+
+_Option A — Permanent shell profile fix (recommended for local dev):_
+```bash
+echo 'export NODE_PATH="$(npm root -g)"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+_Option B — Per-session export before running scripts:_
+```bash
+export NODE_PATH="$(npm root -g)"
+node my-script.js
+```
+
+_Option C — Install Playwright locally in the project under test:_
+```bash
+cd /path/to/my-app
+npm install --save-dev playwright
+npx playwright install chromium
+```
+
+_Option D — Use `pw-auth` as the entrypoint (bridging is automatic):_
+```bash
+# Instead of calling Node helper scripts directly, use pw-auth subcommands.
+# pw-auth handles NODE_PATH bridging internally.
+pw-auth check dom --url http://my-site.local/wp-admin/ --selector "#wpbody"
+```
+
+**Affected Entrypoints and Status**
+
+| Entrypoint | Global resolution handled? |
+|---|---|
+| `pw-auth login / doctor / check dom / status / clear` | ✅ `ensure_playwright_resolvable()` in shell wrapper |
+| `bin/pw-auth-helpers/auth-flow.js` (direct) | ✅ `require-playwright.js` resolver |
+| `bin/pw-auth-helpers/dom-check.js` (direct) | ✅ `require-playwright.js` resolver |
+| `examples/playwright-basics/0*.js` | ✅ `require-playwright.js` resolver |
+| Ad-hoc scripts using `require('playwright')` directly | ⚠️ Requires `NODE_PATH` set manually or local install |
 
 ---
 

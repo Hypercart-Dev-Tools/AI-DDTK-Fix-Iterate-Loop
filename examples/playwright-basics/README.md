@@ -1,6 +1,6 @@
 # Playwright Basics — Example Scripts
 
-_Last updated: 2026-03-22 · Toolkit version: see [CHANGELOG.md](../../CHANGELOG.md)_
+_Last updated: 2026-03-31 · Toolkit version: see [CHANGELOG.md](../../CHANGELOG.md)_
 
 A collection of beginner-friendly Playwright scripts for testing WordPress sites with AI-DDTK.
 
@@ -105,10 +105,30 @@ WP_HEADLESS=false
 ## Troubleshooting
 
 **"Cannot find module 'playwright'"**
+
+These scripts use the shared `bin/pw-auth-helpers/require-playwright.js` resolver, which
+automatically bridges a global Playwright install if no local install is found.
+
+If it still fails, one of the following will fix it:
+
 ```bash
+# Option A — install locally (simplest)
 npm install
+
+# Option B — global install + export NODE_PATH (avoids a local copy)
+npm install -g playwright
+export NODE_PATH="$(npm root -g)"
+
+# Option C — add the export permanently to your shell profile
+echo 'export NODE_PATH="$(npm root -g)"' >> ~/.zshrc && source ~/.zshrc
+```
+
+Then install the browser binary if needed:
+```bash
 npx playwright install chromium
 ```
+
+See [TROUBLESHOOTING.md §2.1.1](../../docs/TROUBLESHOOTING.md#211-cross-repo-module-resolution-global-playwright-install) for the full cross-repo resolution guide.
 
 **"Auth file not found" or login redirects to wp-login.php**
 ```bash
