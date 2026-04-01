@@ -731,3 +731,5 @@ Flow:
 3. **Monorepo bin entry?** Should `install.sh` add `ai-ddtk-mcp` to PATH, or is `npx` sufficient?
 4. **Existing WPCC MCP server migration timeline?** Deprecate immediately or run both in parallel for one release?
 5. **Allowlist extensibility model?** Should users extend the WP-CLI allowlist via config file, env var, or CLI flag? Need to balance flexibility with not accidentally opening RCE.
+
+<!-- last-reviewed: 2026-04-01 -->

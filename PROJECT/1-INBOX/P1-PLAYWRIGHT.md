@@ -397,3 +397,4 @@ Possible approaches:
 - Should category presets verify success through UI only, or UI plus WP-CLI verification?
 - When should screenshots/traces move from wishlist to default behavior?
 - When, if ever, should AI-DDTK add a shared-browser or pooled-context mode for multi-check runs?
+<!-- last-reviewed: 2026-04-01 -->
