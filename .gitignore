@@ -1,6 +1,7 @@
 # Sensitive data and temporary files
 # This folder stores credentials, reports, and temporary analysis files
-/temp/*
+/temp/
+PROJECT/.xref-registry.json*
 !temp/.gitkeep
 !temp/README.md
 !temp/*/.gitkeep

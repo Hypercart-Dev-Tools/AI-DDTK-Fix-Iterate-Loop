@@ -1,28 +1,33 @@
 #!/usr/bin/env bash
 # =============================================================================
-# project.sh — PROJECT folder hygiene · Phase 1
+# project.sh — PROJECT folder hygiene · Phases 1 + 2
 # =============================================================================
-# Scans PROJECT/ .md files; any not edited in N days gets its P1-/P2- prefix
-# downgraded to P3-, or gains a P3- prefix if currently untagged.
-# Only touches .md files — all other extensions (including .sh) are left alone.
+# Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
+# Phase 2 (scan):    extract all markdown links, build bidirectional registry,
+#                    detect broken links, save .xref-registry.json.
 #
 # AI AGENT HOOKS
 #   --json      Emit structured JSON to stdout for agent/MCP consumption
-#   Exit codes  0=clean · 1=stale found (dry-run) · 2=renames applied · 99=error
-#   Always emits ##AGENT-CONTEXT and ##AGENT-PROMPTS blocks at end of stdout
-#   so an orchestrating LLM can parse results and relay suggested prompts.
+#   Exit codes  Phase 1: 0=clean · 1=stale found · 2=applied · 99=error
+#               Phase 2: 0=clean · 1=broken links found · 99=error
+#   Always emits ##AGENT-CONTEXT and ##AGENT-PROMPTS blocks at end of stdout.
 #
-# USAGE
-#   ./PROJECT/project.sh                 # dry-run — safe default, no writes
-#   ./PROJECT/project.sh --apply         # rename files (git mv when in a repo)
-#   ./PROJECT/project.sh --json          # structured JSON output only
-#   ./PROJECT/project.sh --days 14       # custom stale threshold (default: 8)
-#   ./PROJECT/project.sh --include-done  # also scan the 3-DONE/ subfolder
-#   ./PROJECT/project.sh --no-exclude-meta  # include meta docs like DOCS-INSTRUCTIONS.md
+# USAGE — Phase 1 (prefix hygiene)
+#   ./PROJECT/project.sh                    # dry-run — safe default, no writes
+#   ./PROJECT/project.sh --apply            # rename files (git mv when in repo)
+#   ./PROJECT/project.sh --json             # structured JSON output only
+#   ./PROJECT/project.sh --days 14          # custom stale threshold (default: 8)
+#   ./PROJECT/project.sh --include-done     # also scan the 3-DONE/ subfolder
+#   ./PROJECT/project.sh --no-exclude-meta  # include DOCS-INSTRUCTIONS.md
+#
+# USAGE — Phase 2 (cross-reference registry)
+#   ./PROJECT/project.sh scan               # build .xref-registry.json + report
+#   ./PROJECT/project.sh scan --check       # report only, no file written
+#   ./PROJECT/project.sh scan --json        # JSON registry to stdout only
 #
 # PHASE ROADMAP
 #   Phase 1 (this) — scan + P3 prefix/downgrade, xref warnings, agent hooks
-#   Phase 2        — cross-reference registry: detect and record broken links
+#   Phase 2 (this) — cross-reference registry: detect and record broken links
 #   Phase 3        — auto-update xrefs via search-and-replace
 #   Phase 4        — MCP server adapter for continuous hygiene orchestration
 # =============================================================================
@@ -32,16 +37,20 @@ set -euo pipefail
 # ── Defaults ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
+COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2)
 DAYS_THRESHOLD=8
 DRY_RUN=true
 JSON_MODE=false
 INCLUDE_DONE=false
-EXCLUDE_META=true   # skip meta-docs like DOCS-INSTRUCTIONS.md by default
+EXCLUDE_META=true       # skip meta-docs like DOCS-INSTRUCTIONS.md by default
+SCAN_CHECK_ONLY=false   # Phase 2: report without writing registry file
 
 # ── Arg parsing ───────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    scan)              COMMAND="scan" ;;
     --apply)           DRY_RUN=false ;;
+    --check)           SCAN_CHECK_ONLY=true ;;
     --json)            JSON_MODE=true ;;
     --include-done)    INCLUDE_DONE=true ;;
     --no-exclude-meta) EXCLUDE_META=false ;;
@@ -49,9 +58,9 @@ while [[ $# -gt 0 ]]; do
       [[ "${2:-}" =~ ^[0-9]+$ ]] || { echo "ERROR: --days requires a positive integer" >&2; exit 99; }
       DAYS_THRESHOLD="$2"; shift ;;
     --help|-h)
-      sed -n '/^# USAGE/,/^# PHASE/p' "$0" | sed 's/^# \?//' | grep -v '^$' | head -12
+      sed -n '/^# USAGE/,/^# PHASE/p' "$0" | sed 's/^# \?//' | grep -v '^$' | head -20
       exit 0 ;;
-    *) echo "ERROR: Unknown flag: $1 (try --help)" >&2; exit 99 ;;
+    *) echo "ERROR: Unknown argument: $1 (try --help)" >&2; exit 99 ;;
   esac
   shift
 done
@@ -83,7 +92,149 @@ classify_action() {
 # Minimal JSON string escaper (no control chars expected in filenames)
 json_str() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
-# ── Scan: find stale .md files ────────────────────────────────────────────────
+# ── Phase 2: cross-reference registry ─────────────────────────────────────────
+run_scan() {
+  command -v python3 &>/dev/null || { echo "ERROR: python3 is required for 'scan' (Phase 2)" >&2; exit 99; }
+
+  local registry_file="$SCRIPT_DIR/.xref-registry.json"
+
+  # Build registry via Python — handles link extraction, resolution, and JSON
+  local py_result
+  py_result=$(SCAN_ROOT="$SCRIPT_DIR" python3 - <<'PYEOF'
+import json, os, re, sys
+from datetime import datetime, timezone
+
+scan_root = os.environ['SCAN_ROOT']
+link_re   = re.compile(r'\[([^\]]*)\]\(([^)]+)\)')
+md_files  = []
+
+for root, dirs, files in os.walk(scan_root):
+    dirs[:] = sorted(d for d in dirs if not d.startswith('.'))
+    for fname in sorted(files):
+        if fname.endswith('.md'):
+            md_files.append(os.path.join(root, fname))
+
+registry  = {}   # rel_path -> {links, referenced_by}
+broken    = []
+
+for filepath in md_files:
+    rel = os.path.relpath(filepath, scan_root)
+    links = []
+    try:
+        with open(filepath, 'r', errors='replace') as fh:
+            for lineno, line in enumerate(fh, 1):
+                for m in link_re.finditer(line):
+                    text, target = m.group(1), m.group(2)
+                    # Only local .md refs; skip http/https/anchors-only
+                    if target.startswith(('http://', 'https://', '#')):
+                        continue
+                    # Strip fragment (#section) for existence check
+                    target_path = target.split('#')[0]
+                    if not target_path.endswith('.md'):
+                        continue
+                    file_dir     = os.path.dirname(filepath)
+                    resolved_abs = os.path.normpath(os.path.join(file_dir, target_path))
+                    resolved_rel = os.path.relpath(resolved_abs, scan_root)
+                    exists       = os.path.isfile(resolved_abs)
+                    link_entry   = {
+                        'line': lineno, 'text': text, 'target': target,
+                        'resolved': resolved_rel, 'exists': exists, 'raw': m.group(0)
+                    }
+                    links.append(link_entry)
+                    if not exists:
+                        broken.append({'in_file': rel, 'line': lineno, 'text': text,
+                                       'target': target, 'resolved': resolved_rel,
+                                       'raw': m.group(0)})
+    except OSError:
+        pass
+    registry[rel] = {'links': links, 'referenced_by': []}
+
+# Build incoming refs (referenced_by) from outgoing links
+for rel, info in registry.items():
+    for lnk in info['links']:
+        target_rel = lnk['resolved']
+        if target_rel in registry and rel not in registry[target_rel]['referenced_by']:
+            registry[target_rel]['referenced_by'].append(rel)
+
+total_links = sum(len(v['links']) for v in registry.values())
+result = {
+    'tool': 'project-xref-registry',
+    'phase': 2,
+    'version': '1.0.0',
+    'generated_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'scan_root': os.path.basename(scan_root) + '/',
+    'stats': {
+        'files_scanned': len(registry),
+        'total_links': total_links,
+        'broken_links': len(broken)
+    },
+    'files': registry,
+    'broken_links': broken
+}
+print(json.dumps(result, indent=2))
+PYEOF
+  ) || { echo "ERROR: registry build failed" >&2; exit 99; }
+
+  local broken_count files_count total_links
+  broken_count=$(echo "$py_result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['broken_links'])")
+  files_count=$(echo "$py_result"  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_scanned'])")
+  total_links=$(echo "$py_result"  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['total_links'])")
+
+  # ── Persist registry ──────────────────────────────────────────────────────
+  if ! $SCAN_CHECK_ONLY && ! $JSON_MODE; then
+    echo "$py_result" > "$registry_file"
+  fi
+
+  # ── Agent prompts ─────────────────────────────────────────────────────────
+  local prompts=()
+  if (( broken_count == 0 )); then
+    prompts+=("Registry built: ${files_count} files, ${total_links} links, 0 broken. All links resolve correctly.")
+  else
+    prompts+=("⚠️  ${broken_count} broken link(s) found across ${files_count} files. Review 'broken_links' in the registry.")
+    prompts+=("Phase 3 (planned): run auto-repair to rewrite broken links via search-and-replace.")
+  fi
+  $SCAN_CHECK_ONLY && prompts+=("Check-only mode: registry NOT written to disk. Run without --check to save.")
+  ! $SCAN_CHECK_ONLY && ! $JSON_MODE && prompts+=("Registry saved to: $(basename "$registry_file")")
+  prompts+=("Run \`./PROJECT/project.sh scan --json\` to get the full machine-readable registry for agent use.")
+
+  # ── Route output ──────────────────────────────────────────────────────────
+  if $JSON_MODE; then
+    echo "$py_result"
+  else
+    echo ""
+    echo "=== project.sh · Phase 2 Cross-Reference Registry ==="
+    printf "  Files scanned : %s\n" "$files_count"
+    printf "  Total links   : %s\n" "$total_links"
+    printf "  Broken links  : %s\n" "$broken_count"
+    $SCAN_CHECK_ONLY && echo "  Mode          : check-only (registry not written)"
+    $SCAN_CHECK_ONLY || echo "  Registry      : .xref-registry.json"
+    echo ""
+    if (( broken_count > 0 )); then
+      echo "  Broken links:"
+      echo "$py_result" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+for b in d['broken_links']:
+    print(f\"    [{b['in_file']}:{b['line']}]  {b['raw']}  → not found: {b['resolved']}\")
+"
+      echo ""
+    fi
+    echo "##AGENT-CONTEXT"
+    echo "$py_result"
+    echo "##END-AGENT-CONTEXT"
+    echo ""
+    echo "##AGENT-PROMPTS"
+    for p in "${prompts[@]}"; do echo "- $p"; done
+    echo "##END-AGENT-PROMPTS"
+  fi
+
+  (( broken_count > 0 )) && exit 1 || exit 0
+}
+
+# ── Route to Phase 2 early if subcommand=scan ─────────────────────────────────
+[[ "$COMMAND" == "scan" ]] && run_scan
+
+# ── Phase 1: find stale .md files ─────────────────────────────────────────────
 STALE_FILES=()
 STALE_AGES=()
 ALL_SCANNED=0
