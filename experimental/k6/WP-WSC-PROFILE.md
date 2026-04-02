@@ -936,3 +936,82 @@ At the end of the first pass, you should be able to answer:
 3. Is `auto-apply` really the root cause, or only one trigger?
 4. Does k6 amplify the exact same query path you saw in single-request profiling?
 5. Did the fix reduce both PHP hotspot cost and load-test latency?
+
+---
+
+## Appendix — WP Code Check Findings vs Slow Query Logs
+
+WP Code Check flagged two coupon-related findings:
+
+1. add an index to speed up `wc_get_coupon_id_by_code()`
+2. cache `wc_get_coupon_id_by_code()` results more aggressively
+
+These findings are relevant, but they do not map equally to the slow queries in the Bloomz logs.
+
+### Finding 1 — Index for `wc_get_coupon_id_by_code()`
+
+This is related to the WooCommerce core coupon lookup path, which is the same family as the logged `flash20` query:
+
+```sql
+SELECT ID FROM wp_posts
+WHERE LOWER(post_title) = LOWER('flash20')
+AND post_type = 'shop_coupon'
+AND post_status = 'publish'
+ORDER BY post_date DESC
+```
+
+That lookup is performed by WooCommerce core `wc_get_coupon_id_by_code()` through the coupon data store. Smart Coupons also calls `wc_get_coupon_id_by_code()` from several places in frontend, checkout, order-processing, admin, and REST code.
+
+What this means for the log analysis:
+
+- this finding is meaningfully related to query `#2` in the slow log analysis
+- it may also help some secondary Smart Coupons call sites that use `wc_get_coupon_id_by_code()`
+- it is **not** the direct explanation for query `#1` (`binoid15`)
+
+Why it does not explain query `#1`:
+
+- query `#1` matches Smart Coupons `WC_SC_Coupon_Actions::get_coupon_actions()`
+- that code uses `get_posts()` with `post_type = shop_coupon`, `title = $coupon_code`, and `post_status = publish`
+- that path is tied to coupon-actions/cart-session rehydration, not WooCommerce core `wc_get_coupon_id_by_code()`
+
+Important nuance:
+
+- a plain or composite index on `wp_posts.post_title` is directionally useful
+- but the WooCommerce core query uses `LOWER(post_title) = LOWER(%s)`, which still limits normal index use
+- so this finding is valid, but it is not a complete fix by itself unless the query shape or index strategy also changes
+
+### Finding 2 — Cache `wc_get_coupon_id_by_code()` More Aggressively
+
+This is only weakly related to the worst slow-query pattern.
+
+WooCommerce already caches `wc_get_coupon_id_by_code()` lookups in the object cache. That means:
+
+- within a request, repeated lookups may already be reduced
+- cross-request benefit depends on whether the site has a persistent object cache
+
+What this means for the log analysis:
+
+- this may help under concurrent admin or REST activity
+- it may reduce some repeated secondary coupon lookups
+- it does **not** explain the main sitewide frontend/homepage `binoid15` pattern by itself
+
+So treat this as:
+
+- a reasonable secondary optimization
+- not the primary root-cause fix for the continuous frontend Smart Coupons hotspot
+
+### Practical Mapping
+
+Use the findings this way when prioritizing fixes:
+
+1. map the index finding primarily to WooCommerce core coupon lookup pressure like `flash20`
+2. map the caching finding to secondary admin/REST or cross-request coupon lookup reduction
+3. keep the main focus on the Smart Coupons `get_coupon_actions()` cart-session path for query `#1`
+
+### Bottom Line
+
+The static analyzer findings are relevant to the coupon problem space, especially the WooCommerce core lookup path, but they do not replace the main theory in this document:
+
+- query `#1` is still best explained by Smart Coupons coupon-actions/cart-session rehydration
+- query `#2` is the stronger match for `wc_get_coupon_id_by_code()`
+- the highest-value profiling work remains `homepage-empty-cart` versus `homepage-prepared-session`

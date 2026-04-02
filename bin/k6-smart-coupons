@@ -1,0 +1,470 @@
+#!/usr/bin/env bash
+# ============================================================
+# Smart Coupons Scenario Helper
+# Part of AI-DDTK - AI Driven Development ToolKit
+# ============================================================
+#
+# PURPOSE:
+#   Run the Smart Coupons Playwright discovery helper and the matching
+#   k6 scenario with one consistent interface.
+#
+# USAGE:
+#   k6-smart-coupons --site-url http://mysite.local --scenario homepage-prepared-session \
+#     --prep-url '/?coupon-code=binoid15&sc-page=cart'
+#
+#   k6-smart-coupons --site-url http://mysite.local --scenario checkout-classic \
+#     --add-to-cart-url '/?add-to-cart=12345' --mode discover
+#
+# MODES:
+#   discover  Run Playwright discovery only
+#   load      Run the matching k6 script only
+#   both      Run discovery first, then the matching k6 script (default)
+#
+# ============================================================
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLKIT_ROOT="$(dirname "$SCRIPT_DIR")"
+DISCOVERY_SCRIPT="$TOOLKIT_ROOT/experimental/k6/scripts/woo-smart-coupons-discovery.js"
+LOAD_SCRIPT="$TOOLKIT_ROOT/experimental/k6/scripts/woo-smart-coupons.js"
+K6_HARNESS="$TOOLKIT_ROOT/bin/k6-harness"
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+MODE="both"
+SITE_URL=""
+SCENARIO=""
+HOME_PATH=""
+CART_PATH=""
+CHECKOUT_PATH=""
+PREP_URL=""
+ADD_TO_CART_URL=""
+PRODUCT_ID=""
+COUPON_CODE=""
+COUPON_URL=""
+INTERMEDIATE_PATH=""
+EXPECTED_PREP_TEXT=""
+EXPECTED_INTERMEDIATE_TEXT=""
+EXPECTED_FINAL_TEXT=""
+UNEXPECTED_FINAL_TEXT=""
+USE_AUTH_STATE=0
+AUTH_FILE=""
+HEADLESS="true"
+WP_TIMEOUT_MS=""
+WAIT_AFTER_NAV_MS=""
+TAKE_SCREENSHOT="true"
+REPORT_DIR=""
+VUS=""
+DURATION=""
+THINK_TIME=""
+ALLOW_REMOTE=0
+DRY_RUN=0
+
+show_usage() {
+    echo -e "${BLUE}Smart Coupons Scenario Helper${NC}"
+    echo "Part of AI-DDTK (AI Driven Development ToolKit)"
+    echo ""
+    cat <<EOF
+Usage:
+  k6-smart-coupons --site-url <url> --scenario <name> [options]
+
+Required:
+  --site-url URL       Target site URL (e.g. http://mysite.local)
+  --scenario NAME      One of:
+                       homepage-empty-cart
+                       homepage-prepared-session
+                       coupon-url-homepage
+                       checkout-classic
+
+Scenario inputs:
+  --prep-url URL       Exact prep URL or path
+  --add-to-cart-url    Exact add-to-cart URL or path
+  --product-id ID      Product ID used to derive /?add-to-cart=ID
+  --coupon-code CODE   Coupon code (default in scripts: binoid15)
+  --coupon-url URL     Exact coupon/share URL or path
+  --home-path PATH     Homepage path override
+  --cart-path PATH     Cart path override
+  --checkout-path PATH Checkout path override
+  --intermediate-path  Optional extra path between prep and final step
+
+Marker checks:
+  --expected-prep-text TEXT
+  --expected-intermediate-text TEXT
+  --expected-final-text TEXT
+  --unexpected-final-text TEXT
+  Marker lists use "|" as a separator.
+
+Mode and runtime:
+  --mode MODE          discover | load | both (default: both)
+  --vus N              k6 virtual users
+  --duration D         k6 duration, e.g. 30s
+  --think-time N       k6 think time seconds
+  --headed             Run discovery in headed mode
+  --use-auth-state     Load pw-auth Playwright storage state for discovery
+  --auth-file PATH     Playwright storage state file
+  --wp-timeout-ms N    Discovery timeout in milliseconds
+  --wait-after-nav-ms N
+                       Extra wait after each discovery navigation
+  --report-dir PATH    Discovery JSON/screenshot output directory
+  --no-screenshot      Disable discovery screenshots
+  --allow-remote       Allow non-local targets
+  --dry-run            Print commands without executing
+  --help               Show this help
+
+Examples:
+  k6-smart-coupons --site-url http://mysite.local \\
+    --scenario homepage-prepared-session \\
+    --prep-url '/?coupon-code=binoid15&sc-page=cart'
+
+  k6-smart-coupons --site-url http://mysite.local \\
+    --scenario checkout-classic \\
+    --add-to-cart-url '/?add-to-cart=12345' \\
+    --mode discover --headed
+EOF
+}
+
+is_local_target() {
+    local url="$1"
+    local host=""
+
+    host="$(echo "$url" | sed -E 's|^https?://||' | sed -E 's|[:/].*||')"
+
+    case "$host" in
+        localhost|127.0.0.1|0.0.0.0|*.local|*.test|*.localhost)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+confirm_remote_target() {
+    if is_local_target "$SITE_URL"; then
+        return 0
+    fi
+
+    if [ "$ALLOW_REMOTE" -eq 0 ]; then
+        echo -e "${RED}Error: Target does not look like a local site: $SITE_URL${NC}"
+        echo ""
+        echo "This helper only allows local targets by default:"
+        echo "  localhost, 127.0.0.1, *.local, *.test"
+        echo ""
+        echo "To run against a remote target, use --allow-remote."
+        exit 1
+    fi
+
+    echo -e "${YELLOW}WARNING: You are about to run Smart Coupons discovery/load against:${NC}"
+    echo -e "  ${RED}$SITE_URL${NC}"
+    echo -e "  Mode: $MODE | Scenario: $SCENARIO"
+    echo ""
+    echo -e "${YELLOW}Only proceed if you have authorization to test this target.${NC}"
+    if [ "$DRY_RUN" -eq 1 ]; then
+        return 0
+    fi
+    printf "Type 'yes' to continue: "
+    read -r confirm
+    if [ "$confirm" != "yes" ]; then
+        echo "Aborted."
+        exit 1
+    fi
+}
+
+print_cmd() {
+    local quoted=()
+    local arg
+    for arg in "$@"; do
+        quoted+=("$(printf '%q' "$arg")")
+    done
+    printf '  %s\n' "${quoted[*]}"
+}
+
+append_discovery_env() {
+    local key="$1"
+    local value="$2"
+    if [ -n "$value" ]; then
+        DISCOVERY_ENV+=("${key}=${value}")
+    fi
+}
+
+append_k6_env() {
+    local key="$1"
+    local value="$2"
+    if [ -n "$value" ]; then
+        LOAD_ARGS+=(--env "${key}=${value}")
+    fi
+}
+
+if [ $# -eq 0 ]; then
+    show_usage
+    exit 0
+fi
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --help|-h)
+            show_usage
+            exit 0
+            ;;
+        --site-url)
+            SITE_URL="$2"
+            shift 2
+            ;;
+        --scenario)
+            SCENARIO="$2"
+            shift 2
+            ;;
+        --mode)
+            MODE="$2"
+            shift 2
+            ;;
+        --prep-url)
+            PREP_URL="$2"
+            shift 2
+            ;;
+        --add-to-cart-url)
+            ADD_TO_CART_URL="$2"
+            shift 2
+            ;;
+        --product-id)
+            PRODUCT_ID="$2"
+            shift 2
+            ;;
+        --coupon-code)
+            COUPON_CODE="$2"
+            shift 2
+            ;;
+        --coupon-url)
+            COUPON_URL="$2"
+            shift 2
+            ;;
+        --home-path)
+            HOME_PATH="$2"
+            shift 2
+            ;;
+        --cart-path)
+            CART_PATH="$2"
+            shift 2
+            ;;
+        --checkout-path)
+            CHECKOUT_PATH="$2"
+            shift 2
+            ;;
+        --intermediate-path)
+            INTERMEDIATE_PATH="$2"
+            shift 2
+            ;;
+        --expected-prep-text)
+            EXPECTED_PREP_TEXT="$2"
+            shift 2
+            ;;
+        --expected-intermediate-text)
+            EXPECTED_INTERMEDIATE_TEXT="$2"
+            shift 2
+            ;;
+        --expected-final-text)
+            EXPECTED_FINAL_TEXT="$2"
+            shift 2
+            ;;
+        --unexpected-final-text)
+            UNEXPECTED_FINAL_TEXT="$2"
+            shift 2
+            ;;
+        --use-auth-state)
+            USE_AUTH_STATE=1
+            shift
+            ;;
+        --auth-file)
+            AUTH_FILE="$2"
+            shift 2
+            ;;
+        --headed)
+            HEADLESS="false"
+            shift
+            ;;
+        --wp-timeout-ms)
+            WP_TIMEOUT_MS="$2"
+            shift 2
+            ;;
+        --wait-after-nav-ms)
+            WAIT_AFTER_NAV_MS="$2"
+            shift 2
+            ;;
+        --report-dir)
+            REPORT_DIR="$2"
+            shift 2
+            ;;
+        --no-screenshot)
+            TAKE_SCREENSHOT="false"
+            shift
+            ;;
+        --vus)
+            VUS="$2"
+            shift 2
+            ;;
+        --duration)
+            DURATION="$2"
+            shift 2
+            ;;
+        --think-time)
+            THINK_TIME="$2"
+            shift 2
+            ;;
+        --allow-remote)
+            ALLOW_REMOTE=1
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
+        *)
+            echo -e "${RED}Error: Unknown argument: $1${NC}"
+            echo ""
+            show_usage
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$SITE_URL" ]; then
+    echo -e "${RED}Error: --site-url is required${NC}"
+    exit 1
+fi
+
+if [ -z "$SCENARIO" ]; then
+    echo -e "${RED}Error: --scenario is required${NC}"
+    exit 1
+fi
+
+case "$SCENARIO" in
+    homepage-empty-cart|homepage-prepared-session|coupon-url-homepage|checkout-classic)
+        ;;
+    *)
+        echo -e "${RED}Error: Unsupported scenario: $SCENARIO${NC}"
+        exit 1
+        ;;
+esac
+
+case "$MODE" in
+    discover|load|both)
+        ;;
+    *)
+        echo -e "${RED}Error: Unsupported mode: $MODE${NC}"
+        exit 1
+        ;;
+esac
+
+if [ "$MODE" = "discover" ] || [ "$MODE" = "both" ]; then
+    if ! command -v node >/dev/null 2>&1; then
+        echo -e "${RED}Error: node is required for discovery mode${NC}"
+        exit 1
+    fi
+fi
+
+if [ "$MODE" = "load" ] || [ "$MODE" = "both" ]; then
+    if [ ! -x "$K6_HARNESS" ]; then
+        echo -e "${RED}Error: k6-harness is missing or not executable: $K6_HARNESS${NC}"
+        exit 1
+    fi
+fi
+
+if [ "$USE_AUTH_STATE" -eq 1 ] && [ -n "$AUTH_FILE" ] && [ ! -f "$AUTH_FILE" ]; then
+    echo -e "${RED}Error: auth file not found: $AUTH_FILE${NC}"
+    exit 1
+fi
+
+confirm_remote_target
+
+DISCOVERY_ENV=()
+append_discovery_env BASE_URL "$SITE_URL"
+append_discovery_env SCENARIO "$SCENARIO"
+append_discovery_env HOME_PATH "$HOME_PATH"
+append_discovery_env CART_PATH "$CART_PATH"
+append_discovery_env CHECKOUT_PATH "$CHECKOUT_PATH"
+append_discovery_env PREP_URL "$PREP_URL"
+append_discovery_env ADD_TO_CART_URL "$ADD_TO_CART_URL"
+append_discovery_env PRODUCT_ID "$PRODUCT_ID"
+append_discovery_env COUPON_CODE "$COUPON_CODE"
+append_discovery_env COUPON_URL "$COUPON_URL"
+append_discovery_env INTERMEDIATE_PATH "$INTERMEDIATE_PATH"
+append_discovery_env EXPECTED_PREP_TEXT "$EXPECTED_PREP_TEXT"
+append_discovery_env EXPECTED_INTERMEDIATE_TEXT "$EXPECTED_INTERMEDIATE_TEXT"
+append_discovery_env EXPECTED_FINAL_TEXT "$EXPECTED_FINAL_TEXT"
+append_discovery_env UNEXPECTED_FINAL_TEXT "$UNEXPECTED_FINAL_TEXT"
+append_discovery_env WP_HEADLESS "$HEADLESS"
+append_discovery_env WP_TIMEOUT_MS "$WP_TIMEOUT_MS"
+append_discovery_env WAIT_AFTER_NAV_MS "$WAIT_AFTER_NAV_MS"
+append_discovery_env TAKE_SCREENSHOT "$TAKE_SCREENSHOT"
+append_discovery_env REPORT_DIR "$REPORT_DIR"
+if [ "$USE_AUTH_STATE" -eq 1 ]; then
+    append_discovery_env USE_AUTH_STATE "true"
+    append_discovery_env WP_AUTH_FILE "$AUTH_FILE"
+fi
+
+LOAD_ARGS=()
+append_k6_env SCENARIO "$SCENARIO"
+append_k6_env HOME_PATH "$HOME_PATH"
+append_k6_env CART_PATH "$CART_PATH"
+append_k6_env CHECKOUT_PATH "$CHECKOUT_PATH"
+append_k6_env PREP_URL "$PREP_URL"
+append_k6_env ADD_TO_CART_URL "$ADD_TO_CART_URL"
+append_k6_env PRODUCT_ID "$PRODUCT_ID"
+append_k6_env COUPON_CODE "$COUPON_CODE"
+append_k6_env COUPON_URL "$COUPON_URL"
+append_k6_env INTERMEDIATE_PATH "$INTERMEDIATE_PATH"
+append_k6_env EXPECTED_PREP_TEXT "$EXPECTED_PREP_TEXT"
+append_k6_env EXPECTED_INTERMEDIATE_TEXT "$EXPECTED_INTERMEDIATE_TEXT"
+append_k6_env EXPECTED_FINAL_TEXT "$EXPECTED_FINAL_TEXT"
+append_k6_env UNEXPECTED_FINAL_TEXT "$UNEXPECTED_FINAL_TEXT"
+append_k6_env THINK_TIME "$THINK_TIME"
+if [ -n "$VUS" ]; then
+    LOAD_ARGS+=(--vus "$VUS")
+fi
+if [ -n "$DURATION" ]; then
+    LOAD_ARGS+=(--duration "$DURATION")
+fi
+if [ "$ALLOW_REMOTE" -eq 1 ]; then
+    LOAD_ARGS+=(--allow-remote)
+fi
+
+DISCOVERY_CMD=(env "${DISCOVERY_ENV[@]}" node "$DISCOVERY_SCRIPT")
+LOAD_CMD=("$K6_HARNESS" "$SITE_URL" "$LOAD_SCRIPT" "${LOAD_ARGS[@]}")
+
+echo -e "${BLUE}Smart Coupons Scenario Helper${NC} (AI-DDTK)"
+echo -e "  Mode:      $MODE"
+echo -e "  Target:    ${GREEN}$SITE_URL${NC}"
+echo -e "  Scenario:  $SCENARIO"
+[ -n "$PREP_URL" ] && echo -e "  Prep URL:  $PREP_URL"
+[ -n "$ADD_TO_CART_URL" ] && echo -e "  Add URL:   $ADD_TO_CART_URL"
+[ -n "$COUPON_URL" ] && echo -e "  Coupon:    $COUPON_URL"
+[ "$USE_AUTH_STATE" -eq 1 ] && echo -e "  Auth:      pw-auth storage state"
+echo ""
+
+if [ "$DRY_RUN" -eq 1 ]; then
+    if [ "$MODE" = "discover" ] || [ "$MODE" = "both" ]; then
+        echo -e "${YELLOW}[dry-run] Discovery command:${NC}"
+        print_cmd "${DISCOVERY_CMD[@]}"
+    fi
+    if [ "$MODE" = "load" ] || [ "$MODE" = "both" ]; then
+        echo -e "${YELLOW}[dry-run] Load command:${NC}"
+        print_cmd "${LOAD_CMD[@]}"
+    fi
+    exit 0
+fi
+
+if [ "$MODE" = "discover" ] || [ "$MODE" = "both" ]; then
+    echo -e "${BLUE}Step 1:${NC} Playwright discovery"
+    "${DISCOVERY_CMD[@]}"
+    echo ""
+fi
+
+if [ "$MODE" = "load" ] || [ "$MODE" = "both" ]; then
+    [ "$MODE" = "both" ] && echo -e "${BLUE}Step 2:${NC} Matching k6 load"
+    K6_HARNESS_ASSUME_CONFIRMED_REMOTE=$([ "$ALLOW_REMOTE" -eq 1 ] && echo 1 || echo 0) "${LOAD_CMD[@]}"
+fi

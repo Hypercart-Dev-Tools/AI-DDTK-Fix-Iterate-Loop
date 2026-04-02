@@ -45,6 +45,7 @@ DEFAULT_DURATION="30s"
 HARD_CAP_VUS=100
 HARD_CAP_DURATION_SECS=300
 ALLOW_REMOTE=0
+ASSUME_CONFIRMED_REMOTE="${K6_HARNESS_ASSUME_CONFIRMED_REMOTE:-0}"
 
 # Parsed values
 VUS=""
@@ -253,16 +254,18 @@ if ! is_local_target "$BASE_URL"; then
         exit 1
     fi
 
-    echo -e "${YELLOW}WARNING: You are about to load-test a remote target:${NC}"
-    echo -e "  ${RED}$BASE_URL${NC}"
-    echo -e "  VUs: $VUS | Duration: $DURATION"
-    echo ""
-    echo -e "${YELLOW}Only proceed if you have authorization to load-test this target.${NC}"
-    printf "Type 'yes' to continue: "
-    read -r confirm
-    if [ "$confirm" != "yes" ]; then
-        echo "Aborted."
-        exit 1
+    if [ "$ASSUME_CONFIRMED_REMOTE" != "1" ]; then
+        echo -e "${YELLOW}WARNING: You are about to load-test a remote target:${NC}"
+        echo -e "  ${RED}$BASE_URL${NC}"
+        echo -e "  VUs: $VUS | Duration: $DURATION"
+        echo ""
+        echo -e "${YELLOW}Only proceed if you have authorization to load-test this target.${NC}"
+        printf "Type 'yes' to continue: "
+        read -r confirm
+        if [ "$confirm" != "yes" ]; then
+            echo "Aborted."
+            exit 1
+        fi
     fi
 fi
 
