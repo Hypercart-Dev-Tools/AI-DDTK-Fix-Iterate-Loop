@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.1] - 2026-04-01
+
+### Added
+- **`experimental/k6/` — load testing harness** — lightweight k6 integration for WordPress and WooCommerce load testing. Includes `bin/k6-harness` safe wrapper with guardrails (VU caps, duration caps, local-only target enforcement, `--allow-remote` with confirmation, `--dry-run`), `wp-baseline.js` script (homepage, archives, REST API, static assets), and `woo-storefront.js` script (shop page, product detail, add-to-cart, cart, checkout page load, My Account). Both scripts emit structured JSON summaries alongside terminal output. The WooCommerce script auto-discovers products via the WC Store API with HTML fallback.
+
 ## [1.8.0] - 2026-04-01
 
 ### Added

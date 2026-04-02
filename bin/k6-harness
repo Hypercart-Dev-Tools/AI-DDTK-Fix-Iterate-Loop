@@ -1,0 +1,295 @@
+#!/usr/bin/env bash
+# ============================================================
+# k6 Load Testing Harness
+# Part of AI-DDTK - AI Driven Development ToolKit
+# ============================================================
+#
+# PURPOSE:
+#   Safe wrapper around k6 for local WordPress load testing.
+#   Enforces guardrails to prevent accidental production load
+#   or local machine saturation.
+#
+# USAGE:
+#   k6-harness <base-url> <script> [options...]
+#   k6-harness http://mysite.local wp-baseline.js
+#   k6-harness http://mysite.local woo-storefront.js --vus 20 --duration 60s
+#
+# FOR LLM AGENTS:
+#   - BASE_URL is injected as a k6 environment variable (__ENV.BASE_URL)
+#   - Scripts live in experimental/k6/scripts/ by default
+#   - The harness resolves script paths relative to the toolkit root
+#   - Guardrails cap VUs at 100 and duration at 300s (5min)
+#   - Remote targets require --allow-remote and interactive confirmation
+#
+# ============================================================
+
+set -e
+
+# Resolve the directory where this script lives
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TOOLKIT_ROOT="$(dirname "$SCRIPT_DIR")"
+SCRIPTS_DIR="$TOOLKIT_ROOT/experimental/k6/scripts"
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# ============================================================
+# DEFAULTS & HARD CAPS
+# ============================================================
+DEFAULT_VUS=10
+DEFAULT_DURATION="30s"
+HARD_CAP_VUS=100
+HARD_CAP_DURATION_SECS=300
+ALLOW_REMOTE=0
+
+# Parsed values
+VUS=""
+DURATION=""
+BASE_URL=""
+SCRIPT_PATH=""
+EXTRA_K6_ARGS=()
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+show_usage() {
+    echo -e "${BLUE}k6 Load Testing Harness${NC}"
+    echo "Part of AI-DDTK (AI Driven Development ToolKit)"
+    echo ""
+    echo "Usage: k6-harness <base-url> <script> [options...]"
+    echo ""
+    echo "Arguments:"
+    echo "  base-url     Target site URL (e.g., http://mysite.local)"
+    echo "  script       k6 script path or name (resolved from experimental/k6/scripts/)"
+    echo ""
+    echo "Options:"
+    echo "  --vus N          Virtual users (default: $DEFAULT_VUS, max: $HARD_CAP_VUS)"
+    echo "  --duration Ns    Test duration (default: $DEFAULT_DURATION, max: ${HARD_CAP_DURATION_SECS}s)"
+    echo "  --allow-remote   Allow non-local targets (requires confirmation)"
+    echo "  --dry-run        Print the k6 command without executing"
+    echo "  --help           Show this help"
+    echo ""
+    echo "Included scripts:"
+    if [ -d "$SCRIPTS_DIR" ]; then
+        for script in "$SCRIPTS_DIR"/*.js; do
+            [ -f "$script" ] && echo "  - $(basename "$script")"
+        done
+    fi
+    echo ""
+    echo "Examples:"
+    echo "  k6-harness http://mysite.local wp-baseline.js"
+    echo "  k6-harness http://mysite.local woo-storefront.js --vus 20 --duration 60s"
+    echo ""
+}
+
+is_local_target() {
+    local url="$1"
+    local host=""
+
+    # Extract host from URL
+    host="$(echo "$url" | sed -E 's|^https?://||' | sed -E 's|[:/].*||')"
+
+    case "$host" in
+        localhost|127.0.0.1|0.0.0.0|*.local|*.test|*.localhost)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+parse_duration_secs() {
+    local dur="$1"
+    local num=""
+    local unit=""
+
+    num="$(echo "$dur" | sed -E 's/[^0-9]//g')"
+    unit="$(echo "$dur" | sed -E 's/[0-9]//g')"
+
+    case "$unit" in
+        s|"") echo "$num" ;;
+        m)    echo $((num * 60)) ;;
+        h)    echo $((num * 3600)) ;;
+        *)    echo "$num" ;;
+    esac
+}
+
+# ============================================================
+# PARSE ARGUMENTS
+# ============================================================
+
+if [ $# -eq 0 ]; then
+    show_usage
+    exit 0
+fi
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --help|-h)
+            show_usage
+            exit 0
+            ;;
+        --vus)
+            VUS="$2"
+            shift 2
+            ;;
+        --duration)
+            DURATION="$2"
+            shift 2
+            ;;
+        --allow-remote)
+            ALLOW_REMOTE=1
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=1
+            shift
+            ;;
+        --*)
+            # Pass unknown flags through to k6
+            EXTRA_K6_ARGS+=("$1")
+            if [ $# -gt 1 ] && [[ ! "$2" == --* ]]; then
+                EXTRA_K6_ARGS+=("$2")
+                shift
+            fi
+            shift
+            ;;
+        *)
+            if [ -z "$BASE_URL" ]; then
+                BASE_URL="$1"
+            elif [ -z "$SCRIPT_PATH" ]; then
+                SCRIPT_PATH="$1"
+            else
+                EXTRA_K6_ARGS+=("$1")
+            fi
+            shift
+            ;;
+    esac
+done
+
+# ============================================================
+# VALIDATE INPUTS
+# ============================================================
+
+# Check k6 is installed
+if ! command -v k6 &>/dev/null; then
+    echo -e "${RED}Error: k6 is not installed${NC}"
+    echo ""
+    echo "Install via Homebrew:"
+    echo "  brew install k6"
+    echo ""
+    echo "Or see: https://k6.io/open-source/"
+    exit 1
+fi
+
+# Require base URL
+if [ -z "$BASE_URL" ]; then
+    echo -e "${RED}Error: base-url is required${NC}"
+    echo ""
+    show_usage
+    exit 1
+fi
+
+# Require script
+if [ -z "$SCRIPT_PATH" ]; then
+    echo -e "${RED}Error: script path is required${NC}"
+    echo ""
+    show_usage
+    exit 1
+fi
+
+# Resolve script path — try as-is, then relative to scripts dir
+if [ ! -f "$SCRIPT_PATH" ]; then
+    if [ -f "$SCRIPTS_DIR/$SCRIPT_PATH" ]; then
+        SCRIPT_PATH="$SCRIPTS_DIR/$SCRIPT_PATH"
+    elif [ -f "$TOOLKIT_ROOT/$SCRIPT_PATH" ]; then
+        SCRIPT_PATH="$TOOLKIT_ROOT/$SCRIPT_PATH"
+    else
+        echo -e "${RED}Error: Script not found: $SCRIPT_PATH${NC}"
+        echo ""
+        echo "Looked in:"
+        echo "  - $SCRIPT_PATH"
+        echo "  - $SCRIPTS_DIR/$SCRIPT_PATH"
+        echo "  - $TOOLKIT_ROOT/$SCRIPT_PATH"
+        exit 1
+    fi
+fi
+
+# Apply defaults
+VUS="${VUS:-$DEFAULT_VUS}"
+DURATION="${DURATION:-$DEFAULT_DURATION}"
+
+# Enforce hard caps on VUs
+if [ "$VUS" -gt "$HARD_CAP_VUS" ]; then
+    echo -e "${YELLOW}Warning: VUs capped at $HARD_CAP_VUS (requested: $VUS)${NC}"
+    VUS="$HARD_CAP_VUS"
+fi
+
+# Enforce hard cap on duration
+DURATION_SECS="$(parse_duration_secs "$DURATION")"
+if [ "$DURATION_SECS" -gt "$HARD_CAP_DURATION_SECS" ]; then
+    echo -e "${YELLOW}Warning: Duration capped at ${HARD_CAP_DURATION_SECS}s (requested: ${DURATION_SECS}s)${NC}"
+    DURATION="${HARD_CAP_DURATION_SECS}s"
+fi
+
+# ============================================================
+# TARGET SAFETY CHECK
+# ============================================================
+
+if ! is_local_target "$BASE_URL"; then
+    if [ "$ALLOW_REMOTE" -eq 0 ]; then
+        echo -e "${RED}Error: Target does not look like a local site: $BASE_URL${NC}"
+        echo ""
+        echo "The harness only allows local targets by default:"
+        echo "  localhost, 127.0.0.1, *.local, *.test"
+        echo ""
+        echo "To test a remote target, use --allow-remote (you will be asked to confirm)."
+        exit 1
+    fi
+
+    echo -e "${YELLOW}WARNING: You are about to load-test a remote target:${NC}"
+    echo -e "  ${RED}$BASE_URL${NC}"
+    echo -e "  VUs: $VUS | Duration: $DURATION"
+    echo ""
+    echo -e "${YELLOW}Only proceed if you have authorization to load-test this target.${NC}"
+    printf "Type 'yes' to continue: "
+    read -r confirm
+    if [ "$confirm" != "yes" ]; then
+        echo "Aborted."
+        exit 1
+    fi
+fi
+
+# ============================================================
+# RUN k6
+# ============================================================
+
+echo -e "${BLUE}k6 Load Testing Harness${NC} (AI-DDTK)"
+echo -e "  Target:   ${GREEN}$BASE_URL${NC}"
+echo -e "  Script:   $(basename "$SCRIPT_PATH")"
+echo -e "  VUs:      $VUS"
+echo -e "  Duration: $DURATION"
+echo ""
+
+K6_CMD=(
+    k6 run
+    --vus "$VUS"
+    --duration "$DURATION"
+    --env "BASE_URL=$BASE_URL"
+    "${EXTRA_K6_ARGS[@]}"
+    "$SCRIPT_PATH"
+)
+
+if [ "${DRY_RUN:-0}" -eq 1 ]; then
+    echo -e "${YELLOW}[dry-run] Would execute:${NC}"
+    echo "  ${K6_CMD[*]}"
+    exit 0
+fi
+
+exec "${K6_CMD[@]}"

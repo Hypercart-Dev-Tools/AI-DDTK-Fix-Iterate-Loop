@@ -103,6 +103,31 @@ Next steps:
 
 ---
 
+### `k6/` — Load Testing Harness (NEW)
+
+**Status:** Experimental
+**Purpose:** Lightweight load testing for WordPress / WooCommerce via [k6](https://k6.io/open-source/)
+
+Fills the gap between single-request profiling (Query Monitor) and static analysis (WPCC) — answers "what happens under concurrent load?"
+
+**Components:**
+- `bin/k6-harness` — Safe wrapper with guardrails (max VUs, duration caps, local-only targeting)
+- `k6/scripts/wp-baseline.js` — WordPress baseline (homepage, archives, REST API, static assets)
+- `k6/scripts/woo-storefront.js` — WooCommerce customer journey (shop, product detail, add-to-cart, cart, checkout, My Account)
+
+**Quick start:**
+```bash
+brew install k6
+k6-harness http://mysite.local wp-baseline.js
+k6-harness http://mysite.local woo-storefront.js --vus 15 --duration 60s
+```
+
+**Guardrails:** Max 25 VUs (hard cap 100), max 30s duration (hard cap 300s), remote targets blocked by default.
+
+See `k6/README.md` for full documentation.
+
+---
+
 ### `P1-ONBOARDING.md`
 
 **Status:** Planning document
