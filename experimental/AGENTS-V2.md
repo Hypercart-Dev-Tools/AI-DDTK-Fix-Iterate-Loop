@@ -23,7 +23,7 @@
 - **State Management**: Introduce FSM (Finite State Machine) if state transitions exceed 4 distinct states or more than one conditional branch per state. Document state diagram in code comments or `/docs/state-machine.md`.
 - **Contracts**: Designate single writer per contract/schema (API response shape, DB record structure, queue message format). Changes require review from contract owner; broadcast breaking changes immediately.
 - **Pipelines**: One logical pipeline per data flow whenever possible. Avoid forking/rejoining; use filters, transforms, and side effects in sequence. If pipeline needs multiple paths, use conditional routing within single pipeline, not separate pipelines.
-- **Navigation, Sidebar, and Footer**:When building web pages, even if there's only one page to start with, setup re-usable navigation/header, search field, footer, and sidebar scripts that other pages can take advantage of later. Do it correctly from the start. In other words, we are starting with light weight CMS-like patterns.
+- **Reusable Components First**: Build navigation, header, search, footer, sidebar as composable, template-agnostic components from day one—not after page count grows. Store in `/components/` or language equivalent (`partials/`, `templates/shared/`, etc.). This prevents costly refactoring and scales to multi-page/multi-version layouts without code duplication.
 
 ## Anti-Patterns to Avoid
 
