@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# project.sh — PROJECT folder hygiene · Phases 0 + 1 + 2 + 3 + 4
-# version 1.3 - attn: update this number as improvements are added
+# project.sh — PROJECT folder hygiene · Phases 0 + 1 + 2 + 3 + 4 + repo-case
+# version 1.4 - attn: update this number as improvements are added
 # =============================================================================
 # Phase 0 (auto):    pre-check git cleanliness + zip backup before mutations.
 # Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
@@ -48,6 +48,11 @@
 #   ./PROJECT/project.sh promote --apply    # execute moves (git mv when in repo)
 #   ./PROJECT/project.sh promote --json     # structured JSON report only
 #
+# USAGE — Repo Case (repo-wide lowercase filename normalization)
+#   ./PROJECT/project.sh uppercase          # dry-run — find lowercase *.md/*.txt across repo
+#   ./PROJECT/project.sh uppercase --apply  # rename to UPPERCASE.md / UPPERCASE.txt
+#   ./PROJECT/project.sh uppercase --json   # structured JSON action plan only
+#
 # PHASE ROADMAP
 #   Phase 0 (this) — pre-check: git cleanliness gate + zip backup
 #   Phase 1 (this) — scan + P3 prefix/downgrade, xref warnings, agent hooks
@@ -63,7 +68,7 @@ set -euo pipefail
 # ── Defaults ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
-COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4)
+COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4) | uppercase
 DAYS_THRESHOLD=8
 DRY_RUN=true
 JSON_MODE=false
@@ -78,6 +83,7 @@ while [[ $# -gt 0 ]]; do
     scan)              COMMAND="scan" ;;
     meta)              COMMAND="meta" ;;
     promote)           COMMAND="promote" ;;
+    uppercase)         COMMAND="uppercase" ;;
     --apply)           DRY_RUN=false ;;
     --force)           FORCE=true ;;
     --check)           SCAN_CHECK_ONLY=true ;;
@@ -88,7 +94,7 @@ while [[ $# -gt 0 ]]; do
       [[ "${2:-}" =~ ^[0-9]+$ ]] || { echo "ERROR: --days requires a positive integer" >&2; exit 99; }
       DAYS_THRESHOLD="$2"; shift ;;
     --help|-h)
-      sed -n '/^# USAGE/,/^# PHASE/p' "$0" | sed 's/^# \?//' | grep -v '^$' | head -20
+      sed -n '/^# USAGE/,/^# PHASE/p' "$0" | sed 's/^# \?//' | grep -v '^$' | head -30
       exit 0 ;;
     *) echo "ERROR: Unknown argument: $1 (try --help)" >&2; exit 99 ;;
   esac
@@ -104,6 +110,32 @@ git -C "$SCRIPT_DIR" rev-parse --git-dir &>/dev/null 2>&1 && USE_GIT=true || tru
 REPO_ROOT=""
 $USE_GIT && REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || true)
 
+phase0_scope_root() {
+  if [[ "$COMMAND" == "uppercase" ]] && [[ -n "$REPO_ROOT" ]]; then
+    printf '%s\n' "$REPO_ROOT"
+  else
+    printf '%s\n' "$SCRIPT_DIR"
+  fi
+}
+
+phase0_scope_label() {
+  if [[ "$COMMAND" == "uppercase" ]]; then
+    printf '%s\n' "repo"
+  else
+    printf '%s\n' "PROJECT/"
+  fi
+}
+
+phase0_scope_pathspec() {
+  local scope_root
+  scope_root="$(phase0_scope_root)"
+  if [[ -n "$REPO_ROOT" && "$scope_root" == "$REPO_ROOT" ]]; then
+    printf '%s\n' "."
+  elif [[ -n "$REPO_ROOT" ]]; then
+    printf '%s/\n' "${scope_root#"$REPO_ROOT/"}"
+  fi
+}
+
 phase0_check() {
   local has_uncommitted=false
   local has_unpushed=false
@@ -117,16 +149,20 @@ phase0_check() {
     return 0
   fi
 
-  # Check for uncommitted changes (staged + unstaged) in PROJECT/ folder
-  local project_rel="${SCRIPT_DIR#"$REPO_ROOT/"}"
-  uncommitted_count=$(git -C "$REPO_ROOT" diff --name-only -- "$project_rel/" 2>/dev/null | wc -l | tr -d ' ')
+  local scope_root scope_label scope_pathspec
+  scope_root="$(phase0_scope_root)"
+  scope_label="$(phase0_scope_label)"
+  scope_pathspec="$(phase0_scope_pathspec)"
+
+  # Check for uncommitted changes (staged + unstaged) in the active mutation scope
+  uncommitted_count=$(git -C "$REPO_ROOT" diff --name-only -- "$scope_pathspec" 2>/dev/null | wc -l | tr -d ' ')
   local staged_count
-  staged_count=$(git -C "$REPO_ROOT" diff --cached --name-only -- "$project_rel/" 2>/dev/null | wc -l | tr -d ' ')
+  staged_count=$(git -C "$REPO_ROOT" diff --cached --name-only -- "$scope_pathspec" 2>/dev/null | wc -l | tr -d ' ')
   uncommitted_count=$((uncommitted_count + staged_count))
   (( uncommitted_count > 0 )) && has_uncommitted=true
 
-  # Check for untracked files in PROJECT/
-  untracked_count=$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$project_rel/" 2>/dev/null | wc -l | tr -d ' ')
+  # Check for untracked files in the active mutation scope
+  untracked_count=$(git -C "$REPO_ROOT" ls-files --others --exclude-standard -- "$scope_pathspec" 2>/dev/null | wc -l | tr -d ' ')
   (( untracked_count > 0 )) && has_untracked=true
 
   # Check for unpushed commits on current branch
@@ -161,16 +197,17 @@ JSONEOF
   # ── Human / agent output ─────────────────────────────────────────────────
   if $is_dirty; then
     local p0_prompts=()
-    $has_uncommitted && p0_prompts+=("${uncommitted_count} uncommitted change(s) in PROJECT/ — commit before running --apply for accurate stale detection.")
-    $has_untracked   && p0_prompts+=("${untracked_count} untracked file(s) in PROJECT/ — consider adding them to git.")
+    $has_uncommitted && p0_prompts+=("${uncommitted_count} uncommitted change(s) in ${scope_label} — commit before running --apply for accurate detection.")
+    $has_untracked   && p0_prompts+=("${untracked_count} untracked file(s) in ${scope_label} — consider adding them to git.")
     $has_unpushed    && p0_prompts+=("${unpushed_count} unpushed commit(s) on branch '$branch' — push to preserve your work before mutations.")
     p0_prompts+=("Ask the user to commit and push, then re-run. Use --force to bypass this check.")
 
     if ! $JSON_MODE; then
       echo ""
       echo "=== project.sh · Phase 0 Pre-Check ==="
-      $has_uncommitted && printf "  Uncommitted : %d change(s) in PROJECT/\n" "$uncommitted_count"
-      $has_untracked   && printf "  Untracked   : %d file(s) in PROJECT/\n" "$untracked_count"
+      printf "  Scope       : %s\n" "$scope_label"
+      $has_uncommitted && printf "  Uncommitted : %d change(s) in %s\n" "$uncommitted_count" "$scope_label"
+      $has_untracked   && printf "  Untracked   : %d file(s) in %s\n" "$untracked_count" "$scope_label"
       $has_unpushed    && printf "  Unpushed    : %d commit(s) on '%s'\n" "$unpushed_count" "$branch"
       echo ""
     fi
@@ -213,6 +250,8 @@ JSONEOF
 phase0_backup() {
   if $DRY_RUN; then return 0; fi
 
+  local backup_root
+  backup_root="$(phase0_scope_root)"
   local backup_dir
   if [[ -n "$REPO_ROOT" ]]; then
     backup_dir="$REPO_ROOT/temp"
@@ -226,12 +265,23 @@ phase0_backup() {
   local zip_name="project-backup-${timestamp}.zip"
   local zip_path="$backup_dir/$zip_name"
 
-  # Zip PROJECT/ folder, excluding .xref-registry.json and other generated files
+  local backup_label backup_target
+  if [[ "$backup_root" == "$REPO_ROOT" ]] && [[ -n "$REPO_ROOT" ]]; then
+    backup_label="repo"
+    backup_target="."
+  else
+    backup_label="$(basename "$backup_root")"
+    backup_target="$(basename "$backup_root")"
+  fi
+
+  # Zip the active mutation scope, excluding generated or heavy directories
   if command -v zip &>/dev/null; then
-    (cd "$SCRIPT_DIR/.." && zip -rq "$zip_path" "$(basename "$SCRIPT_DIR")" \
-      -x "*/.*" "*/temp/*" 2>/dev/null) || true
+    (
+      cd "${REPO_ROOT:-"$SCRIPT_DIR/.."}" && zip -rq "$zip_path" "$backup_target" \
+        -x "*/.git/*" "*/node_modules/*" "*/temp/*" "*/.DS_Store" "*/.*" 2>/dev/null
+    ) || true
     if [[ -f "$zip_path" ]]; then
-      $JSON_MODE || echo "  Backup: $zip_name ($(du -h "$zip_path" | cut -f1))"
+      $JSON_MODE || echo "  Backup: $zip_name ($(du -h "$zip_path" | cut -f1)) [${backup_label}]"
       $JSON_MODE || echo ""
     fi
   else
@@ -254,6 +304,38 @@ strip_priority_prefix() {
 }
 
 make_p3_name() { echo "P3-$(strip_priority_prefix "$1")"; }
+
+upper_ascii() {
+  printf '%s' "$1" | tr '[:lower:]' '[:upper:]'
+}
+
+lower_ascii() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+rename_with_case_support() {
+  local src="$1"
+  local dst="$2"
+  local src_folded dst_folded tmp_dst
+
+  src_folded="$(lower_ascii "$src")"
+  dst_folded="$(lower_ascii "$dst")"
+
+  if [[ "$src_folded" == "$dst_folded" ]]; then
+    tmp_dst="${dst}.tmp-case-rename-$$"
+    if $USE_GIT; then
+      git mv "$src" "$tmp_dst" && git mv "$tmp_dst" "$dst"
+    else
+      mv "$src" "$tmp_dst" && mv "$tmp_dst" "$dst"
+    fi
+  else
+    if $USE_GIT; then
+      git mv "$src" "$dst"
+    else
+      mv "$src" "$dst"
+    fi
+  fi
+}
 
 # Returns: already-p3 | downgrade | add-prefix
 classify_action() {
@@ -1129,6 +1211,204 @@ for f in d['files']:
 [[ "$COMMAND" == "scan" ]]    && run_scan
 [[ "$COMMAND" == "meta" ]]    && run_meta
 [[ "$COMMAND" == "promote" ]] && run_promote
+ 
+run_uppercase() {
+  local scan_root
+  scan_root="${REPO_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+
+  ACTION_SRC=()
+  ACTION_FROM=()
+  ACTION_TO=()
+  ACTION_TYPE=()
+  ACTION_DAYS=()
+  ACTION_XREFS=()
+  XREF_COUNT=0
+
+  local scanned=0
+  local matched=0
+
+  while IFS= read -r -d '' filepath; do
+    local filename stem ext new_name xrefs=""
+    filename="$(basename "$filepath")"
+    ext="${filename##*.}"
+    stem="${filename%.*}"
+    scanned=$((scanned + 1))
+
+    if [[ ! "$filename" =~ ^[a-z0-9][a-z0-9._-]*\.(md|txt)$ ]]; then
+      continue
+    fi
+    local upper_stem
+    upper_stem="$(upper_ascii "$stem")"
+    if [[ "$stem" != "$upper_stem" ]]; then
+      new_name="${upper_stem}.${ext}"
+    else
+      continue
+    fi
+
+    matched=$((matched + 1))
+
+    while IFS= read -r ref; do
+      xrefs+="${ref}|"
+    done < <(
+      grep -rIlF --exclude-dir=".git" --exclude-dir="node_modules" --exclude-dir="temp" \
+        --include="*.md" --include="*.txt" "$filename" "$scan_root" 2>/dev/null \
+        | grep -v "^${filepath}$" || true
+    )
+    xrefs="${xrefs%|}"
+    [[ -n "$xrefs" ]] && XREF_COUNT=$((XREF_COUNT + 1))
+
+    ACTION_SRC+=("$filepath")
+    ACTION_FROM+=("$filename")
+    ACTION_TO+=("$new_name")
+    ACTION_TYPE+=("uppercase")
+    ACTION_DAYS+=("0")
+    ACTION_XREFS+=("$xrefs")
+  done < <(
+    find "$scan_root" \
+      -path "*/.git" -prune -o \
+      -path "*/node_modules" -prune -o \
+      -path "*/temp" -prune -o \
+      -type f \( -name "*.md" -o -name "*.txt" \) -print0 2>/dev/null
+  )
+
+  TOTAL_ACTIONS=${#ACTION_SRC[@]}
+  MODE_LABEL="DRY-RUN"; $DRY_RUN || MODE_LABEL="APPLY"
+  APPLIED=0; SKIPPED=0; ERRORS=0
+
+  print_uppercase_summary() {
+    echo ""
+    echo "=== project.sh · Repo Case · ${MODE_LABEL} ==="
+    printf "  Root     : %s\n" "$scan_root"
+    printf "  Scanned  : %d .md/.txt files\n" "$scanned"
+    printf "  Matches  : %d lowercase filename(s)\n" "$matched"
+    printf "  Actions  : %d renames planned\n" "$TOTAL_ACTIONS"
+    printf "  Xref warn: %d file(s) referenced in other text docs\n" "$XREF_COUNT"
+    echo ""
+
+    if (( TOTAL_ACTIONS == 0 )); then
+      echo "  All matching filenames already use uppercase basenames. Nothing to do."
+      return
+    fi
+
+    echo "  Planned renames:"
+    for i in "${!ACTION_SRC[@]}"; do
+      local rel
+      rel="${ACTION_SRC[$i]#"$scan_root/"}"
+      printf "    %s  →  %s\n" "$rel" "${ACTION_TO[$i]}"
+      if [[ -n "${ACTION_XREFS[$i]}" ]]; then
+        echo "    cross-ref in: ${ACTION_XREFS[$i]//|/, }"
+      fi
+    done
+    echo ""
+  }
+
+  do_uppercase_apply() {
+    for i in "${!ACTION_SRC[@]}"; do
+      local src dst
+      src="${ACTION_SRC[$i]}"
+      dst="$(dirname "$src")/${ACTION_TO[$i]}"
+
+      if [[ -e "$dst" ]]; then
+        echo "  SKIP (target exists): ${ACTION_TO[$i]}" >&2
+        SKIPPED=$((SKIPPED + 1))
+        continue
+      fi
+
+      rename_with_case_support "$src" "$dst" \
+        && APPLIED=$((APPLIED + 1)) \
+        || { echo "  ERROR: rename failed for ${ACTION_FROM[$i]}" >&2; ERRORS=$((ERRORS + 1)); }
+
+      $JSON_MODE || echo "  ✓  ${ACTION_FROM[$i]}  →  ${ACTION_TO[$i]}"
+    done
+    $JSON_MODE || echo ""
+  }
+
+  $DRY_RUN || do_uppercase_apply
+
+  PROMPTS=()
+  if (( TOTAL_ACTIONS == 0 )); then
+    PROMPTS+=("No lowercase .md or .txt filenames need repo-wide normalization.")
+  elif $DRY_RUN; then
+    PROMPTS+=("Dry-run: ${TOTAL_ACTIONS} repo-wide rename(s) planned. Run \`./PROJECT/project.sh uppercase --apply\` to apply them.")
+    (( XREF_COUNT > 0 )) && PROMPTS+=("⚠️  ${XREF_COUNT} rename(s) are referenced by other .md/.txt files. Review those references before applying.")
+    PROMPTS+=("Run with \`--json\` to get the full machine-readable action plan for agent orchestration.")
+  else
+    PROMPTS+=("${APPLIED} file(s) renamed. ${SKIPPED} skipped (target already existed). ${ERRORS} error(s).")
+    (( XREF_COUNT > 0 )) && PROMPTS+=("⚠️  ${XREF_COUNT} renamed file(s) are still referenced by existing .md/.txt content. Update those references separately.")
+    PROMPTS+=("Run \`git diff --name-only --cached\` to review staged renames before committing.")
+  fi
+
+  emit_uppercase_json() {
+    local actions_json="[" sep=""
+    for i in "${!ACTION_SRC[@]}"; do
+      local rel_src xrefs_arr="" xsep=""
+      rel_src="${ACTION_SRC[$i]#"$scan_root/"}"
+      if [[ -n "${ACTION_XREFS[$i]}" ]]; then
+        IFS='|' read -ra xparts <<< "${ACTION_XREFS[$i]}"
+        for xp in "${xparts[@]}"; do
+          xrefs_arr+="${xsep}\"$(json_str "${xp#"$scan_root/"}")\""
+          xsep=","
+        done
+      fi
+      actions_json+="${sep}{"
+      actions_json+="\"file\":\"$(json_str "$rel_src")\","
+      actions_json+="\"from\":\"$(json_str "${ACTION_FROM[$i]}")\","
+      actions_json+="\"to\":\"$(json_str "${ACTION_TO[$i]}")\","
+      actions_json+="\"action\":\"${ACTION_TYPE[$i]}\","
+      actions_json+="\"xrefs\":[${xrefs_arr}]}"
+      sep=","
+    done
+    actions_json+="]"
+
+    local prompts_json="[" psep=""
+    for p in "${PROMPTS[@]}"; do
+      prompts_json+="${psep}\"$(json_str "$p")\""
+      psep=","
+    done
+    prompts_json+="]"
+
+    cat <<JSON
+{
+  "tool": "project-repo-case",
+  "phase": "repo-case",
+  "version": "1.0.0",
+  "dry_run": $DRY_RUN,
+  "config": { "root": "$(json_str "$scan_root")", "extensions": ["md", "txt"] },
+  "stats": {
+    "scanned": $scanned,
+    "matches": $matched,
+    "actions_planned": $TOTAL_ACTIONS,
+    "applied": $APPLIED,
+    "skipped": $SKIPPED,
+    "errors": $ERRORS,
+    "xref_warnings": $XREF_COUNT
+  },
+  "actions": $actions_json,
+  "agent_prompts": $prompts_json
+}
+JSON
+  }
+
+  if $JSON_MODE; then
+    emit_uppercase_json
+  else
+    print_uppercase_summary
+    echo "##AGENT-CONTEXT"
+    emit_uppercase_json
+    echo "##END-AGENT-CONTEXT"
+    echo ""
+    echo "##AGENT-PROMPTS"
+    for p in "${PROMPTS[@]}"; do echo "- $p"; done
+    echo "##END-AGENT-PROMPTS"
+  fi
+
+  (( ERRORS > 0 )) && exit 99
+  ! $DRY_RUN && (( APPLIED > 0 )) && exit 2
+  (( TOTAL_ACTIONS > 0 )) && exit 1
+  exit 0
+}
+
+[[ "$COMMAND" == "uppercase" ]] && run_uppercase
 
 # ── Phase 1: find stale .md files ─────────────────────────────────────────────
 STALE_FILES=()

@@ -13,6 +13,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.2] - 2026-04-02
+
+### Added
+- **`PROJECT/project.sh` repo-wide filename normalization** — added a new `uppercase` mode that scans the entire repository for lowercase `.md` and `.txt` filenames, supports dry-run / `--apply` / `--json`, and renames matches to uppercase basenames while preserving the lowercase extension (`README.md`, `NOTES.txt` style).
+
+### Changed
+- **`PROJECT/project.sh` Phase 0 pre-check scope** — the git cleanliness gate and zip backup now expand to repo scope when the new `uppercase` mode is used, so repo-wide renames are blocked or backed up using the same safety flow as the existing `PROJECT/` hygiene commands.
+
 ## [1.8.1] - 2026-04-01
 
 ### Added
