@@ -347,13 +347,10 @@ classify_action() {
 }
 
 # JSON string escaper — handles backslash, quotes, newlines, tabs, and control chars
+# Uses python3 for reliable cross-platform JSON escaping
 json_str() {
-  printf '%s' "$1" | sed \
-    -e 's/\\/\\\\/g' \
-    -e 's/"/\\"/g' \
-    -e 's/	/\\t/g' \
-    -e ':a' -e '$!{N;ba}' -e 's/\n/\\n/g' \
-  | tr -d '\000-\011\013-\037'
+  printf '%s' "$1" | python3 -c "import json,sys; sys.stdout.write(json.dumps(sys.stdin.read())[1:-1])" 2>/dev/null \
+    || printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'
 }
 
 # Returns file age in whole days; -1 means "skip" (dirty/unreadable).

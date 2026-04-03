@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.3] - 2026-04-03
+
+### Changed
+- **`PROJECT/project.sh` v1.5 — robustness fixes** — replaced the per-file serial `git log` loops in Phase 3 (frontmatter) and Phase 4 (promotion) with bulk Python `subprocess` calls that produce valid JSON via `json.dumps()`, eliminating silent JSON corruption from special characters in git author names or dates. Upgraded `json_str()` shell helper to use `python3 json.dumps` for reliable escaping of backslashes, quotes, newlines, tabs, and control characters. Added `--` separator before grep pattern arguments to prevent filenames starting with `-` from being misinterpreted as flags. Added a 1 MB file-size guard in Phase 2 (cross-reference registry) to skip oversized files instead of loading them entirely into memory. Fixed unquoted variables in Phase 1 `do_apply()`. Updated the stale `next_phases` block in Phase 1 JSON output to correctly reflect Phases 2–4 as implemented and add Phases 5–6 as planned.
+
 ## [1.8.2] - 2026-04-02
 
 ### Added
