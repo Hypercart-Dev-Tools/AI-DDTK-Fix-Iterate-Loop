@@ -14,6 +14,14 @@ RUN_ID="$(date +%Y%m%d-%H%M%S)"
 RUN_DIR=""
 DRY_RUN=0
 
+# Verify mode
+VERIFY_DOMAIN=""
+
+# AI agent hooks
+HOOK_SCRIPT=""
+JSON_EVENTS=0
+JSON_EVENTS_FD=""
+
 LSOF_BIN="${LSOF_BIN:-lsof}"
 BREW_BIN="${BREW_BIN:-brew}"
 LOCAL_WP_BIN="${LOCAL_WP_BIN:-$TOOLKIT_ROOT/bin/local-wp}"
@@ -48,30 +56,113 @@ OS_VERSION="unknown"
 SNAPSHOT_DATE=""
 LOCAL_SITE_COUNT=0
 
+# Verify mode counters
+VERIFY_PASS=0
+VERIFY_FAIL=0
+VERIFY_RESULTS=""
+
+# ─── AI Agent Event System ───────────────────────────────────────────────────
+#
+# Events are emitted at each lifecycle stage so that an external AI agent can
+# orchestrate, gate, or react to the audit/verify pipeline.
+#
+# Two mechanisms (can be combined):
+#
+#   --hook <script>     Called as:  <script> <event-name> '<json-payload>'
+#                       The hook can inspect/log/gate each stage. A non-zero
+#                       exit from the hook aborts the pipeline.
+#
+#   --json-events       Emits one JSON object per line to fd 3 (if open) or
+#                       stderr. An agent can pipe fd 3 to parse progress:
+#                         3> >(jq --unbuffered .)
+#
+# Event catalogue:
+#   audit:start          Config resolved, collection about to begin
+#   collect:listeners    TCP listener scan complete
+#   collect:hosts        /etc/hosts parsed
+#   collect:dns          DNS resolver info collected
+#   collect:services     Service manager data collected
+#   collect:local-wp     Local WP sites parsed
+#   detect:conflicts     Conflict detection pass complete
+#   verify:start         Hostname verification beginning (--verify mode)
+#   verify:test          Individual verification test result
+#   verify:complete      All verification tests finished
+#   report:written       Markdown + JSON report files written
+#   audit:complete       Pipeline finished
+# ─────────────────────────────────────────────────────────────────────────────
+
+emit_event() {
+    local event_name="$1"
+    local json_payload="${2:-{}}"
+
+    if [ -n "$HOOK_SCRIPT" ]; then
+        if ! "$HOOK_SCRIPT" "$event_name" "$json_payload"; then
+            echo "Hook aborted pipeline at event: $event_name" >&2
+            exit 2
+        fi
+    fi
+
+    if [ "$JSON_EVENTS" -eq 1 ]; then
+        local line
+        line="$(printf '{"event":"%s","ts":"%s","payload":%s}' \
+            "$event_name" "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" "$json_payload")"
+        if [ -n "$JSON_EVENTS_FD" ]; then
+            echo "$line" >&3 2>/dev/null || echo "$line" >&2
+        else
+            echo "$line" >&2
+        fi
+    fi
+}
+
 show_help() {
     cat <<'EOF'
-AI-DDTK Experimental Development Server Audit
+AI-DDTK Development Server Audit & Hostname Verification
 
-Captures a local machine baseline for hostname and port troubleshooting, then writes
-a populated Markdown report based on experimental/servers.md.
+Captures a local machine baseline for hostname and port troubleshooting, then
+writes a populated Markdown report. Optionally verifies a specific domain's
+hostname configuration end-to-end.
 
 Usage:
-  experimental/servers-audit.sh --output <path> [options]
+  servers-audit.sh --output <path> [options]
+  servers-audit.sh --verify <domain> [--output <path>] [options]
 
-Required:
+Required (audit mode):
   --output <path>                Destination Markdown file
+
+Verify mode:
+  --verify <domain>              Run hostname verification tests for <domain>
+                                 (e.g. neochrome-timesheets.local)
 
 Options:
   --previous-snapshot <path>     Previous known-good snapshot path for reference
   --focus <full|hostname|port>   Prioritize specific conflict class in "Priority Fixes"
   --run-id <id>                  Override run id (default: timestamp)
-  --run-dir <path>               Override artifact directory (default: temp/servers-audit/<run-id>)
+  --run-dir <path>               Override artifact directory
   --dry-run                      Resolve configuration only; do not collect
   --help                         Show this help
 
+AI Agent Hooks:
+  --hook <script>                Call <script> <event> <json> at each lifecycle
+                                 stage. Non-zero exit aborts the pipeline.
+  --json-events                  Emit JSON-line events to fd 3 (or stderr).
+                                 Pipe fd 3 for structured progress tracking:
+                                   servers-audit.sh ... 3> >(jq .)
+
 Examples:
-  experimental/servers-audit.sh --output ~/bin/servers-audit.md
-  experimental/servers-audit.sh --output /tmp/servers-now.md --previous-snapshot ~/bin/servers-audit.md --focus hostname
+  # Full audit
+  servers-audit.sh --output ~/servers-audit.md
+
+  # Audit with AI agent hooks
+  servers-audit.sh --output ~/audit.md --hook ./my-agent-hook.sh --json-events
+
+  # Verify a single domain
+  servers-audit.sh --verify neochrome-timesheets.local
+
+  # Full audit + domain verification
+  servers-audit.sh --output ~/audit.md --verify mysite.local
+
+  # Diff against previous snapshot
+  servers-audit.sh --output /tmp/now.md --previous-snapshot ~/audit.md --focus hostname
 EOF
 }
 
@@ -289,6 +380,196 @@ resolve_hostname_ip() {
     fi
 }
 
+# ─── Verify Mode Functions ───────────────────────────────────────────────────
+
+verify_record() {
+    local test_name="$1"
+    local status="$2"  # pass, fail, info, warn
+    local detail="$3"
+
+    local json
+    json="$(printf '{"test":"%s","status":"%s","detail":"%s"}' \
+        "$(json_escape "$test_name")" "$status" "$(json_escape "$detail")")"
+
+    VERIFY_RESULTS="${VERIFY_RESULTS}${json}"$'\n'
+
+    emit_event "verify:test" "$json"
+
+    case "$status" in
+        pass) VERIFY_PASS=$((VERIFY_PASS + 1)) ;;
+        fail) VERIFY_FAIL=$((VERIFY_FAIL + 1)) ;;
+    esac
+}
+
+run_verify() {
+    local domain="$1"
+
+    local GREEN='\033[0;32m'
+    local RED='\033[0;31m'
+    local YELLOW='\033[1;33m'
+    local NC='\033[0m'
+
+    echo "========================================"
+    echo "Hostname Verification: $domain"
+    echo "========================================"
+    echo ""
+
+    emit_event "verify:start" "$(printf '{"domain":"%s"}' "$(json_escape "$domain")")"
+
+    # Test 1: Router LaunchAgent (informational)
+    echo "Test 1: Router LaunchAgent Plist (Optional)"
+    echo "-----------------------------------"
+    if [ -f ~/Library/LaunchAgents/com.getflywheel.local.router.plist ]; then
+        echo -e "${GREEN}✓ INFO${NC} - Router plist exists (LaunchAgent mode)"
+        verify_record "router_launchagent" "info" "Router plist exists (LaunchAgent mode)"
+    else
+        echo -e "${YELLOW}ℹ INFO${NC} - Router plist not found (Direct process mode)"
+        echo "  This is fine - Local may manage router directly"
+        verify_record "router_launchagent" "info" "Router plist not found (Direct process mode)"
+    fi
+    echo ""
+
+    # Test 2: Port 80
+    echo "Test 2: Router Listening on Port 80"
+    echo "-----------------------------------"
+    if lsof -i :80 -P -n 2>/dev/null | grep -q LISTEN; then
+        echo -e "${GREEN}✓ PASS${NC} - Router listening on port 80"
+        lsof -i :80 -P -n 2>/dev/null | grep LISTEN | head -1
+        verify_record "port_80" "pass" "Router listening on port 80"
+    else
+        echo -e "${RED}✗ FAIL${NC} - No process listening on port 80"
+        echo "  Router mode may not be enabled"
+        verify_record "port_80" "fail" "No process listening on port 80"
+    fi
+    echo ""
+
+    # Test 3: Port 443
+    echo "Test 3: Router Listening on Port 443"
+    echo "-----------------------------------"
+    if lsof -i :443 -P -n 2>/dev/null | grep -q LISTEN; then
+        echo -e "${GREEN}✓ PASS${NC} - Router listening on port 443"
+        lsof -i :443 -P -n 2>/dev/null | grep LISTEN | head -1
+        verify_record "port_443" "pass" "Router listening on port 443"
+    else
+        echo -e "${RED}✗ FAIL${NC} - No process listening on port 443"
+        echo "  Router mode may not be enabled"
+        verify_record "port_443" "fail" "No process listening on port 443"
+    fi
+    echo ""
+
+    # Test 4: DNS resolution
+    echo "Test 4: DNS Resolution"
+    echo "-----------------------------------"
+    if ping -c 1 "$domain" > /dev/null 2>&1; then
+        local resolved_ip
+        resolved_ip="$(ping -c 1 "$domain" 2>/dev/null | grep 'bytes from' | awk '{print $4}' | tr -d ':')"
+        echo -e "${GREEN}✓ PASS${NC} - DNS resolution works"
+        echo "  $domain resolves to: $resolved_ip"
+        verify_record "dns_resolution" "pass" "$domain resolves to $resolved_ip"
+    else
+        echo -e "${RED}✗ FAIL${NC} - DNS resolution failed"
+        echo "  Check /etc/hosts or Local's DNS proxy"
+        verify_record "dns_resolution" "fail" "DNS resolution failed for $domain"
+    fi
+    echo ""
+
+    # Test 5: WordPress database URLs
+    echo "Test 5: WordPress Database URLs"
+    echo "-----------------------------------"
+    local site_slug
+    site_slug="$(echo "$domain" | sed 's/\.local$//' | sed 's/\.test$//')"
+    local wp_bin="${LOCAL_WP_BIN:-}"
+
+    if [ -n "$wp_bin" ] && [ -x "$wp_bin" ]; then
+        local siteurl home
+        siteurl="$("$wp_bin" "$site_slug" option get siteurl 2>/dev/null || true)"
+        home="$("$wp_bin" "$site_slug" option get home 2>/dev/null || true)"
+
+        if [ -n "$siteurl" ] || [ -n "$home" ]; then
+            local expected="https://$domain"
+            if [ "$siteurl" = "$expected" ] && [ "$home" = "$expected" ]; then
+                echo -e "${GREEN}✓ PASS${NC} - Database URLs are correct"
+                echo "  siteurl: $siteurl"
+                echo "  home: $home"
+                verify_record "wp_urls" "pass" "siteurl=$siteurl home=$home"
+            else
+                echo -e "${RED}✗ FAIL${NC} - Database URLs are incorrect"
+                echo "  siteurl: $siteurl"
+                echo "  home: $home"
+                echo "  Expected: $expected"
+                verify_record "wp_urls" "fail" "siteurl=$siteurl home=$home expected=$expected"
+            fi
+        else
+            echo -e "${YELLOW}⚠ WARN${NC} - Could not read WP options (site may not be running)"
+            verify_record "wp_urls" "warn" "Could not read WP options for $site_slug"
+        fi
+    else
+        echo -e "${YELLOW}⚠ WARN${NC} - local-wp binary not available, skipping WP URL check"
+        verify_record "wp_urls" "warn" "local-wp binary not available"
+    fi
+    echo ""
+
+    # Test 6: HTTP accessibility
+    echo "Test 6: HTTP Accessibility"
+    echo "-----------------------------------"
+    local http_code
+    http_code="$(curl -L -s -o /dev/null -w '%{http_code}' "http://$domain/" 2>/dev/null || echo "000")"
+    if echo "$http_code" | grep -qE '^(200|301|302)$'; then
+        echo -e "${GREEN}✓ PASS${NC} - Site accessible via HTTP"
+        echo "  HTTP status: $http_code"
+        verify_record "http_access" "pass" "HTTP status $http_code"
+    else
+        echo -e "${RED}✗ FAIL${NC} - Site not accessible via HTTP (status: $http_code)"
+        verify_record "http_access" "fail" "HTTP status $http_code"
+    fi
+    echo ""
+
+    # Test 7: HTTPS accessibility
+    echo "Test 7: HTTPS Accessibility"
+    echo "-----------------------------------"
+    local https_code
+    https_code="$(curl -L -k -s -o /dev/null -w '%{http_code}' "https://$domain/" 2>/dev/null || echo "000")"
+    if echo "$https_code" | grep -qE '^(200|301|302)$'; then
+        echo -e "${GREEN}✓ PASS${NC} - Site accessible via HTTPS"
+        echo "  HTTPS status: $https_code"
+        verify_record "https_access" "pass" "HTTPS status $https_code"
+    else
+        echo -e "${YELLOW}⚠ WARN${NC} - Site not accessible via HTTPS (status: $https_code)"
+        echo "  This may be a curl/SSL issue - try in browser"
+        verify_record "https_access" "warn" "HTTPS status $https_code"
+    fi
+    echo ""
+
+    # Summary
+    local total_tests=$((VERIFY_PASS + VERIFY_FAIL))
+    echo "========================================"
+    echo "Verification Summary"
+    echo "========================================"
+    echo "Tests Passed: $VERIFY_PASS"
+    echo "Tests Failed: $VERIFY_FAIL"
+    echo "Total Tests:  $total_tests"
+    echo ""
+
+    local verify_json
+    verify_json="$(printf '{"domain":"%s","passed":%d,"failed":%d,"total":%d}' \
+        "$(json_escape "$domain")" "$VERIFY_PASS" "$VERIFY_FAIL" "$total_tests")"
+    emit_event "verify:complete" "$verify_json"
+
+    if [ "$VERIFY_FAIL" -eq 0 ]; then
+        echo -e "${GREEN}✓ ALL TESTS PASSED!${NC}"
+        echo "Site Domains mode is properly configured."
+        echo ""
+        echo "Access your site at:"
+        echo "  https://$domain"
+        echo "  https://$domain/wp-admin/"
+    else
+        echo -e "${RED}✗ SOME TESTS FAILED${NC}"
+        echo "Please review the failures above."
+    fi
+}
+
+# ─── Argument Parsing ────────────────────────────────────────────────────────
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --output) OUTPUT_PATH="$2"; shift 2 ;;
@@ -297,12 +578,31 @@ while [ $# -gt 0 ]; do
         --run-id) RUN_ID="$2"; shift 2 ;;
         --run-dir) RUN_DIR="$2"; shift 2 ;;
         --dry-run) DRY_RUN=1; shift ;;
+        --verify) VERIFY_DOMAIN="$2"; shift 2 ;;
+        --hook) HOOK_SCRIPT="$2"; shift 2 ;;
+        --json-events) JSON_EVENTS=1; shift ;;
         -h|--help) show_help; exit 0 ;;
         *) fail "Unknown option: $1" ;;
     esac
 done
 
-[ -n "$OUTPUT_PATH" ] || fail "--output is required"
+# Verify-only mode: no --output required
+if [ -n "$VERIFY_DOMAIN" ] && [ -z "$OUTPUT_PATH" ]; then
+    # Setup minimal event infrastructure
+    if [ "$JSON_EVENTS" -eq 1 ]; then
+        if { true >&3; } 2>/dev/null; then
+            JSON_EVENTS_FD=3
+        fi
+    fi
+    if [ -n "$HOOK_SCRIPT" ] && [ ! -x "$HOOK_SCRIPT" ]; then
+        fail "Hook script is not executable: $HOOK_SCRIPT"
+    fi
+    LOCAL_WP_BIN="$(resolve_tool "$LOCAL_WP_BIN" local-wp)"
+    run_verify "$VERIFY_DOMAIN"
+    exit $VERIFY_FAIL
+fi
+
+[ -n "$OUTPUT_PATH" ] || fail "--output is required (or use --verify <domain> for verify-only mode)"
 
 case "$FOCUS_MODE" in
     full|hostname|port) ;;
@@ -313,6 +613,18 @@ LSOF_BIN="$(resolve_tool "$LSOF_BIN" lsof)"
 BREW_BIN="$(resolve_tool "$BREW_BIN" brew)"
 LOCAL_WP_BIN="$(resolve_tool "$LOCAL_WP_BIN" local-wp)"
 PYTHON_BIN="$(resolve_tool "$PYTHON_BIN" python3)"
+
+# Validate hook script
+if [ -n "$HOOK_SCRIPT" ] && [ ! -x "$HOOK_SCRIPT" ]; then
+    fail "Hook script is not executable: $HOOK_SCRIPT"
+fi
+
+# Detect fd 3 availability for json events
+if [ "$JSON_EVENTS" -eq 1 ]; then
+    if { true >&3; } 2>/dev/null; then
+        JSON_EVENTS_FD=3
+    fi
+fi
 
 RUN_DIR="${RUN_DIR:-$TOOLKIT_ROOT/temp/servers-audit/$RUN_ID}"
 mkdir -p "$RUN_DIR"
@@ -355,6 +667,9 @@ OUTPUT_PATH=$OUTPUT_PATH
 RUN_ID=$RUN_ID
 RUN_DIR=$RUN_DIR
 FOCUS_MODE=$FOCUS_MODE
+VERIFY_DOMAIN=${VERIFY_DOMAIN:-(none)}
+HOOK_SCRIPT=${HOOK_SCRIPT:-(none)}
+JSON_EVENTS=$JSON_EVENTS
 LSOF_BIN=${LSOF_BIN:-missing}
 BREW_BIN=${BREW_BIN:-missing}
 LOCAL_WP_BIN=${LOCAL_WP_BIN:-missing}
@@ -364,6 +679,12 @@ TEMPLATE=$DEFAULT_TEMPLATE
 EOF
     exit 0
 fi
+
+# ─── Collection Phase ────────────────────────────────────────────────────────
+
+emit_event "audit:start" "$(printf '{"runId":"%s","output":"%s","focus":"%s","verify":"%s"}' \
+    "$(json_escape "$RUN_ID")" "$(json_escape "$OUTPUT_PATH")" \
+    "$(json_escape "$FOCUS_MODE")" "$(json_escape "$VERIFY_DOMAIN")")"
 
 MACHINE_TYPE="$(uname -m 2>/dev/null || echo unknown)"
 MACHINE_NAME="$(scutil --get ComputerName 2>/dev/null || hostname 2>/dev/null || echo unknown)"
@@ -375,6 +696,7 @@ else
 fi
 SNAPSHOT_DATE="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 
+# Listeners
 if [ -n "$LSOF_BIN" ]; then
     "$LSOF_BIN" -nP -iTCP -sTCP:LISTEN -Fpcn > "$LISTENERS_RAW" 2>/dev/null || true
 else
@@ -398,6 +720,9 @@ else
     : > "$RUN_DIR/listeners.flat.tsv"
 fi
 
+emit_event "collect:listeners" "$(printf '{"file":"%s"}' "$(json_escape "$LISTENERS_RAW")")"
+
+# Brew services
 if [ -n "$BREW_BIN" ]; then
     "$BREW_BIN" services list > "$BREW_SERVICES_RAW" 2>&1 || true
     BREW_RUNNING_NAMES="$(
@@ -430,6 +755,7 @@ fi
 
 tail -n +2 "$LISTENERS_TSV" | awk -F'\t' 'NF>=6 && $6 ~ /^[0-9]+$/ { print $6 }' | sort -n -u > "$PORT_COUNTS_TSV"
 
+# /etc/hosts
 if [ -f /etc/hosts ]; then
     awk '
         /^[[:space:]]*#/ { next }
@@ -456,6 +782,9 @@ else
     echo "(no *.local or *.test entries found in /etc/hosts)" > "$HOSTS_FILTERED"
 fi
 
+emit_event "collect:hosts" "$(printf '{"file":"%s"}' "$(json_escape "$HOSTS_FILTERED")")"
+
+# DNS resolvers
 if [ "$(uname -s)" = "Darwin" ] && command -v scutil >/dev/null 2>&1; then
     scutil --dns > "$DNS_RESOLVER_RAW" 2>&1 || true
 else
@@ -466,6 +795,7 @@ else
     fi
 fi
 
+# mDNS status
 if [ "$(uname -s)" = "Darwin" ]; then
     {
         echo "Platform: macOS"
@@ -490,6 +820,10 @@ else
     } > "$MDNS_STATUS_RAW"
 fi
 
+emit_event "collect:dns" "$(printf '{"resolver":"%s","mdns":"%s"}' \
+    "$(json_escape "$DNS_RESOLVER_RAW")" "$(json_escape "$MDNS_STATUS_RAW")")"
+
+# Local WP sites
 if [ -n "$PYTHON_BIN" ] && [ -f "$LOCAL_SITES_JSON" ]; then
     "$PYTHON_BIN" - "$LOCAL_SITES_JSON" "$LOCAL_SITES_SECTION" "$LOCAL_DOMAINS" "$LOCAL_PORTS" <<'PY'
 import json
@@ -597,6 +931,9 @@ else
     LOCAL_SITE_COUNT=0
 fi
 
+emit_event "collect:local-wp" "$(printf '{"siteCount":%d}' "$LOCAL_SITE_COUNT")"
+
+# Domain resolution
 if [ "$LOCAL_SITE_COUNT" -gt 0 ]; then
     while IFS= read -r domain; do
         [ -n "$domain" ] || continue
@@ -612,6 +949,7 @@ else
     echo "(no Local WP domains detected)" > "$LOCAL_RESOLUTION"
 fi
 
+# Service manager
 if [ "$(uname -s)" = "Darwin" ]; then
     launchctl list 2>/dev/null | grep -Ei 'nginx|httpd|apache|mysql|mariadb|dnsmasq|postgres|php|caddy|local' > "$SERVICE_MANAGER_RAW" || true
 else
@@ -622,7 +960,11 @@ else
     fi
 fi
 
-# Conflict detection: port ownership collisions (different service signatures on same port).
+emit_event "collect:services" "$(printf '{"file":"%s"}' "$(json_escape "$SERVICE_MANAGER_RAW")")"
+
+# ─── Conflict Detection ─────────────────────────────────────────────────────
+
+# Port ownership collisions
 if [ -s "$PORT_COUNTS_TSV" ]; then
     while IFS= read -r port; do
         [ -n "$port" ] || continue
@@ -670,7 +1012,7 @@ if [ -s "$PORT_COUNTS_TSV" ]; then
     done < "$PORT_COUNTS_TSV"
 fi
 
-# Conflict detection: key infrastructure ports with non-Local ownership.
+# Key infrastructure ports with non-Local ownership
 for key_port in 80 443 3306 8080; do
     signature_count="$(
         awk -F'\t' -v p="$key_port" '
@@ -713,7 +1055,7 @@ for key_port in 80 443 3306 8080; do
     fi
 done
 
-# Conflict detection: duplicate hosts entries for same hostname with different IPs.
+# Duplicate hosts entries
 if [ -s "$RUN_DIR/hosts.tsv" ]; then
     awk -F'\t' '
         {
@@ -758,7 +1100,7 @@ if [ -s "$RUN_DIR/hosts-duplicate-ip.tsv" ]; then
     done < "$RUN_DIR/hosts-duplicate-ip.tsv"
 fi
 
-# Conflict detection: stale .local hosts entries not present in Local WP sites.json domains.
+# Stale .local hosts entries
 if [ -s "$HOSTS_DOMAINS" ] && [ -s "$LOCAL_DOMAINS" ]; then
     awk '/\.local$/ { print }' "$HOSTS_DOMAINS" | sort -u > "$RUN_DIR/hosts-local-only.txt"
     sort -u "$LOCAL_DOMAINS" > "$RUN_DIR/local-domains-sorted.txt"
@@ -791,7 +1133,7 @@ if [ -s "$HOSTS_DOMAINS" ] && [ -s "$LOCAL_DOMAINS" ]; then
     fi
 fi
 
-# Conflict detection: unresolved Local domains (likely "lost hostname" symptom).
+# Unresolved Local domains
 if [ -s "$UNRESOLVED_DOMAINS" ]; then
     unresolved_count="$(wc -l < "$UNRESOLVED_DOMAINS" | tr -d ' ')"
     unresolved_preview="$(head -n 25 "$UNRESOLVED_DOMAINS" | sed 's/^/- /')"
@@ -806,7 +1148,7 @@ if [ -s "$UNRESOLVED_DOMAINS" ]; then
         "while read -r d; do dscacheutil -q host -a name \"\$d\"; done < \"$UNRESOLVED_DOMAINS\""
 fi
 
-# Conflict detection: .local entries with macOS mDNS precedence caveat.
+# .local entries with macOS mDNS precedence caveat
 if [ "$(uname -s)" = "Darwin" ] && [ -s "$RUN_DIR/hosts.tsv" ]; then
     local_entry_count="$(awk -F'\t' '$2 ~ /\.local$/ { c++ } END { print c+0 }' "$RUN_DIR/hosts.tsv")"
     if [ "${local_entry_count:-0}" -gt 0 ]; then
@@ -821,6 +1163,39 @@ if [ "$(uname -s)" = "Darwin" ] && [ -s "$RUN_DIR/hosts.tsv" ]; then
             "scutil --dns | sed -n '1,120p'"
     fi
 fi
+
+emit_event "detect:conflicts" "$(printf '{"count":%d}' "$CONFLICT_COUNT")"
+
+# ─── Run Verify If Requested (combined mode) ────────────────────────────────
+
+VERIFY_SECTION=""
+if [ -n "$VERIFY_DOMAIN" ]; then
+    echo ""
+    run_verify "$VERIFY_DOMAIN"
+    VERIFY_SECTION="$(cat <<VEOF
+
+---
+
+## Hostname Verification: $VERIFY_DOMAIN
+
+| Test | Status | Detail |
+|------|--------|--------|
+VEOF
+)"
+    while IFS= read -r line; do
+        [ -n "$line" ] || continue
+        local_test="$(echo "$line" | sed -n 's/.*"test":"\([^"]*\)".*/\1/p')"
+        local_status="$(echo "$line" | sed -n 's/.*"status":"\([^"]*\)".*/\1/p')"
+        local_detail="$(echo "$line" | sed -n 's/.*"detail":"\([^"]*\)".*/\1/p')"
+        VERIFY_SECTION="${VERIFY_SECTION}
+| ${local_test} | ${local_status} | ${local_detail} |"
+    done <<< "$VERIFY_RESULTS"
+    VERIFY_SECTION="${VERIFY_SECTION}
+
+**Result:** ${VERIFY_PASS} passed, ${VERIFY_FAIL} failed"
+fi
+
+# ─── Report Generation ──────────────────────────────────────────────────────
 
 build_priority_section() {
     if [ ! -s "$PRIORITY_FILE" ]; then
@@ -937,7 +1312,7 @@ cat > "$OUTPUT_PATH" <<EOF
 ## Changelog
 
 ### $(date '+%Y-%m-%d')
-- **Automated snapshot**: Generated by \`experimental/servers-audit.sh\` with focus mode \`$FOCUS_MODE\`.
+- **Automated snapshot**: Generated by \`servers-audit.sh\` with focus mode \`$FOCUS_MODE\`.
 
 ---
 
@@ -1017,6 +1392,7 @@ $(cat "$CONFLICTS_FILE")
 ## Priority Fixes
 
 $PRIORITY_SECTION
+$VERIFY_SECTION
 
 ---
 
@@ -1024,16 +1400,42 @@ $PRIORITY_SECTION
 
 When asked to perform a server/port audit using this template:
 
-1. Run \`experimental/servers-audit.sh\` with appropriate flags, or execute the equivalent commands manually if the script is not available.
+1. Run \`servers-audit.sh\` with appropriate flags, or execute the equivalent commands manually if the script is not available.
 2. Review the output for conflicts - especially ports 80, 443, 3306, 8080, and any Local WP dynamic ports.
 3. Cross-reference \`/etc/hosts\` entries against currently running Local WP sites - orphaned entries from deleted sites are a common source of hostname conflicts.
 4. Check whether Homebrew services (mysql, nginx, httpd, dnsmasq) overlap with Local WP's managed services.
-5. For each detected conflict, propose concrete command(s) to fix it (not just generic guidance), and include a risk note if the fix is disruptive.
-6. Offer to execute fix commands for the user; request explicit permission before privileged or destructive actions (for example editing \`/etc/hosts\`, stopping services, or using \`sudo\`).
-7. After each accepted fix, re-run the audit to verify whether the conflict is resolved (fix-iterate loop).
-8. Diff the new snapshot against the previous snapshot and report only the delta tied to the fix.
-9. If the user reports a specific error (e.g., "hostname conflict in Local WP"), focus investigation and fixes on that symptom first before full-environment cleanup.
-10. Stop after 5 failed fix iterations (or 10 total loops) and clearly report the blocker.
+5. Document findings in the "Detected Conflicts" section with root cause and fix.
+6. If the user reports a specific error (e.g., "hostname conflict in Local WP"), focus the investigation on that symptom first before doing a full audit.
+7. When diffing against a previous snapshot, highlight only what changed - don't re-document known state.
+
+### Agent Orchestration Hooks
+
+This script supports two mechanisms for AI agent integration:
+
+- **\`--hook <script>\`**: Called as \`<script> <event-name> '<json-payload>'\` at each lifecycle stage. Return non-zero to abort.
+- **\`--json-events\`**: Emits JSON-line events to fd 3 (or stderr). Pipe fd 3 to consume:
+  \`\`\`bash
+  servers-audit.sh --output audit.md --json-events 3> >(jq --unbuffered .)
+  \`\`\`
+
+**Event lifecycle:**
+\`audit:start\` -> \`collect:listeners\` -> \`collect:hosts\` -> \`collect:dns\` -> \`collect:local-wp\` -> \`collect:services\` -> \`detect:conflicts\` -> [\`verify:start\` -> \`verify:test\`* -> \`verify:complete\`] -> \`report:written\` -> \`audit:complete\`
+
+**Example hook script:**
+\`\`\`bash
+#!/bin/bash
+# my-agent-hook.sh — called as: my-agent-hook.sh <event> <json>
+event="\$1"; payload="\$2"
+echo "[\$(date -u +%H:%M:%S)] \$event" >> /tmp/audit-events.log
+case "\$event" in
+  detect:conflicts)
+    count=\$(echo "\$payload" | python3 -c "import sys,json; print(json.load(sys.stdin)['count'])")
+    if [ "\$count" -gt 5 ]; then
+      echo "ALERT: \$count conflicts detected" | mail -s "Audit Alert" admin@example.com
+    fi
+    ;;
+esac
+\`\`\`
 
 ---
 
@@ -1047,12 +1449,16 @@ When asked to perform a server/port audit using this template:
 
 EOF
 
+emit_event "report:written" "$(printf '{"output":"%s","runDir":"%s"}' \
+    "$(json_escape "$OUTPUT_PATH")" "$(json_escape "$RUN_DIR")")"
+
 cat > "$REPORT_JSON" <<EOF
 {
   "runId": "$(json_escape "$RUN_ID")",
   "outputPath": "$(json_escape "$OUTPUT_PATH")",
   "runDir": "$(json_escape "$RUN_DIR")",
   "focusMode": "$(json_escape "$FOCUS_MODE")",
+  "verifyDomain": "$(json_escape "$VERIFY_DOMAIN")",
   "snapshotDate": "$(json_escape "$SNAPSHOT_DATE")",
   "machine": {
     "type": "$(json_escape "$MACHINE_TYPE")",
@@ -1062,7 +1468,9 @@ cat > "$REPORT_JSON" <<EOF
   },
   "counts": {
     "localSiteDomains": $LOCAL_SITE_COUNT,
-    "detectedConflicts": $CONFLICT_COUNT
+    "detectedConflicts": $CONFLICT_COUNT,
+    "verifyPassed": $VERIFY_PASS,
+    "verifyFailed": $VERIFY_FAIL
   },
   "artifacts": {
     "listenersTsv": "$(json_escape "$LISTENERS_TSV")",
@@ -1074,6 +1482,9 @@ cat > "$REPORT_JSON" <<EOF
   }
 }
 EOF
+
+emit_event "audit:complete" "$(printf '{"conflicts":%d,"verifyPassed":%d,"verifyFailed":%d}' \
+    "$CONFLICT_COUNT" "$VERIFY_PASS" "$VERIFY_FAIL")"
 
 echo "Wrote Markdown audit to: $OUTPUT_PATH"
 echo "Wrote machine-readable report to: $REPORT_JSON"
