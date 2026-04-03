@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# project.sh — PROJECT folder hygiene · Phases 0 + 1 + 2 + 3 + 4 + repo-case
-# version 1.4 - attn: update this number as improvements are added
+# project.sh — PROJECT folder hygiene · Phases 0–4 + repo-case + secrets
+# version 1.5 - attn: update this number as improvements are added
 # =============================================================================
 # Phase 0 (auto):    pre-check git cleanliness + zip backup before mutations.
 # Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
@@ -9,6 +9,7 @@
 #                    detect broken links, save .xref-registry.json.
 # Phase 3 (meta):    enforce frontmatter metadata on every project doc.
 # Phase 4 (promote): detect done/misplaced docs → recommend folder moves.
+# Secrets (secrets): detect accidentally committed credentials, IPs, keys, tokens.
 #
 # AI AGENT HOOKS
 #   --json      Emit structured JSON to stdout for agent/MCP consumption
@@ -17,6 +18,7 @@
 #               Phase 2: 0=clean · 1=broken links found · 99=error
 #               Phase 3: 0=clean · 1=gaps found · 2=applied · 99=error
 #               Phase 4: 0=clean · 1=moves recommended · 2=applied · 99=error
+#               Secrets: 0=clean · 1=findings detected · 99=error
 #   Always emits ##AGENT-CONTEXT and ##AGENT-PROMPTS blocks at end of stdout.
 #
 # PHASE 0 — Pre-check (runs automatically before every phase)
@@ -53,12 +55,18 @@
 #   ./PROJECT/project.sh uppercase --apply  # rename to UPPERCASE.md / UPPERCASE.txt
 #   ./PROJECT/project.sh uppercase --json   # structured JSON action plan only
 #
+# USAGE — Secrets (detect accidentally committed credentials & secrets)
+#   ./PROJECT/project.sh secrets            # scan repo for secrets — report only
+#   ./PROJECT/project.sh secrets --json     # structured JSON report only
+#   ./PROJECT/project.sh secrets --project-only  # limit scan to PROJECT/ folder
+#
 # PHASE ROADMAP
 #   Phase 0 (this) — pre-check: git cleanliness gate + zip backup
 #   Phase 1 (this) — scan + P3 prefix/downgrade, xref warnings, agent hooks
 #   Phase 2 (this) — cross-reference registry: detect and record broken links
 #   Phase 3 (this) — enforce frontmatter metadata on every project doc
 #   Phase 4 (this) — detect done/misplaced docs, recommend folder moves
+#   Secrets (this) — detect credentials, IPs, API keys, tokens in tracked files
 #   Phase 5        — git/CHANGELOG correlation for activity detection
 #   Phase 6        — MCP server adapter for continuous hygiene orchestration
 # =============================================================================
@@ -68,7 +76,8 @@ set -euo pipefail
 # ── Defaults ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
-COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4) | uppercase
+COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4) | uppercase | secrets
+SECRETS_PROJECT_ONLY=false  # secrets: limit scan to PROJECT/ folder only
 DAYS_THRESHOLD=8
 DRY_RUN=true
 JSON_MODE=false
@@ -84,9 +93,11 @@ while [[ $# -gt 0 ]]; do
     meta)              COMMAND="meta" ;;
     promote)           COMMAND="promote" ;;
     uppercase)         COMMAND="uppercase" ;;
+    secrets)           COMMAND="secrets" ;;
     --apply)           DRY_RUN=false ;;
     --force)           FORCE=true ;;
     --check)           SCAN_CHECK_ONLY=true ;;
+    --project-only)    SECRETS_PROJECT_ONLY=true ;;
     --json)            JSON_MODE=true ;;
     --include-done)    INCLUDE_DONE=true ;;
     --no-exclude-meta) EXCLUDE_META=false ;;
@@ -1207,10 +1218,326 @@ for f in d['files']:
   exit 0
 }
 
-# ── Route to Phase 2/3/4 early if subcommand matches ────────────────────────
+# ── Secrets: detect accidentally committed credentials & secrets ──────────────
+run_secrets() {
+  command -v python3 &>/dev/null || { echo "ERROR: python3 is required for 'secrets'" >&2; exit 99; }
+
+  local scan_root
+  if $SECRETS_PROJECT_ONLY; then
+    scan_root="$SCRIPT_DIR"
+  else
+    scan_root="${REPO_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+  fi
+
+  # Load allowlist (one literal string per line, # comments)
+  local allowlist_file="$SCRIPT_DIR/.secrets-allowlist"
+  local allowlist_json="[]"
+  if [[ -f "$allowlist_file" ]]; then
+    allowlist_json=$(python3 -c "
+import json, sys
+lines = []
+for line in open(sys.argv[1]):
+    line = line.strip()
+    if line and not line.startswith('#'):
+        lines.append(line)
+print(json.dumps(lines))
+" "$allowlist_file" 2>/dev/null || echo "[]")
+  fi
+
+  local py_result
+  py_result=$(SCAN_ROOT="$scan_root" ALLOWLIST="$allowlist_json" python3 - <<'PYEOF'
+import json, os, re, sys
+from datetime import datetime, timezone
+
+scan_root = os.environ['SCAN_ROOT']
+allowlist = json.loads(os.environ.get('ALLOWLIST', '[]'))
+
+# ── Directories and extensions to skip ────────────────────────────────────
+SKIP_DIRS = {'.git', 'node_modules', 'temp', '__pycache__', 'vendor',
+             '.venv', 'venv', '.tox', '.mypy_cache', '.pytest_cache'}
+
+BINARY_EXT = {
+    '.png', '.jpg', '.jpeg', '.gif', '.ico', '.bmp', '.svg', '.webp',
+    '.woff', '.woff2', '.ttf', '.eot', '.otf',
+    '.zip', '.gz', '.tar', '.bz2', '.xz', '.7z', '.rar',
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
+    '.mp3', '.mp4', '.mov', '.avi', '.mkv', '.wav', '.flac',
+    '.exe', '.dll', '.so', '.dylib', '.pyc', '.pyo', '.class', '.o',
+    '.wasm', '.map', '.min.js', '.min.css',
+}
+
+# ── Pattern definitions ───────────────────────────────────────────────────
+# Each: (id, severity, compiled_regex, human_description)
+RAW_PATTERNS = [
+    # ── Critical: provider-specific tokens (almost always real) ───────────
+    ('aws-access-key',     'critical', r'(?<![A-Z0-9])AKIA[0-9A-Z]{16}(?![A-Z0-9])',   'AWS Access Key ID'),
+    ('private-key',        'critical', r'-----BEGIN\s+(?:RSA\s+|EC\s+|DSA\s+|OPENSSH\s+|PGP\s+)?PRIVATE KEY-----', 'Private Key Block'),
+    ('github-pat',         'critical', r'(?<![A-Za-z0-9_])gh[ps]_[A-Za-z0-9_]{36,}',     'GitHub Personal Access Token'),
+    ('github-fine-pat',    'critical', r'(?<![A-Za-z0-9_])github_pat_[A-Za-z0-9_]{22,}',  'GitHub Fine-Grained PAT'),
+    ('slack-token',        'critical', r'(?<![A-Za-z0-9_])xox[bpors]-[A-Za-z0-9\-]{10,}', 'Slack Token'),
+    ('stripe-secret',      'critical', r'(?<![A-Za-z0-9_])sk_live_[0-9a-zA-Z]{24,}',     'Stripe Secret Key'),
+    ('google-api-key',     'critical', r'(?<![A-Za-z0-9_])AIza[0-9A-Za-z_\-]{35}',       'Google API Key'),
+    ('anthropic-key',      'critical', r'(?<![A-Za-z0-9_])sk-ant-[A-Za-z0-9_\-]{20,}',   'Anthropic API Key'),
+    ('openai-key',         'critical', r'(?<![A-Za-z0-9_])sk-[A-Za-z0-9]{40,}',          'OpenAI API Key'),
+    ('sendgrid-key',       'critical', r'(?<![A-Za-z0-9_])SG\.[A-Za-z0-9_\-]{22,}\.[A-Za-z0-9_\-]{22,}', 'SendGrid API Key'),
+    ('twilio-key',         'critical', r'(?<![A-Za-z0-9_])SK[0-9a-fA-F]{32}',            'Twilio API Key'),
+
+    # ── High: generic credential patterns ─────────────────────────────────
+    ('stripe-publishable', 'high',     r'(?<![A-Za-z0-9_])pk_live_[0-9a-zA-Z]{24,}',     'Stripe Publishable Key (live)'),
+    ('password-assign',    'high',     r'(?i)(password|passwd|pwd|secret)\s*[:=]\s*["\']?[^\s"\'#]{8,}', 'Password / Secret Assignment'),
+    ('connection-string',  'high',     r'(?i)(mysql|postgres(?:ql)?|mongodb(\+srv)?|redis|amqp)://[^\s"\']+@[^\s"\'<>]+', 'Database Connection String'),
+    ('bearer-token',       'high',     r'(?i)bearer\s+[A-Za-z0-9\-._~+/]{20,}=*',        'Bearer Token'),
+    ('basic-auth-header',  'high',     r'(?i)authorization:\s*basic\s+[A-Za-z0-9+/]{20,}={0,2}', 'Basic Auth Header'),
+    ('wp-auth-keys',       'high',     r"(?i)define\s*\(\s*['\"](?:AUTH_KEY|SECURE_AUTH_KEY|LOGGED_IN_KEY|NONCE_KEY|AUTH_SALT|SECURE_AUTH_SALT|LOGGED_IN_SALT|NONCE_SALT)['\"]\s*,\s*['\"][^'\"]{20,}['\"]\s*\)", 'WordPress Auth Key/Salt'),
+
+    # ── Medium: may be intentional in docs, but worth flagging ────────────
+    ('generic-secret',     'medium',   r'(?i)(api[_-]?key|api[_-]?secret|access[_-]?token|secret[_-]?key|client[_-]?secret)\s*[:=]\s*["\']?[A-Za-z0-9_\-./+]{16,}', 'Generic API Key / Secret'),
+    ('ip-address',         'medium',   r'\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b', 'IP Address'),
+    ('internal-hostname',  'medium',   r'\b[a-zA-Z0-9][\w.-]*\.(?:internal|corp|staging|prod)\b', 'Internal Hostname'),
+    ('env-file-content',   'medium',   r'^[A-Z][A-Z0-9_]{2,}=\S{12,}$',                  'Env-style Variable with Long Value'),
+]
+
+PATTERNS = [(pid, sev, re.compile(pat), desc) for pid, sev, pat, desc in RAW_PATTERNS]
+
+# ── False-positive filters ────────────────────────────────────────────────
+SAFE_IPS = {
+    '0.0.0.0', '127.0.0.1', '255.255.255.255', '255.255.255.0',
+    '0.0.0.1', '1.0.0.1', '1.1.1.1', '8.8.8.8', '8.8.4.4',
+    '224.0.0.1',
+}
+
+# Patterns that look like IPs but are version strings (e.g. v1.2.3.4)
+VERSION_CONTEXT_RE = re.compile(r'(?:v(?:ersion)?\s*\.?\s*|@)\d')
+
+# Lines that are clearly documentation/examples
+DOC_HINT_RE = re.compile(r'(?i)(example|placeholder|dummy|your[_-]?key|replace[_-]?with|xxx|changeme|TODO|FIXME|sample)')
+
+def is_allowlisted(matched_text):
+    for entry in allowlist:
+        if entry in matched_text:
+            return True
+    return False
+
+def should_skip(pid, matched_text, line, filepath):
+    """Return True if this match is a known false positive."""
+    if is_allowlisted(matched_text):
+        return True
+
+    rel = os.path.relpath(filepath, scan_root)
+
+    # Skip matches inside this script itself
+    if rel.endswith('project.sh'):
+        return True
+
+    # IP-specific filters
+    if pid == 'ip-address':
+        ip = matched_text
+        if ip in SAFE_IPS:
+            return True
+        # Version strings: "v1.2.3.4", "version 1.2.3.4", "@1.2.3.4"
+        idx = line.find(ip)
+        if idx > 0 and VERSION_CONTEXT_RE.search(line[max(0, idx-12):idx]):
+            return True
+        # Subnet masks
+        if ip.startswith('255.') or ip.endswith('.0') or ip.endswith('.255'):
+            return True
+        # localhost-range
+        if ip.startswith('127.'):
+            return True
+
+    # env-file-content: only flag in actual env-like files
+    if pid == 'env-file-content':
+        fname = os.path.basename(filepath)
+        if not (fname.startswith('.env') or fname.endswith('.env')
+                or fname in ('env', 'environment')):
+            return True
+
+    # Doc/example hints — downgrade or skip
+    if DOC_HINT_RE.search(line):
+        return True
+
+    # password-assign: skip if value looks like a variable reference ($, %, {{)
+    if pid == 'password-assign':
+        val_match = re.search(r'[:=]\s*["\']?(.+?)(?:["\']?\s*$)', matched_text)
+        if val_match:
+            val = val_match.group(1)
+            if re.match(r'^[\$%\{]', val) or val.strip('"\'') in ('', 'null', 'None', 'false', 'true'):
+                return True
+
+    # generic-secret: skip if value is a path or URL scheme
+    if pid == 'generic-secret':
+        if re.search(r'[:=]\s*["\']?(?:https?://|/[a-z])', matched_text, re.I):
+            return True
+
+    return False
+
+# ── Redact matched text ──────────────────────────────────────────────────
+def redact(text, pid):
+    """Show enough to identify the finding, mask the actual secret."""
+    if pid == 'ip-address' or pid == 'internal-hostname':
+        return text  # IPs/hosts are the finding itself, not a secret value
+    if pid == 'private-key':
+        return text[:40] + '...'
+    if len(text) <= 12:
+        return text[:3] + '****'
+    return text[:6] + '****' + text[-4:]
+
+# ── Scan files ───────────────────────────────────────────────────────────
+findings = []
+files_scanned = 0
+files_with_findings = set()
+
+for root, dirs, files_list in os.walk(scan_root):
+    dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith('.'))
+    for fname in sorted(files_list):
+        filepath = os.path.join(root, fname)
+        ext = os.path.splitext(fname)[1].lower()
+
+        # Skip binary by extension
+        if ext in BINARY_EXT:
+            continue
+        # Skip hidden files
+        if fname.startswith('.') and fname not in ('.env', '.env.local', '.env.production', '.env.staging'):
+            continue
+        # Skip large files (>1MB — unlikely to be hand-written)
+        try:
+            if os.path.getsize(filepath) > 1_048_576:
+                continue
+        except OSError:
+            continue
+        # Binary check: null bytes in first 8KB
+        try:
+            with open(filepath, 'rb') as bf:
+                if b'\x00' in bf.read(8192):
+                    continue
+        except OSError:
+            continue
+
+        files_scanned += 1
+
+        try:
+            with open(filepath, 'r', errors='replace') as fh:
+                for lineno, line in enumerate(fh, 1):
+                    for pid, severity, regex, desc in PATTERNS:
+                        for m in regex.finditer(line):
+                            matched_text = m.group(0)
+                            if should_skip(pid, matched_text, line, filepath):
+                                continue
+                            rel = os.path.relpath(filepath, scan_root)
+                            files_with_findings.add(rel)
+                            findings.append({
+                                'file': rel,
+                                'line': lineno,
+                                'pattern': pid,
+                                'severity': severity,
+                                'description': desc,
+                                'match_redacted': redact(matched_text, pid),
+                                'context': line.rstrip()[:150],
+                            })
+        except OSError:
+            continue
+
+# ── Summarize by severity ────────────────────────────────────────────────
+severity_counts = {'critical': 0, 'high': 0, 'medium': 0}
+for f in findings:
+    severity_counts[f['severity']] += 1
+
+output = {
+    'tool': 'project-secrets',
+    'phase': 'secrets',
+    'version': '1.0.0',
+    'generated_at': datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+    'scan_root': os.path.relpath(scan_root, os.getcwd()) + '/',
+    'stats': {
+        'files_scanned': files_scanned,
+        'files_with_findings': len(files_with_findings),
+        'total_findings': len(findings),
+        'by_severity': severity_counts,
+    },
+    'findings': findings,
+}
+print(json.dumps(output, indent=2))
+PYEOF
+  ) || { echo "ERROR: secrets scan failed" >&2; exit 99; }
+
+  local files_scanned total_findings files_with_findings
+  local sev_critical sev_high sev_medium
+  files_scanned=$(echo "$py_result"       | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_scanned'])")
+  total_findings=$(echo "$py_result"      | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['total_findings'])")
+  files_with_findings=$(echo "$py_result" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_with_findings'])")
+  sev_critical=$(echo "$py_result"        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['by_severity']['critical'])")
+  sev_high=$(echo "$py_result"            | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['by_severity']['high'])")
+  sev_medium=$(echo "$py_result"          | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['by_severity']['medium'])")
+
+  # ── Agent prompts ──────────────────────────────────────────────────────────
+  local prompts=()
+  if (( total_findings == 0 )); then
+    prompts+=("No secrets or credentials detected across ${files_scanned} files. Scan clean.")
+  else
+    (( sev_critical > 0 )) && prompts+=("CRITICAL: ${sev_critical} high-confidence secret(s) found — likely real credentials that should be removed and rotated immediately.")
+    (( sev_high > 0 ))     && prompts+=("HIGH: ${sev_high} probable credential(s) found — review each for real vs placeholder values.")
+    (( sev_medium > 0 ))   && prompts+=("MEDIUM: ${sev_medium} potential exposure(s) — IP addresses, internal hostnames, or generic key patterns worth reviewing.")
+    prompts+=("Review findings and consider: (1) rotate any exposed credentials, (2) remove from tracked files, (3) add legitimate entries to .secrets-allowlist.")
+  fi
+  prompts+=("Run \`./PROJECT/project.sh secrets --json\` for machine-readable output.")
+  $SECRETS_PROJECT_ONLY || prompts+=("Add --project-only to limit scan to the PROJECT/ folder.")
+
+  # ── Route output ───────────────────────────────────────────────────────────
+  if $JSON_MODE; then
+    echo "$py_result"
+  else
+    local scope_label="repo-wide"; $SECRETS_PROJECT_ONLY && scope_label="PROJECT/ only"
+    echo ""
+    echo "=== project.sh · Secrets Scanner ==="
+    printf "  Scope           : %s\n" "$scope_label"
+    printf "  Files scanned   : %s\n" "$files_scanned"
+    printf "  Files w/findings: %s\n" "$files_with_findings"
+    printf "  Total findings  : %s\n" "$total_findings"
+    printf "  Critical        : %s\n" "$sev_critical"
+    printf "  High            : %s\n" "$sev_high"
+    printf "  Medium          : %s\n" "$sev_medium"
+    echo ""
+
+    if (( total_findings > 0 )); then
+      echo "  Findings:"
+      echo "$py_result" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+prev_file = None
+for f in d['findings']:
+    if f['file'] != prev_file:
+        if prev_file is not None:
+            print()
+        print(f'    {f[\"file\"]}')
+        prev_file = f['file']
+    sev_tag = {'critical': 'CRIT', 'high': 'HIGH', 'medium': 'MED '}[f['severity']]
+    print(f'      L{f[\"line\"]:>4d}  [{sev_tag}]  {f[\"pattern\"]:22s}  {f[\"match_redacted\"]}')
+"
+      echo ""
+    else
+      echo "  No secrets or credentials detected."
+      echo ""
+    fi
+
+    echo "##AGENT-CONTEXT"
+    echo "$py_result"
+    echo "##END-AGENT-CONTEXT"
+    echo ""
+    echo "##AGENT-PROMPTS"
+    for p in "${prompts[@]}"; do echo "- $p"; done
+    echo "##END-AGENT-PROMPTS"
+  fi
+
+  # ── Exit codes ──────────────────────────────────────────────────────────────
+  (( total_findings > 0 )) && exit 1
+  exit 0
+}
+
+# ── Route to Phase 2/3/4/secrets early if subcommand matches ────────────────
 [[ "$COMMAND" == "scan" ]]    && run_scan
 [[ "$COMMAND" == "meta" ]]    && run_meta
 [[ "$COMMAND" == "promote" ]] && run_promote
+[[ "$COMMAND" == "secrets" ]] && run_secrets
  
 run_uppercase() {
   local scan_root
