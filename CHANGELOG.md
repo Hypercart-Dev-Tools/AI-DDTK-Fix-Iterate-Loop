@@ -13,6 +13,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.3] - 2026-04-03
+
+### Added
+- **`PROJECT/project.sh` secrets scanner** — new `secrets` subcommand that scans tracked files for accidentally committed credentials, API keys, tokens, IP addresses, and internal hostnames. Detects 18 patterns across 3 severity tiers (critical/high/medium) including AWS keys, GitHub PATs, Stripe keys, OpenAI/Anthropic keys, WordPress auth salts, database connection strings, Bearer tokens, and more. Includes false-positive filtering for safe IPs, version strings, doc placeholders, and variable references. Supports `--project-only` to limit scope to `PROJECT/` and `--json` for machine-readable output. A `.secrets-allowlist` file can be placed in `PROJECT/` to suppress known-safe matches. Agent-agnostic — works from any shell, CI pipeline, or editor.
+
+### Changed
+- **`PROJECT/project.sh`** — bumped version from 1.4 to 1.5; updated header, usage docs, and phase roadmap to include the secrets scanner.
+
 ## [1.8.2] - 2026-04-02
 
 ### Added
