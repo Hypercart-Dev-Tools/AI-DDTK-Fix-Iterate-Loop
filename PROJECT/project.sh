@@ -1308,7 +1308,7 @@ run_uppercase() {
       src="${ACTION_SRC[$i]}"
       dst="$(dirname "$src")/${ACTION_TO[$i]}"
 
-      if [[ -e "$dst" ]]; then
+      if [[ -e "$dst" ]] && [[ "$(lower_ascii "$src")" != "$(lower_ascii "$dst")" ]]; then
         echo "  SKIP (target exists): ${ACTION_TO[$i]}" >&2
         SKIPPED=$((SKIPPED + 1))
         continue
