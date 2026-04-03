@@ -24,6 +24,7 @@
 - **Contracts**: Designate single writer per contract/schema (API response shape, DB record structure, queue message format). Changes require review from contract owner; broadcast breaking changes immediately.
 - **Pipelines**: One logical pipeline per data flow whenever possible. Avoid forking/rejoining; use filters, transforms, and side effects in sequence. If pipeline needs multiple paths, use conditional routing within single pipeline, not separate pipelines.
 - **Reusable Components First**: Build navigation, header, search, footer, sidebar as composable, template-agnostic components from day one—not after page count grows. Store in `/components/` or language equivalent (`partials/`, `templates/shared/`, etc.). This prevents costly refactoring and scales to multi-page/multi-version layouts without code duplication.
+- Standardize configuration early: commit a .env.example, load a gitignored local config file at startup, and keep dev-only settings in one clear place. Don’t rely on shell-only secrets or config—new processes can lose them.
 
 ## Anti-Patterns to Avoid
 
