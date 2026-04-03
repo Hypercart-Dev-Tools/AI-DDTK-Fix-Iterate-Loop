@@ -1284,14 +1284,14 @@ RAW_PATTERNS = [
 
     # ── High: generic credential patterns ─────────────────────────────────
     ('stripe-publishable', 'high',     r'(?<![A-Za-z0-9_])pk_live_[0-9a-zA-Z]{24,}',     'Stripe Publishable Key (live)'),
-    ('password-assign',    'high',     r'(?i)(password|passwd|pwd|secret)\s*[:=]\s*["\']?[^\s"\'#]{8,}', 'Password / Secret Assignment'),
-    ('connection-string',  'high',     r'(?i)(mysql|postgres(?:ql)?|mongodb(\+srv)?|redis|amqp)://[^\s"\']+@[^\s"\'<>]+', 'Database Connection String'),
+    ('password-assign',    'high',     r'(?i)(password|passwd|pwd|secret)\s*[:=]\s*[\x22\x27]?[^\s\x22\x27#]{8,}', 'Password / Secret Assignment'),
+    ('connection-string',  'high',     r'(?i)(mysql|postgres(?:ql)?|mongodb(\+srv)?|redis|amqp)://[^\s\x22\x27]+@[^\s\x22\x27<>]+', 'Database Connection String'),
     ('bearer-token',       'high',     r'(?i)bearer\s+[A-Za-z0-9\-._~+/]{20,}=*',        'Bearer Token'),
     ('basic-auth-header',  'high',     r'(?i)authorization:\s*basic\s+[A-Za-z0-9+/]{20,}={0,2}', 'Basic Auth Header'),
-    ('wp-auth-keys',       'high',     r"(?i)define\s*\(\s*['\"](?:AUTH_KEY|SECURE_AUTH_KEY|LOGGED_IN_KEY|NONCE_KEY|AUTH_SALT|SECURE_AUTH_SALT|LOGGED_IN_SALT|NONCE_SALT)['\"]\s*,\s*['\"][^'\"]{20,}['\"]\s*\)", 'WordPress Auth Key/Salt'),
+    ('wp-auth-keys',       'high',     r'(?i)define\s*\(\s*[\x22\x27](?:AUTH_KEY|SECURE_AUTH_KEY|LOGGED_IN_KEY|NONCE_KEY|AUTH_SALT|SECURE_AUTH_SALT|LOGGED_IN_SALT|NONCE_SALT)[\x22\x27]\s*,\s*[\x22\x27][^\x22\x27]{20,}[\x22\x27]\s*\)', 'WordPress Auth Key/Salt'),
 
     # ── Medium: may be intentional in docs, but worth flagging ────────────
-    ('generic-secret',     'medium',   r'(?i)(api[_-]?key|api[_-]?secret|access[_-]?token|secret[_-]?key|client[_-]?secret)\s*[:=]\s*["\']?[A-Za-z0-9_\-./+]{16,}', 'Generic API Key / Secret'),
+    ('generic-secret',     'medium',   r'(?i)(api[_-]?key|api[_-]?secret|access[_-]?token|secret[_-]?key|client[_-]?secret)\s*[:=]\s*[\x22\x27]?[A-Za-z0-9_\-./+]{16,}', 'Generic API Key / Secret'),
     ('ip-address',         'medium',   r'\b(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\b', 'IP Address'),
     ('internal-hostname',  'medium',   r'\b[a-zA-Z0-9][\w.-]*\.(?:internal|corp|staging|prod)\b', 'Internal Hostname'),
     ('env-file-content',   'medium',   r'^[A-Z][A-Z0-9_]{2,}=\S{12,}$',                  'Env-style Variable with Long Value'),
@@ -1358,15 +1358,15 @@ def should_skip(pid, matched_text, line, filepath):
 
     # password-assign: skip if value looks like a variable reference ($, %, {{)
     if pid == 'password-assign':
-        val_match = re.search(r'[:=]\s*["\']?(.+?)(?:["\']?\s*$)', matched_text)
+        val_match = re.search(r'[:=]\s*[\x22\x27]?(.+?)(?:[\x22\x27]?\s*$)', matched_text)
         if val_match:
             val = val_match.group(1)
-            if re.match(r'^[\$%\{]', val) or val.strip('"\'') in ('', 'null', 'None', 'false', 'true'):
+            if re.match(r'^[\$%\{]', val) or val.strip('\x22\x27') in ('', 'null', 'None', 'false', 'true'):
                 return True
 
     # generic-secret: skip if value is a path or URL scheme
     if pid == 'generic-secret':
-        if re.search(r'[:=]\s*["\']?(?:https?://|/[a-z])', matched_text, re.I):
+        if re.search(r'[:=]\s*[\x22\x27]?(?:https?://|/[a-z])', matched_text, re.I):
             return True
 
     return False
