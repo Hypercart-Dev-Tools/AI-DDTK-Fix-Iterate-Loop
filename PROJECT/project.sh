@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # project.sh — PROJECT folder hygiene · Phases 0 + 1 + 2 + 3 + 4 + repo-case
-# version 1.4 - attn: update this number as improvements are added
+# version 1.5 - attn: update this number as improvements are added
 # =============================================================================
 # Phase 0 (auto):    pre-check git cleanliness + zip backup before mutations.
 # Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
@@ -346,8 +346,15 @@ classify_action() {
   fi
 }
 
-# Minimal JSON string escaper (no control chars expected in filenames)
-json_str() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+# JSON string escaper — handles backslash, quotes, newlines, tabs, and control chars
+json_str() {
+  printf '%s' "$1" | sed \
+    -e 's/\\/\\\\/g' \
+    -e 's/"/\\"/g' \
+    -e 's/	/\\t/g' \
+    -e ':a' -e '$!{N;ba}' -e 's/\n/\\n/g' \
+  | tr -d '\000-\011\013-\037'
+}
 
 # Returns file age in whole days; -1 means "skip" (dirty/unreadable).
 # Priority: git log commit timestamp (tracked+clean) → mtime (fallback).
@@ -398,10 +405,15 @@ for root, dirs, files in os.walk(scan_root):
 registry  = {}   # rel_path -> {links, referenced_by}
 broken    = []
 
+MAX_FILE_SIZE = 1_048_576  # 1 MB — skip oversized files to avoid memory issues
+
 for filepath in md_files:
     rel = os.path.relpath(filepath, scan_root)
     links = []
     try:
+        if os.path.getsize(filepath) > MAX_FILE_SIZE:
+            registry[rel] = {'links': [], 'referenced_by': [], 'skipped': 'file too large'}
+            continue
         with open(filepath, 'r', errors='replace') as fh:
             for lineno, line in enumerate(fh, 1):
                 for m in link_re.finditer(line):
@@ -541,21 +553,39 @@ run_meta() {
   files_json+="]"
 
   # Git dates: build a map of file → {first_commit_date, last_commit_date, author}
+  # Uses Python to collect git data in bulk and produce valid JSON safely
   local git_dates_json="{}"
   if $USE_GIT; then
-    git_dates_json=$(
-      for f in "${md_files[@]}"; do
-        local rel; rel="${f#"$SCRIPT_DIR/"}"
-        local first last author
-        first=$(git -C "$SCRIPT_DIR" log --diff-filter=A --follow --format="%ai" -- "$f" 2>/dev/null | tail -1 || true)
-        last=$(git -C "$SCRIPT_DIR" log -1 --format="%ai" -- "$f" 2>/dev/null || true)
-        author=$(git -C "$SCRIPT_DIR" log --diff-filter=A --follow --format="%an" -- "$f" 2>/dev/null | tail -1 || true)
-        # Output one JSON fragment per file
-        printf '"%s":{"created":"%s","updated":"%s","author":"%s"}\n' \
-          "$(json_str "$f")" \
-          "${first:0:10}" "${last:0:10}" "$(json_str "$author")"
-      done | paste -sd',' - | sed 's/^/{/;s/$/}/'
-    )
+    git_dates_json=$(GIT_DIR="$SCRIPT_DIR" python3 -c "
+import json, os, subprocess, sys
+
+files = json.loads(os.environ['FILES_JSON'])
+git_dir = os.environ['GIT_DIR']
+result = {}
+
+def git_query(args, f):
+    return subprocess.run(
+        ['git', '-C', git_dir] + args + ['--', f],
+        capture_output=True, text=True, timeout=10
+    ).stdout.strip()
+
+for f in files:
+    try:
+        first_line = git_query(['log', '--diff-filter=A', '--follow', '--format=%ai'], f)
+        first = first_line.split('\n')[-1] if first_line else ''
+        last = git_query(['log', '-1', '--format=%ai'], f)
+        author_line = git_query(['log', '--diff-filter=A', '--follow', '--format=%an'], f)
+        author = author_line.split('\n')[-1] if author_line else ''
+        result[f] = {
+            'created': first[:10] if first else '',
+            'updated': last[:10] if last else '',
+            'author': author
+        }
+    except Exception:
+        pass
+
+print(json.dumps(result))
+" 2>/dev/null) || git_dates_json="{}"
   fi
 
   local py_result
@@ -846,19 +876,33 @@ run_promote() {
   files_json+="]"
 
   # Git staleness: days since last commit touching each file
+  # Uses Python to collect git timestamps in bulk and produce valid JSON safely
   local git_stale_json="{}"
   if $USE_GIT; then
-    git_stale_json=$(
-      local now_ts; now_ts=$(date +%s)
-      for f in "${md_files[@]}"; do
-        local ts; ts=$(git -C "$SCRIPT_DIR" log -1 --format="%ct" -- "$f" 2>/dev/null || true)
-        local days=-1
-        if [[ -n "$ts" ]]; then
-          days=$(( (now_ts - ts) / 86400 ))
-        fi
-        printf '"%s":%d\n' "$(json_str "$f")" "$days"
-      done | paste -sd',' - | sed 's/^/{/;s/$/}/'
-    )
+    git_stale_json=$(GIT_DIR="$SCRIPT_DIR" python3 -c "
+import json, os, subprocess, time, sys
+
+files = json.loads(os.environ['FILES_JSON'])
+git_dir = os.environ['GIT_DIR']
+now_ts = int(time.time())
+result = {}
+
+for f in files:
+    try:
+        out = subprocess.run(
+            ['git', '-C', git_dir, 'log', '-1', '--format=%ct', '--', f],
+            capture_output=True, text=True, timeout=10
+        ).stdout.strip()
+        if out:
+            days = (now_ts - int(out)) // 86400
+        else:
+            days = -1
+        result[f] = days
+    except Exception:
+        result[f] = -1
+
+print(json.dumps(result))
+" 2>/dev/null) || git_stale_json="{}"
   fi
 
   local py_result
@@ -1251,7 +1295,7 @@ run_uppercase() {
       xrefs+="${ref}|"
     done < <(
       grep -rIlF --exclude-dir=".git" --exclude-dir="node_modules" --exclude-dir="temp" \
-        --include="*.md" --include="*.txt" "$filename" "$scan_root" 2>/dev/null \
+        --include="*.md" --include="*.txt" -- "$filename" "$scan_root" 2>/dev/null \
         | grep -v "^${filepath}$" || true
     )
     xrefs="${xrefs%|}"
@@ -1465,7 +1509,7 @@ for i in "${!STALE_FILES[@]}"; do
   while IFS= read -r ref; do
     xrefs+="${ref}|"
   done < <(
-    grep -rl --include="*.md" "$filename" "$SCRIPT_DIR" 2>/dev/null \
+    grep -rl --include="*.md" -- "$filename" "$SCRIPT_DIR" 2>/dev/null \
       | grep -v "^${filepath}$" || true
   )
   xrefs="${xrefs%|}"
@@ -1514,6 +1558,7 @@ APPLIED=0; SKIPPED=0; ERRORS=0
 
 do_apply() {
   for i in "${!ACTION_SRC[@]}"; do
+    local src dst
     src="${ACTION_SRC[$i]}"
     dst="$(dirname "$src")/${ACTION_TO[$i]}"
 
@@ -1608,9 +1653,11 @@ emit_json() {
   "actions": $actions_json,
   "agent_prompts": $prompts_json,
   "next_phases": [
-    { "phase": 2, "name": "link-registry",  "status": "planned", "description": "Detect and record cross-references to renamed files" },
-    { "phase": 3, "name": "xref-repair",    "status": "planned", "description": "Auto-update broken links via search-and-replace" },
-    { "phase": 4, "name": "mcp-adapter",    "status": "planned", "description": "MCP server for continuous folder hygiene orchestration" }
+    { "phase": 2, "name": "link-registry",      "status": "implemented", "command": "scan",    "description": "Cross-reference registry: detect and record broken links" },
+    { "phase": 3, "name": "frontmatter-meta",   "status": "implemented", "command": "meta",    "description": "Enforce frontmatter metadata on every project doc" },
+    { "phase": 4, "name": "folder-promotion",   "status": "implemented", "command": "promote", "description": "Detect done/misplaced docs and recommend folder moves" },
+    { "phase": 5, "name": "git-correlation",     "status": "planned",     "description": "Git/CHANGELOG correlation for activity detection" },
+    { "phase": 6, "name": "mcp-adapter",         "status": "planned",     "description": "MCP server for continuous folder hygiene orchestration" }
   ]
 }
 JSON
