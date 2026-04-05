@@ -1,9 +1,8 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
 import { AiDdtkManager } from './manager';
 import { StatusBarManager } from './statusBar';
 import { CommandHandler } from './commands';
+import { McpConfigProvider } from './mcpConfig';
 
 let manager: AiDdtkManager;
 let statusBar: StatusBarManager;
@@ -18,31 +17,28 @@ export async function activate(context: vscode.ExtensionContext) {
   commandHandler = new CommandHandler(manager);
 
   // --- MCP server registration ---
-  // Exposes the AI-DDTK MCP server to ALL VS Code MCP clients:
-  // GitHub Copilot, Cline, Continue, and any future VS Code agent.
-  // Claude Code discovers the server via .mcp.json (separate mechanism).
+  // Dynamically discovers and merges MCP server configs from:
+  //   Layer 0: static AI-DDTK server (~/bin/ai-ddtk/tools/mcp-server/start.sh)
+  //   Layer 1: workspace .mcp.json
+  //   Layer 2: .vscode/mcp.json
+  //   Layer 3: .mcp.local.json (gitignored local overrides)
+  //   Layer 4: temp/mcp/local-snippets/*.json (individual snippet files)
+  // File watchers trigger re-query when any config changes on disk.
   const mcpChangeEmitter = new vscode.EventEmitter<void>();
   context.subscriptions.push(mcpChangeEmitter);
+
+  const mcpConfigProvider = new McpConfigProvider(manager, mcpChangeEmitter);
+  context.subscriptions.push(mcpConfigProvider);
 
   context.subscriptions.push(
     vscode.lm.registerMcpServerDefinitionProvider('ai-ddtk', {
       onDidChangeMcpServerDefinitions: mcpChangeEmitter.event,
-      provideMcpServerDefinitions: async () => {
-        const aiDdtkPath = manager.getAiDdtkPath();
-        const startScript = path.join(aiDdtkPath, 'tools', 'mcp-server', 'start.sh');
-        if (!fs.existsSync(aiDdtkPath) || !fs.existsSync(startScript)) {
-          return [];
-        }
-        // McpStdioServerDefinition(label, command, args?, env?, version?)
-        return [
-          new vscode.McpStdioServerDefinition('AI-DDTK', 'bash', [startScript], undefined, '1.0.0'),
-        ];
-      },
+      provideMcpServerDefinitions: async () => mcpConfigProvider.getServerDefinitions(),
       resolveMcpServerDefinition: async (server) => server,
     })
   );
-  // Fire when the user changes the aiDdtkPath setting so VS Code re-queries
-  // (wired into the config-change handler below)
+
+  mcpConfigProvider.setupFileWatchers(context);
 
   // Register commands
   const commands = [

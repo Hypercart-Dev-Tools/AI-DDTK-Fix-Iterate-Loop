@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.7] - 2026-04-05
+
+### Added
+- **VS Code extension dynamic MCP discovery (v0.2.0)** — the extension's MCP server definition provider now merges configs from 5 layers (static AI-DDTK fallback, workspace `.mcp.json`, `.vscode/mcp.json`, `.mcp.local.json`, `temp/mcp/local-snippets/*.json`) with file watchers for live re-discovery. Site-specific WP MCP Adapter servers are automatically provided to all VS Code MCP clients without manual wiring or restart.
+
 ## [1.8.6] - 2026-04-05
 
 ### Added

@@ -4,6 +4,7 @@ Integrate AI-DDTK tools (WPCC, pw-auth, Query Monitor) directly into VS Code for
 
 ## Features
 
+- **Dynamic MCP Server Discovery** — Automatically merges MCP server configs from workspace `.mcp.json`, `.vscode/mcp.json`, `.mcp.local.json`, and `temp/mcp/local-snippets/*.json`. File watchers trigger live re-discovery when configs change on disk — no restart needed.
 - **Status Bar Integration** — Real-time AI-DDTK readiness indicator
 - **Project Wiring** — One-click MCP configuration setup via `wire-project`
 - **Preflight Checks** — Verify AI-DDTK installation and dependencies
@@ -94,6 +95,7 @@ Configure the extension via VS Code settings (`Cmd+,` / `Ctrl+,`):
 experimental/vscode-extension/
 ├── src/
 │   ├── extension.ts      # Main activation and lifecycle
+│   ├── mcpConfig.ts      # Dynamic MCP config discovery, merge, and file watchers
 │   ├── manager.ts        # AI-DDTK status and detection
 │   ├── statusBar.ts      # Status bar UI integration
 │   └── commands.ts       # Command handlers

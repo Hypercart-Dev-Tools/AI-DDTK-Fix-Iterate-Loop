@@ -2,7 +2,7 @@
   "name": "ai-ddtk",
   "displayName": "AI-DDTK: WordPress Development Toolkit",
   "description": "Integrate AI-DDTK tools (WPCC, pw-auth, Query Monitor) into VS Code for WordPress development",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "hypercart",
   "license": "MIT",
   "engines": {
