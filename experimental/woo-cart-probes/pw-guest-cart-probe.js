@@ -1,7 +1,20 @@
+const fs = require('fs');
+const path = require('path');
 const { chromium } = require('playwright');
 
-const base = 'http://binoid-production-2026-03-31.local';
-const productUrl = `${base}/collections/gummies/products/delta-9-thc-marshmallows?convert_to_sub_13444430=0`;
+// Load .env from script directory (see .env.example)
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+    const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.+?)\s*$/);
+    if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+  }
+}
+
+const base = process.env.WP_URL;
+const productId = process.env.PRODUCT_ID;
+const coupon = process.env.COUPON;
+const productUrl = `${base}/collections/gummies/products/delta-9-thc-marshmallows?convert_to_sub_${productId}=0`;
 
 async function summarize(page, label) {
   await page.waitForTimeout(2500);
@@ -17,7 +30,7 @@ async function summarize(page, label) {
   console.log('URL', page.url());
   console.log('HAS_PRODUCT', body.includes('Delta 9 THC Marshmellow'));
   console.log('HAS_EMPTY', body.includes('Your cart is currently empty'));
-  console.log('HAS_BINOID15', body.toLowerCase().includes('binoid15'));
+  console.log('HAS_COUPON', body.toLowerCase().includes(coupon.toLowerCase()));
   console.log('TOTALS', JSON.stringify(totals));
   console.log('BODY_SNIP', body.replace(/\s+/g, ' ').slice(0, 500));
 }
@@ -39,7 +52,7 @@ async function runClickScenario() {
     console.log('COOKIES', cookies.map(c => c.name).sort().join(','));
     await page.goto(`${base}/cart`, { waitUntil: 'domcontentloaded' });
     await summarize(page, 'cart-after-click');
-    await page.goto(`${base}/?coupon-code=binoid15&sc-page=cart`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${base}/?coupon-code=${encodeURIComponent(coupon)}&sc-page=cart`, { waitUntil: 'domcontentloaded' });
     await summarize(page, 'coupon-url-after-click');
   } catch (error) {
     console.log('CLICK_SCENARIO_ERROR', error.stack || String(error));
@@ -55,8 +68,8 @@ async function runAjaxScenario() {
   page.setDefaultTimeout(60000);
   try {
     await page.goto(base, { waitUntil: 'domcontentloaded' });
-    const result = await page.evaluate(async currentBase => {
-      const body = new URLSearchParams({ product_id: '13444430', quantity: '1' });
+    const result = await page.evaluate(async ({ currentBase, pid }) => {
+      const body = new URLSearchParams({ product_id: pid, quantity: '1' });
       const response = await fetch(`${currentBase}/?wc-ajax=add_to_cart`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
@@ -64,14 +77,14 @@ async function runAjaxScenario() {
         credentials: 'same-origin',
       });
       return { status: response.status, text: await response.text() };
-    }, base);
+    }, { currentBase: base, pid: productId });
     console.log('AJAX_STATUS', result.status);
     console.log('AJAX_SNIP', result.text.slice(0, 300));
     const cookies = await context.cookies();
     console.log('COOKIES', cookies.map(c => c.name).sort().join(','));
     await page.goto(`${base}/cart`, { waitUntil: 'domcontentloaded' });
     await summarize(page, 'cart-after-ajax');
-    await page.goto(`${base}/?coupon-code=binoid15&sc-page=cart`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`${base}/?coupon-code=${encodeURIComponent(coupon)}&sc-page=cart`, { waitUntil: 'domcontentloaded' });
     await summarize(page, 'coupon-url-after-ajax');
   } catch (error) {
     console.log('AJAX_SCENARIO_ERROR', error.stack || String(error));

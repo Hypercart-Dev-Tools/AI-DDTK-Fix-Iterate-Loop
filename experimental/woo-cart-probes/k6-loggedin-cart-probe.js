@@ -9,10 +9,12 @@ export const options = {
   },
 };
 
-const BASE = __ENV.WP_URL || 'http://binoid-production-2026-03-31.local';
-const AUTH_STATE_PATH = __ENV.AUTH_STATE_PATH || './temp/playwright/.auth/binoidcbd.json';
-const PRODUCT_ID = __ENV.PRODUCT_ID || '13444430';
-const COUPON = __ENV.COUPON || 'binoid15';
+// Configure via env vars or .env file (see .env.example)
+// k6 usage: source .env && k6 run script.js  — or —  k6 run -e WP_URL=... script.js
+const BASE = __ENV.WP_URL;
+const AUTH_STATE_PATH = __ENV.AUTH_STATE_PATH || './temp/playwright/.auth/admin.json';
+const PRODUCT_ID = __ENV.PRODUCT_ID;
+const COUPON = __ENV.COUPON;
 const authState = JSON.parse(open(AUTH_STATE_PATH));
 
 function getHost(url) {

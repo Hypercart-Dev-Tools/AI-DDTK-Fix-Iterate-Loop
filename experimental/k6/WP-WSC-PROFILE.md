@@ -85,7 +85,7 @@ If the primary theory is correct:
 
 ## Methodology
 
-1. Start from a Local WP clone that contains the Bloomz coupon and cart behavior if possible.
+1. Start from a Local WP clone that contains the [CLIENT] coupon and cart behavior if possible.
 2. Verify the known coupons exist locally: `binoid15`, `flash20`, `flash25`.
 3. Inspect the coupon meta before testing. We want to know whether `binoid15` is:
    - auto-apply
@@ -162,7 +162,7 @@ Use this checklist before trusting any result:
 - Test classic cart/checkout and blocks checkout separately if the site uses both.
 - Disable or bypass full-page cache while profiling.
 - Keep Action Scheduler / cron noise low during local profiling.
-- Confirm whether the local DB actually contains the Bloomz coupon metadata you are blaming.
+- Confirm whether the local DB actually contains the [CLIENT] coupon metadata you are blaming.
 - Inspect `binoid15` coupon meta, not just the coupon code row.
 - Check whether a Smart Coupons-added cart item carries `wc_sc_product_source`.
 - If AI-DDTK Playwright is available, capture the real storefront flow before freezing the scenario in code.
@@ -881,7 +881,7 @@ When you bring this doc into another repo, confirm these items there:
 
 - the site actually has classic WooCommerce cart/checkout pages enabled
 - the repo under test is the plugin/theme that owns the hot path
-- the Local WP clone includes the real Bloomz coupon rows and Smart Coupons meta
+- the Local WP clone includes the real [CLIENT] coupon rows and Smart Coupons meta
 - Query Monitor is installed if you want manual call stack confirmation
 - Xdebug output path matches `config.env`
 - the site is not silently redirecting or caching away the scenario you think you are profiling
@@ -946,7 +946,7 @@ WP Code Check flagged two coupon-related findings:
 1. add an index to speed up `wc_get_coupon_id_by_code()`
 2. cache `wc_get_coupon_id_by_code()` results more aggressively
 
-These findings are relevant, but they do not map equally to the slow queries in the Bloomz logs.
+These findings are relevant, but they do not map equally to the slow queries in the [CLIENT] logs.
 
 ### Finding 1 — Index for `wc_get_coupon_id_by_code()`
 

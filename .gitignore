@@ -2,6 +2,8 @@
 # This folder stores credentials, reports, and temporary analysis files
 /temp/
 PROJECT/.xref-registry.json*
+PROJECT/.scrub-list.json
+PROJECT/.scrub-log.jsonl
 !temp/.gitkeep
 !temp/README.md
 !temp/*/.gitkeep

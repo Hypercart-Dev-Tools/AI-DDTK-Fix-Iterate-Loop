@@ -13,6 +13,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.6] - 2026-04-05
+
+### Added
+- **`PROJECT/project.sh` scrub command** — new `scrub` subcommand that redacts client and project names from repository documents to prevent accidental disclosure in public repos. Reads terms from a gitignored `PROJECT/.scrub-list.json` definition file with configurable replacement tags (`[CLIENT]`, `[PROJECT]`, `[CLIENT-DOMAIN]`), case-insensitive matching, and word-boundary control. Supports dry-run (default), `--apply`, `--json`, and `--path <dir>` to limit scope. Source code files (.js, .php, .py, .sh, .ts, etc.) are flagged as warnings but never auto-replaced, surfacing hardcoded values that should be moved to config/env vars. All replacements are logged to a gitignored `PROJECT/.scrub-log.jsonl` for revert capability. Auto-initializes a blank template on first run if no scrub list exists.
+
+### Changed
+- **`experimental/woo-cart-probes/` — extracted from `experimental/k6/scripts/`** — moved `pw-guest-cart-probe.js`, `pw-loggedin-cart-probe.js`, and `k6-loggedin-cart-probe.js` into their own directory. These are WooCommerce cart-flow test probes (Playwright and k6), not reusable profiling utilities. Hardcoded site URLs, auth paths, product IDs, and coupon codes replaced with `.env` file references. Added `.env.example` (committed) with placeholder values.
+
 ## [1.8.5] - 2026-04-05
 
 ### Added

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# project.sh — PROJECT folder hygiene · Phases 0–4 + repo-case + secrets
-# version 1.5 - attn: update this number as improvements are added
+# project.sh — PROJECT folder hygiene · Phases 0–4 + repo-case + secrets + scrub
+# version 1.6 - attn: update this number as improvements are added
 # =============================================================================
 # Phase 0 (auto):    pre-check git cleanliness + zip backup before mutations.
 # Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
@@ -10,6 +10,7 @@
 # Phase 3 (meta):    enforce frontmatter metadata on every project doc.
 # Phase 4 (promote): detect done/misplaced docs → recommend folder moves.
 # Secrets (secrets): detect accidentally committed credentials, IPs, keys, tokens.
+# Scrub (scrub):     redact client/project names using external .scrub-list.json.
 #
 # AI AGENT HOOKS
 #   --json      Emit structured JSON to stdout for agent/MCP consumption
@@ -19,6 +20,7 @@
 #               Phase 3: 0=clean · 1=gaps found · 2=applied · 99=error
 #               Phase 4: 0=clean · 1=moves recommended · 2=applied · 99=error
 #               Secrets: 0=clean · 1=findings detected · 99=error
+#               Scrub:   0=clean · 1=matches found (dry-run) · 2=applied · 99=error
 #   Always emits ##AGENT-CONTEXT and ##AGENT-PROMPTS blocks at end of stdout.
 #
 # PHASE 0 — Pre-check (runs automatically before every phase)
@@ -60,6 +62,14 @@
 #   ./PROJECT/project.sh secrets --json     # structured JSON report only
 #   ./PROJECT/project.sh secrets --project-only  # limit scan to PROJECT/ folder
 #
+# USAGE — Scrub (redact client/project names from documents)
+#   ./PROJECT/project.sh scrub              # dry-run — report matches, no changes
+#   ./PROJECT/project.sh scrub --apply      # replace matches in-place + log to .scrub-log.jsonl
+#   ./PROJECT/project.sh scrub --json       # structured JSON report only
+#   ./PROJECT/project.sh scrub --path ./src # limit scan to a specific subfolder
+#   Scrub list: PROJECT/.scrub-list.json (gitignored — contains real client names)
+#   Revert log: PROJECT/.scrub-log.jsonl (gitignored — append-only change history)
+#
 # PHASE ROADMAP
 #   Phase 0 (this) — pre-check: git cleanliness gate + zip backup
 #   Phase 1 (this) — scan + P3 prefix/downgrade, xref warnings, agent hooks
@@ -67,6 +77,7 @@
 #   Phase 3 (this) — enforce frontmatter metadata on every project doc
 #   Phase 4 (this) — detect done/misplaced docs, recommend folder moves
 #   Secrets (this) — detect credentials, IPs, API keys, tokens in tracked files
+#   Scrub   (this) — redact client/project names using external .scrub-list.json
 #   Phase 5        — git/CHANGELOG correlation for activity detection
 #   Phase 6        — MCP server adapter for continuous hygiene orchestration
 # =============================================================================
@@ -76,8 +87,9 @@ set -euo pipefail
 # ── Defaults ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
-COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4) | uppercase | secrets
+COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4) | uppercase | secrets | scrub
 SECRETS_PROJECT_ONLY=false  # secrets: limit scan to PROJECT/ folder only
+SCRUB_PATH=""               # scrub: optional subfolder path to limit scan scope
 DAYS_THRESHOLD=8
 DRY_RUN=true
 JSON_MODE=false
@@ -94,10 +106,14 @@ while [[ $# -gt 0 ]]; do
     promote)           COMMAND="promote" ;;
     uppercase)         COMMAND="uppercase" ;;
     secrets)           COMMAND="secrets" ;;
+    scrub)             COMMAND="scrub" ;;
     --apply)           DRY_RUN=false ;;
     --force)           FORCE=true ;;
     --check)           SCAN_CHECK_ONLY=true ;;
     --project-only)    SECRETS_PROJECT_ONLY=true ;;
+    --path)
+      [[ -d "${2:-}" ]] || { echo "ERROR: --path requires a valid directory" >&2; exit 99; }
+      SCRUB_PATH="$(cd "$2" && pwd)"; shift ;;
     --json)            JSON_MODE=true ;;
     --include-done)    INCLUDE_DONE=true ;;
     --no-exclude-meta) EXCLUDE_META=false ;;
@@ -1574,11 +1590,357 @@ for f in d['findings']:
   exit 0
 }
 
-# ── Route to Phase 2/3/4/secrets early if subcommand matches ────────────────
+# ── Scrub: redact client/project names from repo documents ───────────────────
+run_scrub() {
+  command -v python3 &>/dev/null || { echo "ERROR: python3 is required for 'scrub'" >&2; exit 99; }
+
+  local scrub_list="$SCRIPT_DIR/.scrub-list.json"
+  local scrub_log="$SCRIPT_DIR/.scrub-log.jsonl"
+
+  if [[ ! -f "$scrub_list" ]]; then
+    cat > "$scrub_list" <<'INITEOF'
+{
+  "version": "1.0",
+  "description": "Client and project names to redact from repository documents. THIS FILE IS GITIGNORED.",
+  "terms": [
+    { "pattern": "ExampleClient",     "replacement": "[CLIENT]",        "boundary": true,  "case_insensitive": true },
+    { "pattern": "ExampleProject",    "replacement": "[PROJECT]",       "boundary": true,  "case_insensitive": true },
+    { "pattern": "example-client.com","replacement": "[CLIENT-DOMAIN]", "boundary": false, "case_insensitive": true }
+  ]
+}
+INITEOF
+    if ! $JSON_MODE; then
+      echo ""
+      echo "  Initialized blank scrub list at PROJECT/.scrub-list.json"
+      echo "  Edit it to add your real client/project names, then re-run."
+      echo ""
+    fi
+    exit 0
+  fi
+
+  # Determine scan root: --path overrides, else repo root, else parent of PROJECT/
+  local scan_root
+  if [[ -n "$SCRUB_PATH" ]]; then
+    scan_root="$SCRUB_PATH"
+  elif [[ -n "$REPO_ROOT" ]]; then
+    scan_root="$REPO_ROOT"
+  else
+    scan_root="$(cd "$SCRIPT_DIR/.." && pwd)"
+  fi
+
+  local py_result
+  py_result=$(SCAN_ROOT="$scan_root" SCRUB_LIST="$scrub_list" SCRUB_LOG="$scrub_log" \
+    DRY_RUN="$DRY_RUN" python3 - <<'PYEOF'
+import json, os, re, sys
+from datetime import datetime, timezone
+
+scan_root  = os.environ['SCAN_ROOT']
+scrub_list = os.environ['SCRUB_LIST']
+scrub_log  = os.environ['SCRUB_LOG']
+dry_run    = os.environ['DRY_RUN'] == 'true'
+
+# ── Load scrub list ──────────────────────────────────────────────────────
+with open(scrub_list, 'r') as f:
+    config = json.load(f)
+
+terms = config.get('terms', [])
+if not terms:
+    print(json.dumps({
+        'tool': 'project-scrub', 'phase': 'scrub', 'version': '1.0.0',
+        'error': 'No terms defined in scrub list'
+    }))
+    sys.exit(0)
+
+# Sort longest-first to prevent partial matches (e.g., "FooCorp.com" before "Foo")
+terms.sort(key=lambda t: len(t['pattern']), reverse=True)
+
+# ── Build compiled regex patterns ────────────────────────────────────────
+compiled = []
+for t in terms:
+    pat = re.escape(t['pattern'])
+    if t.get('boundary', True):
+        pat = r'\b' + pat + r'\b'
+    flags = re.IGNORECASE if t.get('case_insensitive', True) else 0
+    compiled.append((re.compile(pat, flags), t['replacement'], t['pattern']))
+
+# ── Directories and extensions to skip ───────────────────────────────────
+SKIP_DIRS = {'.git', 'node_modules', 'temp', 'dist', 'build', 'vendor', '.DS_Store'}
+BINARY_EXT = {
+    '.png', '.jpg', '.jpeg', '.gif', '.ico', '.svg', '.webp', '.bmp',
+    '.zip', '.tar', '.gz', '.bz2', '.7z', '.rar',
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+    '.woff', '.woff2', '.ttf', '.eot', '.otf',
+    '.mp3', '.mp4', '.avi', '.mov', '.wav',
+    '.exe', '.dll', '.so', '.dylib', '.o',
+    '.pyc', '.pyo', '.class',
+}
+
+# Source code extensions: warn-only, never auto-replace
+SOURCE_EXT = {
+    '.js', '.jsx', '.ts', '.tsx', '.mjs', '.cjs',
+    '.php', '.py', '.rb', '.go', '.rs', '.java',
+    '.sh', '.bash', '.zsh', '.fish',
+    '.c', '.cpp', '.h', '.hpp', '.cs',
+    '.swift', '.kt', '.scala',
+    '.sql', '.graphql', '.gql',
+}
+
+def is_warn_only(ext):
+    """Source code files get warnings, not replacements."""
+    return ext in SOURCE_EXT
+
+# ── Scan and optionally replace ──────────────────────────────────────────
+matches = []    # replaceable document matches
+warnings = []   # source code warn-only matches
+files_scanned = 0
+files_with_matches = set()
+files_with_warnings = set()
+files_modified = 0
+run_id = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+log_entries = []
+
+for root, dirs, files_list in os.walk(scan_root):
+    dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith('.'))
+    for fname in sorted(files_list):
+        filepath = os.path.join(root, fname)
+        ext = os.path.splitext(fname)[1].lower()
+
+        # Skip the scrub list and log themselves
+        if os.path.abspath(filepath) in (os.path.abspath(scrub_list), os.path.abspath(scrub_log)):
+            continue
+        if ext in BINARY_EXT:
+            continue
+        if fname.startswith('.') and ext not in ('.env', '.md', '.txt', '.yml', '.yaml'):
+            continue
+        try:
+            if os.path.getsize(filepath) > 2_097_152:  # 2MB
+                continue
+        except OSError:
+            continue
+        # Binary check: null bytes in first 8KB
+        try:
+            with open(filepath, 'rb') as bf:
+                if b'\x00' in bf.read(8192):
+                    continue
+        except OSError:
+            continue
+
+        files_scanned += 1
+        warn_only = is_warn_only(ext)
+
+        try:
+            with open(filepath, 'r', errors='replace') as fh:
+                lines = fh.readlines()
+        except OSError:
+            continue
+
+        file_changed = False
+        new_lines = []
+
+        for lineno_idx, line in enumerate(lines):
+            lineno = lineno_idx + 1
+            original_line = line
+
+            for regex, replacement, raw_pattern in compiled:
+                for m in regex.finditer(line):
+                    rel = os.path.relpath(filepath, scan_root)
+                    entry = {
+                        'file': rel,
+                        'line': lineno,
+                        'matched': m.group(0),
+                        'pattern': raw_pattern,
+                        'replacement': replacement,
+                        'context': line.rstrip()[:200],
+                    }
+                    if warn_only:
+                        files_with_warnings.add(rel)
+                        entry['warn_only'] = True
+                        warnings.append(entry)
+                    else:
+                        files_with_matches.add(rel)
+                        matches.append(entry)
+
+            # Only replace in document files, never in source code
+            if warn_only:
+                new_lines.append(line)
+                continue
+
+            replaced_line = line
+            for regex, replacement, raw_pattern in compiled:
+                replaced_line = regex.sub(replacement, replaced_line)
+
+            if replaced_line != original_line:
+                file_changed = True
+                log_entries.append({
+                    'run_id': run_id,
+                    'file': os.path.relpath(filepath, scan_root),
+                    'line': lineno,
+                    'original': original_line.rstrip(),
+                    'replaced': replaced_line.rstrip(),
+                })
+
+            new_lines.append(replaced_line)
+
+        # Write back if applying and file was changed (never for warn-only)
+        if not dry_run and file_changed and not warn_only:
+            try:
+                with open(filepath, 'w') as fh:
+                    fh.writelines(new_lines)
+                files_modified += 1
+            except OSError as e:
+                matches.append({
+                    'file': os.path.relpath(filepath, scan_root),
+                    'line': 0,
+                    'matched': '',
+                    'pattern': '',
+                    'replacement': '',
+                    'context': f'WRITE ERROR: {e}',
+                })
+
+# ── Write revert log ────────────────────────────────────────────────────
+if not dry_run and log_entries:
+    try:
+        with open(scrub_log, 'a') as lf:
+            for entry in log_entries:
+                lf.write(json.dumps(entry) + '\n')
+    except OSError:
+        pass  # non-fatal — log is best-effort
+
+# ── Build output ────────────────────────────────────────────────────────
+output = {
+    'tool': 'project-scrub',
+    'phase': 'scrub',
+    'version': '1.1.0',
+    'dry_run': dry_run,
+    'run_id': run_id,
+    'scan_root': os.path.relpath(scan_root, os.getcwd()) + '/',
+    'scrub_list': os.path.relpath(scrub_list, os.getcwd()),
+    'config': {
+        'terms_count': len(terms),
+        'terms': [{'pattern': t['pattern'], 'replacement': t['replacement']} for t in terms],
+    },
+    'stats': {
+        'files_scanned': files_scanned,
+        'files_with_matches': len(files_with_matches),
+        'total_matches': len(matches),
+        'files_with_warnings': len(files_with_warnings),
+        'total_warnings': len(warnings),
+        'files_modified': files_modified,
+        'log_entries_written': len(log_entries),
+    },
+    'matches': matches,
+    'warnings': warnings,
+}
+print(json.dumps(output, indent=2))
+PYEOF
+  ) || { echo "ERROR: scrub scan failed" >&2; exit 99; }
+
+  local files_scanned total_matches files_with_matches files_modified log_entries
+  local total_warnings files_with_warnings
+  files_scanned=$(echo "$py_result"        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_scanned'])")
+  total_matches=$(echo "$py_result"        | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['total_matches'])")
+  files_with_matches=$(echo "$py_result"   | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_with_matches'])")
+  total_warnings=$(echo "$py_result"       | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['total_warnings'])")
+  files_with_warnings=$(echo "$py_result"  | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_with_warnings'])")
+  files_modified=$(echo "$py_result"       | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['files_modified'])")
+  log_entries=$(echo "$py_result"          | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['stats']['log_entries_written'])")
+
+  # ── Agent prompts ──────────────────────────────────────────────────────────
+  local prompts=()
+  if (( total_matches == 0 )) && (( total_warnings == 0 )); then
+    prompts+=("No client/project names found across ${files_scanned} files. Documents are clean.")
+  elif $DRY_RUN; then
+    (( total_matches > 0 )) && prompts+=("Dry-run: ${total_matches} match(es) in ${files_with_matches} document file(s) will be redacted. Run \`./PROJECT/project.sh scrub --apply\` to apply.")
+    (( total_warnings > 0 )) && prompts+=("WARNING: ${total_warnings} match(es) in ${files_with_warnings} source code file(s). These are NOT auto-replaced — hardcoded values should be moved to config/env vars.")
+    prompts+=("Review matches carefully before applying — replacements are logged to .scrub-log.jsonl for revert capability.")
+  else
+    (( files_modified > 0 )) && prompts+=("${files_modified} document file(s) modified. ${log_entries} replacement(s) logged to .scrub-log.jsonl for revert capability.")
+    (( total_warnings > 0 )) && prompts+=("WARNING: ${total_warnings} match(es) in ${files_with_warnings} source code file(s) were NOT replaced. Hardcoded client names in code should be moved to config/env vars.")
+    (( files_modified > 0 )) && prompts+=("Run \`git diff\` to review all changes before committing.")
+  fi
+  prompts+=("Scrub list: PROJECT/.scrub-list.json (gitignored). Edit to add/remove terms.")
+  [[ -n "$SCRUB_PATH" ]] || prompts+=("Use --path <dir> to limit the scan to a specific subfolder.")
+
+  # ── Route output ───────────────────────────────────────────────────────────
+  if $JSON_MODE; then
+    echo "$py_result"
+  else
+    local scope_label="repo-wide"; [[ -n "$SCRUB_PATH" ]] && scope_label="$SCRUB_PATH"
+    echo ""
+    echo "=== project.sh · Scrub (Client/Project Name Redaction) ==="
+    printf "  Scope            : %s\n" "$scope_label"
+    printf "  Scrub list       : PROJECT/.scrub-list.json (%d terms)\n" "$(echo "$py_result" | python3 -c "import json,sys; print(json.load(sys.stdin)['config']['terms_count'])")"
+    printf "  Files scanned    : %s\n" "$files_scanned"
+    echo ""
+    printf "  Documents        : %s match(es) in %s file(s) [replaceable]\n" "$total_matches" "$files_with_matches"
+    printf "  Source code      : %s match(es) in %s file(s) [warn-only]\n" "$total_warnings" "$files_with_warnings"
+    if ! $DRY_RUN; then
+      printf "  Files modified   : %s\n" "$files_modified"
+      printf "  Log entries      : %s\n" "$log_entries"
+    fi
+    echo ""
+
+    if (( total_matches > 0 )); then
+      echo "  Document matches (will be replaced on --apply):"
+      echo "$py_result" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+prev_file = None
+for m in d['matches']:
+    if m['file'] != prev_file:
+        if prev_file is not None:
+            print()
+        print(f'    {m[\"file\"]}')
+        prev_file = m['file']
+    print(f'      L{m[\"line\"]:>4d}  {m[\"matched\"]:20s}  ->  {m[\"replacement\"]}')
+"
+      echo ""
+    fi
+
+    if (( total_warnings > 0 )); then
+      echo "  Source code warnings (NOT replaced — move to config/env vars):"
+      echo "$py_result" | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+prev_file = None
+for w in d['warnings']:
+    if w['file'] != prev_file:
+        if prev_file is not None:
+            print()
+        print(f'    {w[\"file\"]}')
+        prev_file = w['file']
+    print(f'      L{w[\"line\"]:>4d}  {w[\"matched\"]:20s}  !!  hardcoded in source')
+"
+      echo ""
+    fi
+
+    if (( total_matches == 0 )) && (( total_warnings == 0 )); then
+      echo "  No client/project names detected. Documents are clean."
+      echo ""
+    fi
+
+    echo "##AGENT-CONTEXT"
+    echo "$py_result"
+    echo "##END-AGENT-CONTEXT"
+    echo ""
+    echo "##AGENT-PROMPTS"
+    for p in "${prompts[@]}"; do echo "- $p"; done
+    echo "##END-AGENT-PROMPTS"
+  fi
+
+  # ── Exit codes ──────────────────────────────────────────────────────────────
+  # 0 = clean · 1 = matches found (dry-run) · 2 = applied · 99 = error
+  ! $DRY_RUN && (( files_modified > 0 )) && exit 2
+  (( total_matches > 0 )) && exit 1
+  exit 0
+}
+
+# ── Route to Phase 2/3/4/secrets/scrub early if subcommand matches ───────────
 [[ "$COMMAND" == "scan" ]]    && run_scan
 [[ "$COMMAND" == "meta" ]]    && run_meta
 [[ "$COMMAND" == "promote" ]] && run_promote
 [[ "$COMMAND" == "secrets" ]] && run_secrets
+[[ "$COMMAND" == "scrub" ]]   && run_scrub
  
 run_uppercase() {
   local scan_root

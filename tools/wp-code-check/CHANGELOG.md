@@ -1576,14 +1576,14 @@ Reason: WordPress primes user meta cache on user-edit.php before hooks fire
     - `dist/bin/detect-wc-smart-coupons-perf.sh` - Standalone detection script with immediate fix guidance
   - **Pattern Library:** Now 28 total patterns (was 27)
   - **Impact:** Helps identify and fix severe thank-you page performance issues on WooCommerce sites
-  - **Test Status:** ✅ Tested against Binoid site - successfully detected Smart Coupons with `wc_get_coupon_id_by_code()` calls
+  - **Test Status:** ✅ Tested against [CLIENT] site - successfully detected Smart Coupons with `wc_get_coupon_id_by_code()` calls
 
 - **Main Scanner Integration** - Both coupon patterns now integrated into `check-performance.sh`
   - **`wc-coupon-in-thankyou`** - Integrated at line 4627-4695 (after WooCommerce N+1 check)
   - **`wc-smart-coupons-thankyou-perf`** - Integrated at line 4699-4778 (after coupon-in-thankyou check)
   - **Impact:** Coupon issues now appear in standard scans and HTML reports
   - **Searchable:** Findings tagged with `wc-coupon-in-thankyou` and `wc-smart-coupons-thankyou-perf` IDs
-  - **Test Status:** ✅ Verified with Binoid theme scan - 2 coupon findings detected and searchable in HTML report
+  - **Test Status:** ✅ Verified with [CLIENT] theme scan - 2 coupon findings detected and searchable in HTML report
 
 ### Changed
 - **Pattern: `wc-coupon-in-thankyou`** - Enhanced to detect `wc_get_coupon_id_by_code()` calls
@@ -2299,7 +2299,7 @@ Reason: WordPress primes user meta cache on user-edit.php before hooks fire
 ### Testing
 Tested against real WordPress plugin:
 - **Plugin:** woocommerce-all-products-for-subscriptions
-- **Path:** `/Users/noelsaw/Local Sites/1-bloomzhemp-production-sync-07-24/app/public/wp-content/plugins/woocommerce-all-products-for-subscriptions`
+- **Path:** `/Users/noelsaw/Local Sites/1-[CLIENT]-production-sync-07-24/app/public/wp-content/plugins/woocommerce-all-products-for-subscriptions`
 - **Results:**
   - Duplicate transient keys: ✓ No violations
   - Duplicate capability strings: ✓ No violations (3 matches, below threshold)
