@@ -13,10 +13,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
-## [1.8.7] - 2026-04-05
+## [1.9.0] - 2026-04-05
 
 ### Added
+- **Native `.wpcignore` support in WPCC** — `check-performance.sh` now loads gitignore-style patterns from a `.wpcignore` file and filters the PHP file list before scanning. Auto-detects `.wpcignore` in the scan target directory or current working directory. Supports directory patterns (`tools/`), extension globs (`*.min.js`), and literal substring matches. New flags: `--wpcignore-file <path>` for explicit file, `--no-wpcignore` to disable. Unblocks repo-wide scanning without false positives from embedded tools, temp files, and vendor directories.
 - **VS Code extension dynamic MCP discovery (v0.2.0)** — the extension's MCP server definition provider now merges configs from 5 layers (static AI-DDTK fallback, workspace `.mcp.json`, `.vscode/mcp.json`, `.mcp.local.json`, `temp/mcp/local-snippets/*.json`) with file watchers for live re-discovery. Site-specific WP MCP Adapter servers are automatically provided to all VS Code MCP clients without manual wiring or restart.
+- **`experimental/end-of-day.sh` — solo developer session cleanup script** — automated script for end-of-work synchronization. Checks 4X4.md, CHANGELOG.md, and MEMORY.md freshness; archives session-scoped MEMORY.md to `PROJECT/1-INBOX/MEMORY-<timestamp>.md` for clean sessions. Supports `--commit` (with confirmation), `--push` (implies commit, with confirmation), `--force` (skip prompts for automation), `--dry-run`, and agent hook integration for orchestration. Default mode reports findings only; opt-in flags enable commit/push. Includes build validation (PHP syntax check) and structured event emission for agent coordination.
+
+### Changed
+- **`servers-audit.sh` and `servers-preflight.sh` promoted to `tools/`** — moved from `experimental/` to `tools/` alongside `servers.md` template. These scripts have received 4+ consecutive hardening releases (Launchd plist parsing, KeepAlive detection, expanded TLD coverage, Valet site discovery) and are no longer experimental. Internal path references (`$SCRIPT_DIR`) are relative and required no changes. CLI-REFERENCE.md updated with new sections for both scripts.
 
 ## [1.8.6] - 2026-04-05
 
