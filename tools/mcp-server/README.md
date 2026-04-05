@@ -1,8 +1,8 @@
 # AI-DDTK MCP Server
 
-> Version: 0.7.0
+> Version: 0.9.0
 
-Unified MCP server for AI-DDTK. Exposes LocalWP, WPCC, `pw-auth`, `wp-ajax-test`, tmux, and Query Monitor workflows as typed **Tools**, **Resources**, and **Prompts** — compatible with Claude Code, GitHub Copilot, Cline, Augment Code, Cursor, Claude Desktop, and any MCP-capable client.
+Unified MCP server for AI-DDTK. Exposes LocalWP, WPCC, `pw-auth`, `wp-ajax-test`, tmux, Query Monitor, and end-of-day session cleanup workflows as typed **Tools**, **Resources**, and **Prompts** — compatible with Claude Code, GitHub Copilot, Cline, Augment Code, Cursor, Claude Desktop, and any MCP-capable client.
 
 ## Quick Start
 
@@ -55,6 +55,7 @@ npm run mcp:http
 | AJAX | `wp_ajax_test` | Test `admin-ajax.php` endpoints with structured inputs |
 | tmux | `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status` | Run resilient long-lived commands and inspect output |
 | Query Monitor | `qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries` | Profile pages, find slow queries, detect N+1 patterns |
+| Session cleanup | `end_of_day_session_cleanup` | Automated solo dev session cleanup: sync 4X4.md/CHANGELOG.md/MEMORY.md, optionally commit and push with confirmation |
 
 ## Resources
 

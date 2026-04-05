@@ -139,6 +139,8 @@ HTTP_TIMEOUT_BACKWARD_LINES=20
 # Note: 'tests' exclusion is dynamically removed when --paths targets a tests directory
 EXCLUDE_DIRS="vendor node_modules .git tests .next dist build"
 EXCLUDE_FILES="*.min.js *bundle*.js *.min.css"
+WPCIGNORE_FILE=""           # Path to .wpcignore (auto-detected or --wpcignore-file)
+SKIP_WPCIGNORE=false        # --no-wpcignore disables .wpcignore loading
 DEFAULT_FIXTURE_VALIDATION_COUNT=20  # Number of fixtures to validate by default (can be overridden)
 SKIP_CLONE_DETECTION=false  # Clone detection runs by default (use --skip-clone-detection to disable)
 
@@ -452,6 +454,8 @@ OPTIONS:
   --baseline <path>        Use custom baseline file path (default: .hcc-baseline)
   --ignore-baseline        Ignore baseline file even if present
   --enable-clone-detection Enable function clone detection (disabled by default for performance)
+  --wpcignore-file <path>  Use custom .wpcignore file (default: auto-detect in scan dir or cwd)
+  --no-wpcignore           Disable .wpcignore file loading
   --help                   Show this help message
 
 WHAT IT DETECTS:
@@ -807,6 +811,18 @@ while [[ $# -gt 0 ]]; do
       fi
       shift 2
       ;;
+    --wpcignore-file)
+      WPCIGNORE_FILE="$2"
+      if [ ! -f "$WPCIGNORE_FILE" ]; then
+        echo "Error: .wpcignore file not found: $WPCIGNORE_FILE"
+        exit 1
+      fi
+      shift 2
+      ;;
+    --no-wpcignore)
+      SKIP_WPCIGNORE=true
+      shift
+      ;;
     --help)
       show_help
       exit 0
@@ -844,6 +860,76 @@ done
 for file in $EXCLUDE_FILES; do
   EXCLUDE_ARGS="$EXCLUDE_ARGS --exclude=$file"
 done
+
+# ============================================================================
+# .wpcignore Support
+# ============================================================================
+# Loads gitignore-style patterns from .wpcignore and filters file lists.
+# Auto-detects .wpcignore in the scan target directory, then current directory.
+# Override with --wpcignore-file <path> or disable with --no-wpcignore.
+
+WPCIGNORE_PATTERNS=()
+
+# Auto-detect .wpcignore if not explicitly set and not disabled
+if [ "$SKIP_WPCIGNORE" = "false" ] && [ -z "$WPCIGNORE_FILE" ]; then
+  if [ -d "$PATHS" ] && [ -f "$PATHS/.wpcignore" ]; then
+    WPCIGNORE_FILE="$PATHS/.wpcignore"
+  elif [ -f ".wpcignore" ]; then
+    WPCIGNORE_FILE=".wpcignore"
+  fi
+fi
+
+# Parse .wpcignore into pattern array
+if [ "$SKIP_WPCIGNORE" = "false" ] && [ -n "$WPCIGNORE_FILE" ] && [ -f "$WPCIGNORE_FILE" ]; then
+  debug_echo "Loading .wpcignore from: $WPCIGNORE_FILE"
+  while IFS= read -r line || [ -n "$line" ]; do
+    # Strip comments, leading/trailing whitespace, skip blanks
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -z "$line" ] && continue
+    WPCIGNORE_PATTERNS+=("$line")
+  done < "$WPCIGNORE_FILE"
+  debug_echo "Loaded ${#WPCIGNORE_PATTERNS[@]} .wpcignore patterns"
+fi
+
+# Filter a file list through .wpcignore patterns.
+# Reads file paths from stdin, writes non-ignored paths to stdout.
+# Supports: dir/ (directory match), *.ext (extension glob), literal substring.
+wpcignore_filter() {
+  if [ "${#WPCIGNORE_PATTERNS[@]}" -eq 0 ]; then
+    cat  # No patterns, pass through
+    return
+  fi
+  while IFS= read -r filepath; do
+    local skip=false
+    for pattern in "${WPCIGNORE_PATTERNS[@]}"; do
+      # Directory pattern: "dir/" matches /dir/ anywhere in path
+      if [[ "$pattern" == */ ]]; then
+        if [[ "$filepath" == *"/${pattern}"* || "$filepath" == "${pattern}"* ]]; then
+          skip=true
+          break
+        fi
+      # Extension glob: "*.ext" matches files ending with .ext
+      elif [[ "$pattern" == \*.* ]]; then
+        local ext="${pattern#\*}"
+        if [[ "$filepath" == *"$ext" ]]; then
+          skip=true
+          break
+        fi
+      # Literal substring match
+      else
+        if [[ "$filepath" == *"$pattern"* ]]; then
+          skip=true
+          break
+        fi
+      fi
+    done
+    if [ "$skip" = "false" ]; then
+      printf '%s\n' "$filepath"
+    fi
+  done
+}
 
 # ============================================================================
 # Helper Functions (must be defined before logging setup)
@@ -2583,7 +2669,7 @@ process_clone_detection() {
     # Directory provided - find all PHP files
     # PERFORMANCE: Wrap find in timeout to prevent hangs
     local find_exit_code=0
-    php_files=$(run_with_timeout "$MAX_SCAN_TIME" find "$PATHS" -name "*.php" -type f 2>/dev/null | grep -v '/vendor/' | grep -v '/node_modules/') || find_exit_code=$?
+    php_files=$(run_with_timeout "$MAX_SCAN_TIME" find "$PATHS" -name "*.php" -type f 2>/dev/null | grep -v '/vendor/' | grep -v '/node_modules/' | wpcignore_filter) || find_exit_code=$?
 
     # Check for timeout (exit code 124)
     if [ "$find_exit_code" -eq 124 ]; then
@@ -3091,10 +3177,11 @@ else
   # Create temp file for caching
   PHP_FILE_LIST_CACHE=$(mktemp)
 
-  # Find all PHP files (excluding vendor/node_modules)
+  # Find all PHP files (excluding vendor/node_modules, then .wpcignore patterns)
   find "$PATHS" -name "*.php" -type f 2>/dev/null | \
     grep -v '/vendor/' | \
-    grep -v '/node_modules/' > "$PHP_FILE_LIST_CACHE"
+    grep -v '/node_modules/' | \
+    wpcignore_filter > "$PHP_FILE_LIST_CACHE"
 
   PHP_FILE_COUNT=$(wc -l < "$PHP_FILE_LIST_CACHE" | tr -d ' ')
 

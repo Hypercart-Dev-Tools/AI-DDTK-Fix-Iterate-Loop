@@ -13,10 +13,11 @@ import { createTmuxHandlers } from "./handlers/tmux.js";
 import { createWpAjaxTestHandlers } from "./handlers/wp-ajax-test.js";
 import { createQmHandlers } from "./handlers/qm.js";
 import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, createWpccHandlers } from "./handlers/wpcc.js";
+import { createEndOfDayHandlers } from "./handlers/end-of-day.js";
 import { SessionStore, SiteState } from "./state.js";
 import { loadOrGenerateToken, getTokenFilePath } from "./utils/token.js";
 
-const MCP_SERVER_VERSION = "0.8.0";
+const MCP_SERVER_VERSION = "0.9.0";
 const DEFAULT_HTTP_PORT = 3100;
 const MCP_HTTP_PATH = "/mcp";
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024; // 1 MB
@@ -164,6 +165,7 @@ export function createServer() {
   const wpAjaxTestHandlers = createWpAjaxTestHandlers({ repoRoot });
   const wpccHandlers = createWpccHandlers({ repoRoot });
   const qmHandlers = createQmHandlers({ getCookiesForSite: (user, domain) => pwAuthHandlers.getCookiesForSite(user, domain), repoRoot });
+  const endOfDayHandlers = createEndOfDayHandlers({ repoRoot });
 
   const server = new McpServer({
     name: "ai-ddtk-mcp",
@@ -851,6 +853,51 @@ export function createServer() {
     async ({ siteUrl, path: pagePath, method, body, user }) => {
       try {
         return successResult(await qmHandlers.duplicateQueries(siteUrl, pagePath, method, body, user));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "end_of_day_session_cleanup",
+    {
+      description:
+        "Solo developer session cleanup — ensures 4X4.md, CHANGELOG.md, and MEMORY.md are synced. Optionally commits and pushes with confirmation. Archives MEMORY.md to PROJECT/1-INBOX/ for clean sessions. Runs build validation.",
+      inputSchema: {
+        mode: z.enum(["report", "commit", "push"]).default("report").describe("report (default, no git actions), commit (with confirmation), or push (commit + push with confirmations)"),
+        dryRun: z.boolean().default(false).describe("Show what would happen without executing"),
+        force: z.boolean().default(false).describe("Skip all confirmation prompts (use with --push for automation)"),
+        skipValidation: z.boolean().default(false).describe("Skip build validation checks"),
+      },
+      outputSchema: {
+        mode: z.string(),
+        dryRun: z.boolean(),
+        force: z.boolean(),
+        checks: z.array(z.object({
+          check: z.string(),
+          status: z.enum(["ok", "missing", "stale", "dirty", "error"]),
+          message: z.string(),
+        })),
+        gitBranch: z.string(),
+        gitState: z.enum(["clean", "dirty"]),
+        modifiedFiles: z.number(),
+        untrackedFiles: z.number(),
+        stdout: z.string(),
+        stderr: z.string(),
+        exitCode: z.number(),
+      },
+    },
+    async ({ mode = "report", dryRun = false, force = false, skipValidation = false }) => {
+      try {
+        return successResult(
+          await endOfDayHandlers.runEndOfDay({
+            mode: mode as "report" | "commit" | "push",
+            dryRun,
+            force,
+            skipValidation,
+          }),
+        );
       } catch (error) {
         return errorResult(error);
       }

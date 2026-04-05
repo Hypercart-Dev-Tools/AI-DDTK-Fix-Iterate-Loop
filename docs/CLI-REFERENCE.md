@@ -1,6 +1,6 @@
 # AI-DDTK CLI Reference
 
-Complete command reference for all AI-DDTK tools: `pw-auth`, `wpcc`, `local-wp`, `wp-ajax-test`, `aiddtk-tmux`, `tools/valet-site-copy.sh`.
+Complete command reference for all AI-DDTK tools: `pw-auth`, `wpcc`, `local-wp`, `wp-ajax-test`, `aiddtk-tmux`, `tools/valet-site-copy.sh`, `tools/servers-audit.sh`, `tools/servers-preflight.sh`.
 
 **Last Updated:** 2026-03-22  
 **Version:** 1.0.0
@@ -240,6 +240,8 @@ wpcc [options] [paths...]
 - `--baseline <path>` — Use custom baseline file (default: `.hcc-baseline`)
 - `--ignore-baseline` — Ignore baseline file even if present
 - `--enable-clone-detection` — Enable function clone detection
+- `--wpcignore-file <path>` — Use custom `.wpcignore` file (default: auto-detect in scan dir or cwd)
+- `--no-wpcignore` — Disable `.wpcignore` file loading
 - `--help` — Show help message
 
 **Examples:**
@@ -264,6 +266,12 @@ wpcc --severity-config ./custom-severity.json
 
 # Verbose output with all matches
 wpcc --verbose --context-lines 5
+
+# Repo-wide scan using .wpcignore to skip tools/, temp/, etc.
+wpcc --paths .
+
+# Scan without .wpcignore filtering
+wpcc --paths . --no-wpcignore
 ```
 
 **Output:**
@@ -284,6 +292,32 @@ List available detection rules and features.
 ```bash
 wpcc --features
 ```
+
+---
+
+#### `.wpcignore` File
+
+Place a `.wpcignore` file in the scan target directory (or current working directory) to exclude paths from scanning. Uses gitignore-style patterns:
+
+```
+# Directories (trailing slash)
+tools/
+temp/
+vendor/
+node_modules/
+
+# Extension globs
+*.min.js
+*.min.css
+
+# Literal substring
+some-legacy-file.php
+```
+
+**Auto-detection order:**
+1. `<scan-dir>/.wpcignore` (if `--paths` points to a directory)
+2. `./.wpcignore` (current working directory)
+3. `--wpcignore-file <path>` overrides auto-detection
 
 ---
 
@@ -592,6 +626,43 @@ tools/valet-site-copy.sh clone clone-source clone-test-01 --force
 
 # Teardown clone
 tools/valet-site-copy.sh teardown clone-test-01 --yes
+```
+
+---
+
+## servers-audit.sh
+
+**Purpose:** Capture a baseline snapshot of your local development environment — running services, ports, hostnames, DNS config, and Launchd service states — for diffing when things break.
+
+**Location:** `~/bin/ai-ddtk/tools/servers-audit.sh`
+
+```bash
+# Full audit to file
+tools/servers-audit.sh --output ~/bin/servers-audit.md
+
+# Focus on hostname checks
+tools/servers-audit.sh --output ~/bin/servers-audit.md --focus hostname
+
+# Diff against previous snapshot
+tools/servers-audit.sh --output /tmp/servers-now.md --previous-snapshot ~/bin/servers-audit.md
+```
+
+Writes machine-readable artifacts under `temp/servers-audit/<run-id>/`.
+
+---
+
+## servers-preflight.sh
+
+**Purpose:** Interactive pre-check for adding new local development domains — validates that hostnames, ports, and DNS entries won't conflict with existing Local WP sites, Valet links, or Homebrew services.
+
+**Location:** `~/bin/ai-ddtk/tools/servers-preflight.sh`
+
+```bash
+# Check if a domain is safe to add
+tools/servers-preflight.sh check-domain mysite.local
+
+# JSON output for agent consumption
+tools/servers-preflight.sh check-domain mysite.local --json
 ```
 
 ---

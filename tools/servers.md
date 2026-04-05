@@ -10,17 +10,17 @@
 
 1. **Copy this template outside the repo** — Place it somewhere like `~/bin/servers-audit.md` so it lives independently of any project repository.
 
-2. **Run the audit script** — Use `experimental/servers-audit.sh` to populate this document automatically:
+2. **Run the audit script** — Use `tools/servers-audit.sh` to populate this document automatically:
    ```bash
-   experimental/servers-audit.sh --output ~/bin/servers-audit.md
+   tools/servers-audit.sh --output ~/bin/servers-audit.md
    ```
    Useful options:
    ```bash
    # prioritize hostname checks when Local domains vanish unexpectedly
-   experimental/servers-audit.sh --output ~/bin/servers-audit.md --focus hostname
+   tools/servers-audit.sh --output ~/bin/servers-audit.md --focus hostname
 
    # include your previous baseline path for easier manual diff context
-   experimental/servers-audit.sh --output /tmp/servers-now.md --previous-snapshot ~/bin/servers-audit.md
+   tools/servers-audit.sh --output /tmp/servers-now.md --previous-snapshot ~/bin/servers-audit.md
    ```
    The script also writes machine-readable artifacts under `temp/servers-audit/<run-id>/`.
    Or ask an AI agent to run the script and review the results.
@@ -29,7 +29,7 @@
 
 4. **Re-run when things break** — When Local WP throws a hostname conflict or a port collision appears, re-run the script and diff against your last snapshot:
    ```bash
-   experimental/servers-audit.sh --output /tmp/servers-now.md
+   tools/servers-audit.sh --output /tmp/servers-now.md
    diff ~/bin/servers-audit.md /tmp/servers-now.md
    ```
 
@@ -306,7 +306,7 @@ ifconfig lo0 | grep '127\.0\.0\.2'   # should be present if Valet configured it
 
 When asked to perform a server/port audit using this template:
 
-1. Run `experimental/servers-audit.sh` with appropriate flags, or execute the equivalent commands manually if the script is not available.
+1. Run `tools/servers-audit.sh` with appropriate flags, or execute the equivalent commands manually if the script is not available.
 2. Review the output for conflicts — especially ports 80, 443, 3306, 8080, and any Local WP dynamic ports.
 3. Cross-reference `/etc/hosts` entries against currently running Local WP sites — orphaned entries from deleted sites are a common source of hostname conflicts.
 4. Check whether Homebrew services (mysql, nginx, httpd, dnsmasq) overlap with Local WP's managed services.
