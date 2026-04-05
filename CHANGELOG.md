@@ -22,6 +22,7 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **MCP tool: `end_of_day_session_cleanup`** — expose end-of-day.sh as a typed MCP tool (v0.9.0). Agents can call `end_of_day_session_cleanup` with `mode` (report/commit/push), `dryRun`, `force`, `skipValidation` flags. Returns structured check results (4X4.md, CHANGELOG.md, MEMORY.md, build validation), git state (branch, modified files, untracked), and command exit code. Enables VS Code agents to orchestrate session cleanup without shell escaping.
 
 ### Changed
+- **`end-of-day.sh` pluggable build validation** — `validate_build()` now auto-detects and runs PHP syntax checks (up to 200 files), `npm run build` (if `package.json` has a `build` script), and `composer validate` (if `composer.json` exists). Skips gracefully when no validators are detected. Previously only checked a single hardcoded PHP file. MCP handler updated to capture per-validator results.
 - **`servers-audit.sh` and `servers-preflight.sh` promoted to `tools/`** — moved from `experimental/` to `tools/` alongside `servers.md` template. These scripts have received 4+ consecutive hardening releases (Launchd plist parsing, KeepAlive detection, expanded TLD coverage, Valet site discovery) and are no longer experimental. Internal path references (`$SCRIPT_DIR`) are relative and required no changes. CLI-REFERENCE.md updated with new sections for both scripts.
 
 ## [1.8.6] - 2026-04-05

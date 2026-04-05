@@ -96,10 +96,10 @@ export function createEndOfDayHandlers(deps: EndOfDayHandlerDeps) {
             status: line.includes("archived") ? "ok" : "ok",
             message: line,
           });
-        } else if (line.includes("Build validation")) {
+        } else if (line.includes("Build validation") || line.includes("syntax check") || line.includes("npm build") || line.includes("composer validate") || line.includes("No build validators")) {
           checks.push({
             check: "build",
-            status: line.includes("✓") ? "ok" : "error",
+            status: line.includes("✓") || line.includes("ℹ") ? "ok" : "error",
             message: line,
           });
         } else if (line.includes("Branch:")) {

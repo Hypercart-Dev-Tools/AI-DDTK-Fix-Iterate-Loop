@@ -210,17 +210,72 @@ suggest_commit_message() {
 
 validate_build() {
     [ "$SKIP_VALIDATION" -eq 1 ] && return 0
-    
-    # Quick syntax checks
-    if command -v php >/dev/null 2>&1 && [ -f "$REPO_ROOT/tools/wp-code-check/dist/src/index.php" ]; then
-        if ! php -l "$REPO_ROOT/tools/wp-code-check/dist/src/index.php" >/dev/null 2>&1; then
-            emit_event "validate:build" '{"status":"error","message":"PHP syntax error in wp-code-check"}' || return 1
-            return 1
+
+    local checks_run=0
+    local checks_failed=0
+    local errors=""
+
+    # PHP syntax check — runs if php is available and any .php files exist in repo
+    if command -v php >/dev/null 2>&1; then
+        local php_files
+        php_files=$(find "$REPO_ROOT" -name "*.php" -not -path "*/vendor/*" -not -path "*/node_modules/*" -type f 2>/dev/null | head -200)
+        if [ -n "$php_files" ]; then
+            checks_run=$((checks_run + 1))
+            local php_errors=""
+            while IFS= read -r f; do
+                if ! php -l "$f" >/dev/null 2>&1; then
+                    php_errors="${php_errors}${f}\n"
+                fi
+            done <<< "$php_files"
+            if [ -n "$php_errors" ]; then
+                checks_failed=$((checks_failed + 1))
+                errors="${errors}PHP syntax errors found\n"
+                echo "${RED}✗ PHP syntax check failed${NC}"
+            else
+                echo "${GREEN}✓ PHP syntax check passed${NC}"
+            fi
         fi
     fi
-    
-    emit_event "validate:build" '{"status":"ok"}' || return 1
-    echo "${GREEN}✓ Build validation passed${NC}"
+
+    # Node.js build check — runs if package.json exists with a build script
+    if [ -f "$REPO_ROOT/package.json" ] && command -v node >/dev/null 2>&1; then
+        if node -e "const p=require('$REPO_ROOT/package.json'); process.exit(p.scripts && p.scripts.build ? 0 : 1)" 2>/dev/null; then
+            checks_run=$((checks_run + 1))
+            if npm run --prefix "$REPO_ROOT" build --silent >/dev/null 2>&1; then
+                echo "${GREEN}✓ npm build passed${NC}"
+            else
+                checks_failed=$((checks_failed + 1))
+                errors="${errors}npm build failed\n"
+                echo "${RED}✗ npm build failed${NC}"
+            fi
+        fi
+    fi
+
+    # Composer check — runs if composer.json exists with a check-platform-reqs or validate script
+    if [ -f "$REPO_ROOT/composer.json" ] && command -v composer >/dev/null 2>&1; then
+        checks_run=$((checks_run + 1))
+        if composer validate --no-check-all --no-check-publish --working-dir="$REPO_ROOT" >/dev/null 2>&1; then
+            echo "${GREEN}✓ composer validate passed${NC}"
+        else
+            checks_failed=$((checks_failed + 1))
+            errors="${errors}composer validate failed\n"
+            echo "${RED}✗ composer validate failed${NC}"
+        fi
+    fi
+
+    if [ "$checks_run" -eq 0 ]; then
+        echo "${CYAN}ℹ No build validators detected (no PHP, package.json, or composer.json)${NC}"
+        emit_event "validate:build" '{"status":"skipped","message":"No validators detected"}' || return 1
+        return 0
+    fi
+
+    if [ "$checks_failed" -gt 0 ]; then
+        emit_event "validate:build" "{\"status\":\"error\",\"message\":\"$checks_failed/$checks_run checks failed\"}" || return 1
+        return 1
+    fi
+
+    emit_event "validate:build" "{\"status\":\"ok\",\"message\":\"$checks_run/$checks_run checks passed\"}" || return 1
+    echo "${GREEN}✓ Build validation passed ($checks_run checks)${NC}"
     return 0
 }
 
