@@ -13,6 +13,18 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.5] - 2026-04-05
+
+### Added
+- **`experimental/servers-audit.sh` — Launchd service plist parsing (macOS)** — new `parse_launchd_plist()` function extracts RunAtLoad, KeepAlive, program path, and label from Homebrew service plist files. Parses all discovered services and outputs structured JSON to `$RUN_DIR/launchd-services.json` with full details. Enables detection of services configured for auto-start and those with auto-restart behavior, which can silently conflict with Local WP router.
+- **`experimental/servers-audit.sh` — Homebrew auto-start conflict detection** — new high-severity conflict when a Homebrew web service (nginx, httpd, Apache, PHP, Caddy) has `RunAtLoad=true` and Local WP sites are present. Surfaces the exact service labels and their program paths, with remediation steps (`brew services stop` + `brew services disable`). Prevents ports 80/443 conflicts from competing auto-start behaviors.
+- **Markdown report section — Launchd Service Details** — new JSON table in the audit report showing all parsed service metadata (Label, RunAtLoad, KeepAlive, Program, WorkingDirectory, plist path). Useful for manual review and debugging service conflicts on macOS.
+
+### Changed
+- **`experimental/servers-audit.sh` — expanded `/etc/hosts` capture scope** — the `/etc/hosts` domain filter now captures all development TLDs (`.local`, `.test`, `.dev`, `.app`) plus Valet and custom domains, instead of only `.local` and `.test`. The regex now excludes obvious IP addresses while including any non-numeric hostname, improving detection of orphaned domain entries from deleted sites or custom stacks. Artifact: `$RUN_DIR/hosts-dev-domains-sorted.txt`.
+- **`experimental/servers-audit.sh` — extended stale-hosts detection to all dev domains** — the "Potential stale dev hostnames" conflict detection now works across all TLDs (`.local`, `.test`, `.dev`, `.app`) and custom domains, not just `.local`. Searches for `/etc/hosts` entries that don't match current Local WP sites and flags them as medium-severity conflicts with removal steps. Improves detection of orphaned Valet entries and custom dev stack hostnames.
+- **`experimental/servers-preflight.sh` — added Valet site discovery** — `check_domain()` now calls `valet links` (if available) to detect active Valet sites before checking `/etc/hosts`. Blocks adding a domain if it's already claimed by Valet with a clear message and suggests `valet unlink` as remediation. Prevents silent hostname conflicts when both Local WP and Valet manage overlapping domains.
+
 ## [1.8.4] - 2026-04-05
 
 ### Changed

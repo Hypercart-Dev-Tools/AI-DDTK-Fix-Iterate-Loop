@@ -202,6 +202,31 @@ escape_md_cell() {
     printf '%s' "$1" | tr '\n' ' ' | sed -e 's/|/\\|/g'
 }
 
+parse_launchd_plist() {
+    local plist_path="$1"
+    [ -f "$plist_path" ] || return 1
+
+    # Extract RunAtLoad, KeepAlive, and program path using Python's plistlib
+    if [ -n "$PYTHON_BIN" ]; then
+        "$PYTHON_BIN" - "$plist_path" 2>/dev/null <<'PYEOF'
+import plistlib, sys, json
+try:
+    with open(sys.argv[1], 'rb') as f:
+        plist = plistlib.load(f)
+    result = {
+        "RunAtLoad": plist.get("RunAtLoad", False),
+        "KeepAlive": plist.get("KeepAlive", False),
+        "Program": plist.get("ProgramArguments", [""])[0] if plist.get("ProgramArguments") else "",
+        "Label": plist.get("Label", ""),
+        "WorkingDirectory": plist.get("WorkingDirectory", "")
+    }
+    print(json.dumps(result))
+except Exception as e:
+    print(json.dumps({"error": str(e)}))
+PYEOF
+    fi
+}
+
 json_escape() {
     printf '%s' "$1" | sed \
         -e 's/\\/\\\\/g' \
@@ -954,8 +979,42 @@ else
 fi
 
 # Service manager
+LAUNCHD_SERVICES_RAW=""
 if [ "$(uname -s)" = "Darwin" ]; then
     launchctl list 2>/dev/null | grep -Ei 'nginx|httpd|apache|mysql|mariadb|dnsmasq|postgres|php|caddy|local' > "$SERVICE_MANAGER_RAW" || true
+
+    # Extract detailed Launchd service info (RunAtLoad, KeepAlive, program path)
+    LAUNCHD_SERVICES_RAW="$RUN_DIR/launchd-services.json"
+    {
+        echo "["
+        first=1
+        while IFS= read -r line; do
+            [ -n "$line" ] || continue
+            # Extract label from launchctl list output (e.g., "homebrew.mxcl.nginx")
+            service_label=$(echo "$line" | awk '{print $NF}')
+
+            # Find corresponding plist file
+            plist_path=""
+            for search_dir in ~/Library/LaunchAgents /Library/LaunchDaemons /Library/LaunchAgents ~/Library/LaunchDaemons; do
+                if [ -d "$search_dir" ]; then
+                    found="$(find "$search_dir" -maxdepth 1 -name "${service_label}.plist" 2>/dev/null | head -1)"
+                    if [ -n "$found" ]; then
+                        plist_path="$found"
+                        break
+                    fi
+                fi
+            done
+
+            # Parse plist if found
+            if [ -n "$plist_path" ]; then
+                service_json=$(parse_launchd_plist "$plist_path")
+                [ "$first" -eq 1 ] || echo ","
+                echo "$service_json" | sed 's/{/{  "plist_path": "'"$(json_escape "$plist_path")"'", /'
+                first=0
+            fi
+        done < "$SERVICE_MANAGER_RAW"
+        echo "]"
+    } > "$LAUNCHD_SERVICES_RAW" 2>/dev/null || true
 else
     if command -v systemctl >/dev/null 2>&1; then
         systemctl list-units --type=service --all 2>/dev/null | grep -Ei 'nginx|httpd|apache|mysql|mariadb|dnsmasq|postgres|php|caddy|avahi' > "$SERVICE_MANAGER_RAW" || true
@@ -1160,6 +1219,31 @@ if [ -s "$UNRESOLVED_DOMAINS" ]; then
         "while read -r d; do dscacheutil -q host -a name \"\$d\"; done < \"$UNRESOLVED_DOMAINS\""
 fi
 
+# Homebrew services with auto-start conflicts with Local WP
+if [ "$(uname -s)" = "Darwin" ] && [ -s "$LAUNCHD_SERVICES_RAW" ] && [ "$LOCAL_SITE_COUNT" -gt 0 ]; then
+    if command -v jq >/dev/null 2>&1; then
+        local autostart_services
+        autostart_services="$(jq -r '.[] | select(.RunAtLoad == true and (.Label | startswith("homebrew"))) | "\(.Label): \(.Program)"' "$LAUNCHD_SERVICES_RAW" 2>/dev/null || true)"
+
+        if [ -n "$autostart_services" ]; then
+            local web_services
+            web_services="$(echo "$autostart_services" | grep -Ei 'nginx|httpd|apache|php|caddy' || true)"
+
+            if [ -n "$web_services" ]; then
+                add_conflict \
+                    "port" \
+                    "high" \
+                    "Homebrew web services are set to auto-start alongside Local WP router" \
+                    "These services have RunAtLoad=true and may compete with Local WP on ports 80/443:\n$(echo "$web_services" | sed 's/^/- /')" \
+                    "Both Local WP router and a Homebrew service (nginx/httpd/caddy) auto-starting can cause port conflicts and unpredictable routing behavior." \
+                    "brew services list\n# disable auto-start for the non-Local service:\nbrew services stop <service>\nbrew services disable <service>" \
+                    "brew services list | grep -Ei 'nginx|httpd|apache|php|caddy'" \
+                    "brew services list"
+            fi
+        fi
+    fi
+fi
+
 # .local entries with macOS mDNS precedence caveat
 if [ "$(uname -s)" = "Darwin" ] && [ -s "$RUN_DIR/hosts.tsv" ]; then
     local_entry_count="$(awk -F'\t' '$2 ~ /\.local$/ { c++ } END { print c+0 }' "$RUN_DIR/hosts.tsv")"
@@ -1263,6 +1347,12 @@ if [ -s "$SERVICE_MANAGER_RAW" ]; then
     SERVICE_MANAGER_CONTENT="$(cat "$SERVICE_MANAGER_RAW")"
 else
     SERVICE_MANAGER_CONTENT="(no matching services found)"
+fi
+
+if [ "$(uname -s)" = "Darwin" ] && [ -s "$LAUNCHD_SERVICES_RAW" ]; then
+    LAUNCHD_SERVICES_CONTENT="$(cat "$LAUNCHD_SERVICES_RAW" | python3 -m json.tool 2>/dev/null || cat "$LAUNCHD_SERVICES_RAW")"
+else
+    LAUNCHD_SERVICES_CONTENT="(no Launchd service details available)"
 fi
 
 if [ -s "$HOSTS_FILTERED" ]; then
@@ -1374,6 +1464,14 @@ $BREW_SERVICES_CONTENT
 ### Local WP Sites
 \`\`\`
 $LOCAL_SITES_CONTENT
+\`\`\`
+
+### Launchd Service Details (macOS only)
+
+Extracted from service plist files: RunAtLoad status, KeepAlive behavior, and program paths.
+
+\`\`\`json
+$LAUNCHD_SERVICES_CONTENT
 \`\`\`
 
 ### launchd / systemd Services (web/db related)
