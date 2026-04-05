@@ -755,7 +755,7 @@ fi
 
 tail -n +2 "$LISTENERS_TSV" | awk -F'\t' 'NF>=6 && $6 ~ /^[0-9]+$/ { print $6 }' | sort -n -u > "$PORT_COUNTS_TSV"
 
-# /etc/hosts
+# /etc/hosts — capture all dev domains (.local, .test, .dev, .app, Valet, custom)
 if [ -f /etc/hosts ]; then
     awk '
         /^[[:space:]]*#/ { next }
@@ -765,7 +765,11 @@ if [ -f /etc/hosts ]; then
             for (i=2; i<=NF; i++) {
                 host=$i
                 sub(/#.*/, "", host)
-                if (host ~ /\.(local|test)$/) {
+                gsub(/[[:space:]]+/, "", host)
+                if (host == "") next
+                # Capture: .local, .test, .dev, .app, or any non-IP-like domain
+                if (host ~ /\.(local|test|dev|app|localhost)$/ ||
+                    (host !~ /^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$/ && host !~ /^localhost$/)) {
                     print ip "\t" host
                 }
             }
@@ -1100,10 +1104,17 @@ if [ -s "$RUN_DIR/hosts-duplicate-ip.tsv" ]; then
     done < "$RUN_DIR/hosts-duplicate-ip.tsv"
 fi
 
-# Stale .local hosts entries
+# Stale dev domain entries (*.local, *.test, *.dev, *.app, Valet, etc.)
 if [ -s "$HOSTS_DOMAINS" ] && [ -s "$LOCAL_DOMAINS" ]; then
-    awk '/\.local$/ { print }' "$HOSTS_DOMAINS" | sort -u > "$RUN_DIR/hosts-local-only.txt"
+    # Extract all dev-TLD domains from /etc/hosts (not just .local)
+    awk '/\.(local|test|dev|app)$/ { print }' "$HOSTS_DOMAINS" | sort -u > "$RUN_DIR/hosts-dev-domains.txt"
     sort -u "$LOCAL_DOMAINS" > "$RUN_DIR/local-domains-sorted.txt"
+
+    # Also capture Valet/custom domains (anything in /etc/hosts that's not a standard local domain)
+    grep -v '/\.(local|test|dev|app)$' "$HOSTS_DOMAINS" 2>/dev/null >> "$RUN_DIR/hosts-dev-domains.txt" || true
+    sort -u "$RUN_DIR/hosts-dev-domains.txt" > "$RUN_DIR/hosts-dev-domains-sorted.txt"
+
+    # Find domains in /etc/hosts that don't match any active Local WP site
     awk '
         NR == FNR {
             domains[$1]=1
@@ -1117,19 +1128,20 @@ if [ -s "$HOSTS_DOMAINS" ] && [ -s "$LOCAL_DOMAINS" ]; then
                 print host
             }
         }
-    ' "$RUN_DIR/local-domains-sorted.txt" "$RUN_DIR/hosts-local-only.txt" > "$RUN_DIR/stale-local-hosts.txt"
-    stale_count="$(wc -l < "$RUN_DIR/stale-local-hosts.txt" | tr -d ' ')"
+    ' "$RUN_DIR/local-domains-sorted.txt" "$RUN_DIR/hosts-dev-domains-sorted.txt" > "$RUN_DIR/stale-dev-hosts.txt"
+
+    stale_count="$(wc -l < "$RUN_DIR/stale-dev-hosts.txt" | tr -d ' ')"
     if [ "${stale_count:-0}" -gt 0 ]; then
-        stale_preview="$(head -n 20 "$RUN_DIR/stale-local-hosts.txt" | sed 's/^/- /')"
+        stale_preview="$(head -n 20 "$RUN_DIR/stale-dev-hosts.txt" | sed 's/^/- /')"
         add_conflict \
             "hostname" \
             "medium" \
-            "Potential stale Local hostnames in /etc/hosts" \
-            "These \`.local\` entries do not match current Local WP domains:\n$stale_preview" \
-            "Old host entries from deleted/renamed Local sites can hijack name resolution and trigger hostname conflicts." \
-            "cat \"$RUN_DIR/stale-local-hosts.txt\"\n# remove stale lines from /etc/hosts after confirming site retirement." \
-            "grep -Ff \"$RUN_DIR/stale-local-hosts.txt\" /etc/hosts || true" \
-            "cat \"$RUN_DIR/stale-local-hosts.txt\""
+            "Potential stale dev hostnames in /etc/hosts" \
+            "These entries do not match current Local WP domains or active services:\n$stale_preview" \
+            "Old host entries from deleted/renamed Local sites, Valet, or custom dev stacks can hijack name resolution and trigger hostname conflicts." \
+            "cat \"$RUN_DIR/stale-dev-hosts.txt\"\n# remove stale lines from /etc/hosts after confirming site retirement." \
+            "grep -Ff \"$RUN_DIR/stale-dev-hosts.txt\" /etc/hosts || true" \
+            "cat \"$RUN_DIR/stale-dev-hosts.txt\""
     fi
 fi
 

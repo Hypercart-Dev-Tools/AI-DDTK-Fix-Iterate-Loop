@@ -335,6 +335,20 @@ check_domain() {
         fi
     fi
 
+    # Check if domain is an active Valet site
+    if command -v valet >/dev/null 2>&1; then
+        local valet_links
+        valet_links="$(valet links 2>/dev/null | awk '{print $1}' | grep -i "^${lower_domain}$" || true)"
+        if [ -n "$valet_links" ]; then
+            if [ "$INTENT" = "add" ]; then
+                add_finding "block" "domain" "Domain '$target_domain' already exists as a Valet site. Use 'valet unlink' to remove it first."
+            else
+                add_finding "info" "domain" "Domain '$target_domain' is registered as a Valet site."
+            fi
+            return 0
+        fi
+    fi
+
     # Check /etc/hosts for existing entries
     local hosts_match
     hosts_match="$(printf '%s\n' "$HOSTS_SECTION" | grep -i "$lower_domain" || true)"

@@ -13,6 +13,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.8.4] - 2026-04-05
+
+### Changed
+- **`experimental/servers-audit.sh` — expanded `/etc/hosts` capture scope** — the `/etc/hosts` domain filter now captures all development TLDs (`.local`, `.test`, `.dev`, `.app`) plus Valet and custom domains, instead of only `.local` and `.test`. The regex now excludes obvious IP addresses while including any non-numeric hostname, improving detection of orphaned domain entries from deleted sites or custom stacks. Artifact: `$RUN_DIR/hosts-dev-domains-sorted.txt`.
+- **`experimental/servers-audit.sh` — extended stale-hosts detection to all dev domains** — the "Potential stale dev hostnames" conflict detection now works across all TLDs (`.local`, `.test`, `.dev`, `.app`) and custom domains, not just `.local`. Searches for `/etc/hosts` entries that don't match current Local WP sites and flags them as medium-severity conflicts with removal steps. Improves detection of orphaned Valet entries and custom dev stack hostnames.
+- **`experimental/servers-preflight.sh` — added Valet site discovery** — `check_domain()` now calls `valet links` (if available) to detect active Valet sites before checking `/etc/hosts`. Blocks adding a domain if it's already claimed by Valet with a clear message and suggests `valet unlink` as remediation. Prevents silent hostname conflicts when both Local WP and Valet manage overlapping domains.
+
 ## [1.8.3] - 2026-04-03
 
 ### Added
