@@ -209,6 +209,15 @@ fi
 
 SNAPSHOT_CONTENT="$(cat "$SNAPSHOT_PATH")"
 
+# FUTURE: Launchd JSON artifact integration (Phase 2 architectural decision)
+# Currently, servers-preflight reads only the markdown snapshot. To detect KeepAlive
+# services in preflight (e.g., "warn if adding a service that already has KeepAlive=true"),
+# we have two options:
+#   1. Parse the Launchd Service Details JSON section from the markdown report (fragile)
+#   2. Accept optional --launchd-json <path> pointing at servers-audit.sh's launchd-services.json
+# Option 2 is cleaner and keeps preflight fast. Decision TBD when implementing Phase 2.
+# See: https://github.com/Hypercart-Dev-Tools/AI-DDTK-Fix-Iterate-Loop/discussions/launchd-preflight
+
 # Extract sections we need for checks
 extract_section() {
     local header="$1"

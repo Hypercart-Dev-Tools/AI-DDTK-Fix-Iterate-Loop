@@ -1244,6 +1244,26 @@ if [ "$(uname -s)" = "Darwin" ] && [ -s "$LAUNCHD_SERVICES_RAW" ] && [ "$LOCAL_S
     fi
 fi
 
+# KeepAlive services that auto-restart on crash (even after manual stop)
+if [ "$(uname -s)" = "Darwin" ] && [ -s "$LAUNCHD_SERVICES_RAW" ]; then
+    if command -v jq >/dev/null 2>&1; then
+        local keepalive_services
+        keepalive_services="$(jq -r '.[] | select(.KeepAlive == true and (.Label | startswith("homebrew"))) | "\(.Label): \(.Program)"' "$LAUNCHD_SERVICES_RAW" 2>/dev/null || true)"
+
+        if [ -n "$keepalive_services" ]; then
+            add_conflict \
+                "service" \
+                "medium" \
+                "Homebrew services with KeepAlive will auto-restart after manual stop" \
+                "These services have KeepAlive=true and will respawn even if manually killed:\n$(echo "$keepalive_services" | sed 's/^/- /')" \
+                "KeepAlive=true means launchd will restart the service whenever it exits. brew services stop alone is not permanent — you must also unload the plist or use brew services disable." \
+                "brew services list\n# permanently disable:\nbrew services disable <service>\n# or unload directly:\nlaunchctl unload ~/Library/LaunchAgents/<label>.plist" \
+                "launchctl list | grep <label>" \
+                "brew services disable <service>"
+        fi
+    fi
+fi
+
 # .local entries with macOS mDNS precedence caveat
 if [ "$(uname -s)" = "Darwin" ] && [ -s "$RUN_DIR/hosts.tsv" ]; then
     local_entry_count="$(awk -F'\t' '$2 ~ /\.local$/ { c++ } END { print c+0 }' "$RUN_DIR/hosts.tsv")"
