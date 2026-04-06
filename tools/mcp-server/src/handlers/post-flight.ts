@@ -3,19 +3,19 @@ import { ExecFileTextError, execFileText, type ExecFileText, type ExecResult } f
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 
-export type EndOfDayMode = "report" | "commit" | "push";
+export type PostFlightMode = "report" | "commit" | "push";
 
-export type EndOfDayCheckResult = Record<string, unknown> & {
+export type PostFlightCheckResult = Record<string, unknown> & {
   check: string;
   status: "ok" | "missing" | "stale" | "dirty" | "error";
   message: string;
 };
 
-export type EndOfDayResult = Record<string, unknown> & {
-  mode: EndOfDayMode;
+export type PostFlightResult = Record<string, unknown> & {
+  mode: PostFlightMode;
   dryRun: boolean;
   force: boolean;
-  checks: EndOfDayCheckResult[];
+  checks: PostFlightCheckResult[];
   gitBranch: string;
   gitState: "clean" | "dirty";
   modifiedFiles: number;
@@ -25,22 +25,22 @@ export type EndOfDayResult = Record<string, unknown> & {
   exitCode: number;
 };
 
-export interface EndOfDayHandlerDeps {
+export interface PostFlightHandlerDeps {
   repoRoot: string;
   timeoutMs?: number;
   execRunner?: ExecFileText;
 }
 
-export function createEndOfDayHandlers(deps: EndOfDayHandlerDeps) {
+export function createPostFlightHandlers(deps: PostFlightHandlerDeps) {
   const { repoRoot, timeoutMs = DEFAULT_TIMEOUT_MS, execRunner = execFileText } = deps;
-  const scriptPath = path.join(repoRoot, "experimental/end-of-day.sh");
+  const scriptPath = path.join(repoRoot, "experimental/post-flight.sh");
 
-  async function runEndOfDay(options: {
-    mode?: EndOfDayMode;
+  async function runPostFlight(options: {
+    mode?: PostFlightMode;
     dryRun?: boolean;
     force?: boolean;
     skipValidation?: boolean;
-  }): Promise<EndOfDayResult> {
+  }): Promise<PostFlightResult> {
     const { mode = "report", dryRun = false, force = false, skipValidation = false } = options;
 
     const args: string[] = [];
@@ -71,7 +71,7 @@ export function createEndOfDayHandlers(deps: EndOfDayHandlerDeps) {
 
       // Parse stdout for check results and git state
       const lines = result.stdout.split("\n");
-      const checks: EndOfDayCheckResult[] = [];
+      const checks: PostFlightCheckResult[] = [];
       let gitBranch = "unknown";
       let gitState: "clean" | "dirty" = "clean";
       let modifiedFiles = 0;
@@ -157,6 +157,6 @@ export function createEndOfDayHandlers(deps: EndOfDayHandlerDeps) {
     }
   }
 
-  return { runEndOfDay };
+  return { runPostFlight };
 }
 

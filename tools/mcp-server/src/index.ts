@@ -13,7 +13,7 @@ import { createTmuxHandlers } from "./handlers/tmux.js";
 import { createWpAjaxTestHandlers } from "./handlers/wp-ajax-test.js";
 import { createQmHandlers } from "./handlers/qm.js";
 import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, createWpccHandlers } from "./handlers/wpcc.js";
-import { createEndOfDayHandlers } from "./handlers/end-of-day.js";
+import { createPostFlightHandlers } from "./handlers/post-flight.js";
 import { SessionStore, SiteState } from "./state.js";
 import { loadOrGenerateToken, getTokenFilePath } from "./utils/token.js";
 
@@ -165,7 +165,7 @@ export function createServer() {
   const wpAjaxTestHandlers = createWpAjaxTestHandlers({ repoRoot });
   const wpccHandlers = createWpccHandlers({ repoRoot });
   const qmHandlers = createQmHandlers({ getCookiesForSite: (user, domain) => pwAuthHandlers.getCookiesForSite(user, domain), repoRoot });
-  const endOfDayHandlers = createEndOfDayHandlers({ repoRoot });
+  const postFlightHandlers = createPostFlightHandlers({ repoRoot });
 
   const server = new McpServer({
     name: "ai-ddtk-mcp",
@@ -860,10 +860,10 @@ export function createServer() {
   );
 
   server.registerTool(
-    "end_of_day_session_cleanup",
+    "post_flight_session_cleanup",
     {
       description:
-        "Solo developer session cleanup — ensures 4X4.md, CHANGELOG.md, and MEMORY.md are synced. Optionally commits and pushes with confirmation. Archives MEMORY.md to PROJECT/1-INBOX/ for clean sessions. Runs build validation.",
+        "Solo developer post-flight session cleanup — ensures 4X4.md, CHANGELOG.md, and MEMORY.md are synced. Optionally commits and pushes with confirmation. Archives MEMORY.md to PROJECT/1-INBOX/ for clean sessions. Runs build validation.",
       inputSchema: {
         mode: z.enum(["report", "commit", "push"]).default("report").describe("report (default, no git actions), commit (with confirmation), or push (commit + push with confirmations)"),
         dryRun: z.boolean().default(false).describe("Show what would happen without executing"),
@@ -891,7 +891,7 @@ export function createServer() {
     async ({ mode = "report", dryRun = false, force = false, skipValidation = false }) => {
       try {
         return successResult(
-          await endOfDayHandlers.runEndOfDay({
+          await postFlightHandlers.runPostFlight({
             mode: mode as "report" | "commit" | "push",
             dryRun,
             force,

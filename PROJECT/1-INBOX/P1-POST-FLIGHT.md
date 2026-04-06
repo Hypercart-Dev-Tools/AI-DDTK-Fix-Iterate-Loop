@@ -1,10 +1,10 @@
-# End-of-Day Session Cleanup Script
+# Post-Flight Session Cleanup Script
 
 ## Overview
 
 **Status**: ✅ DRAFT COMPLETE
-**Location**: `experimental/end-of-day.sh`
-**Purpose**: Solo developer session cleanup — ensures 4X4.md, CHANGELOG.md, MEMORY.md are synced, optionally commits and pushes.
+**Location**: `experimental/post-flight.sh`
+**Purpose**: Solo developer post-flight session cleanup — ensures 4X4.md, CHANGELOG.md, MEMORY.md are synced, optionally commits and pushes.
 
 ---
 
@@ -20,7 +20,7 @@ The original analysis included pushback on auto-commit/push risks. However, for 
 
 ---
 
-## Analysis & Feedback on "end-of-day" Script
+## Analysis & Feedback on "post-flight" Script
 
 **Good idea.** This addresses a real friction point. But let me push back on scope and add some nuances based on what `servers-preflight.sh` and `servers-audit.sh` do well.
 
@@ -83,13 +83,13 @@ Check:
 
 ```bash
 #!/usr/bin/env bash
-# end-of-day.sh — Session cleanup & doc synchronization
+# post-flight.sh — Session cleanup & doc synchronization
 #
-# Ensures 4X4.md, CHANGELOG.md, MEMORY.md are synced before close-of-day.
+# Ensures 4X4.md, CHANGELOG.md, MEMORY.md are synced after session.
 # Reports findings, suggests fixes, but does NOT auto-commit/push unless --auto-commit.
 #
 # Usage:
-#   end-of-day.sh [--auto-commit] [--push] [--no-validate] [--hook <script>]
+#   post-flight.sh [--auto-commit] [--push] [--no-validate] [--hook <script>]
 #
 # Exit codes:
 #   0 = OK, all docs fresh, working tree clean
@@ -130,7 +130,7 @@ check_changelog() {
 }
 
 check_memory() {
-    # MEMORY.md exists, should be archived at EOD if present
+    # MEMORY.md exists, should be archived at post-flight if present
     # Return: "fresh" | "missing" | "should_archive"
 }
 
@@ -167,7 +167,7 @@ main() {
 
 The agent could call it like:
 ```bash
-end-of-day.sh --hook ./agent-hook.sh --json-events \
+post-flight.sh --hook ./agent-hook.sh --json-events \
   && git log -1 --oneline \
   || echo "Session cleanup needed"
 ```
@@ -189,7 +189,7 @@ Not dumb—it's **solving a real problem**. But I'd recommend:
 1. **Don't auto-commit by default**—make it opt-in with `--auto-commit`
 2. **Use the event/hook pattern** from `servers-audit.sh`—lets agents orchestrate without you baking in every decision
 3. **Validate before committing**—quick syntax check + git state sanity
-4. **Archive MEMORY.md at EOD**—keeps it from growing and cluttering the repo
+4. **Archive MEMORY.md at post-flight**—keeps it from growing and cluttering the repo
 5. **Generate commit messages from diffs**—human-friendly, not "Lazy commit"
 
 **Thoughts? Should I sketch out a full draft?**
@@ -198,13 +198,13 @@ Not dumb—it's **solving a real problem**. But I'd recommend:
 
 ## ✅ Implementation Complete
 
-The script has been drafted and placed at `experimental/end-of-day.sh`.
+The script has been drafted and placed at `experimental/post-flight.sh`.
 
 ### Key Features
 
 #### **Default Behavior (No Flags)**
 ```bash
-end-of-day.sh
+post-flight.sh
 ```
 - ✓ Checks 4X4.md, CHANGELOG.md, MEMORY.md freshness
 - ✓ Archives MEMORY.md if present → `PROJECT/1-INBOX/MEMORY-<timestamp>.md`
@@ -215,7 +215,7 @@ end-of-day.sh
 
 #### **Commit Mode**
 ```bash
-end-of-day.sh --commit
+post-flight.sh --commit
 ```
 - Runs all checks (as above)
 - Prompts: "Continue with commit?" `[y/N]`
@@ -224,7 +224,7 @@ end-of-day.sh --commit
 
 #### **Push Mode**
 ```bash
-end-of-day.sh --push
+post-flight.sh --push
 ```
 - Implies `--commit`
 - After commit, prompts: "Push to remote?" `[y/N]`
@@ -233,7 +233,7 @@ end-of-day.sh --push
 
 #### **Force Mode (Automation)**
 ```bash
-end-of-day.sh --push --force
+post-flight.sh --push --force
 ```
 - Skips ALL confirmation prompts
 - Archives MEMORY.md, commits, pushes automatically
@@ -242,7 +242,7 @@ end-of-day.sh --push --force
 
 #### **Dry-Run Mode**
 ```bash
-end-of-day.sh --push --dry-run
+post-flight.sh --push --dry-run
 ```
 - Shows what WOULD happen, but doesn't execute
 - Useful for testing, previewing before automation
@@ -275,7 +275,7 @@ Keeps MEMORY.md fresh for each session without losing context.
 The script emits **structured events** that agents can hook into:
 
 ```bash
-end-of-day.sh --push --hook ./agent-hook.sh
+post-flight.sh --push --hook ./agent-hook.sh
 ```
 
 **Agent Hook Protocol**: Hook receives `<script> <event-name> '<json-payload>'`
@@ -303,4 +303,4 @@ end-of-day.sh --push --hook ./agent-hook.sh
 - [ ] Pre-commit validation (run tests, linters if configured)
 - [ ] Selective archiving (different locations by file type)
 - [ ] Rollback support (easy undo if push fails)
-- [ ] Config file support (`.end-of-day.toml` per-repo settings)
+- [ ] Config file support (`.post-flight.toml` per-repo settings)

@@ -2,7 +2,7 @@
 
 set -euo pipefail
 
-# ─── end-of-day.sh ──────────────────────────────────────────────────────────
+# ─── post-flight.sh ─────────────────────────────────────────────────────────
 #
 # Session cleanup & documentation synchronization for solo developers.
 #
@@ -10,7 +10,7 @@ set -euo pipefail
 # pushes with a single confirmation prompt.
 #
 # Usage:
-#   end-of-day.sh [OPTIONS]
+#   post-flight.sh [OPTIONS]
 #
 # Options:
 #   --commit              Stage & commit if docs changed (requires confirmation)
@@ -28,19 +28,19 @@ set -euo pipefail
 #
 # Examples:
 #   # Report only (default)
-#   end-of-day.sh
+#   post-flight.sh
 #
 #   # Commit with confirmation
-#   end-of-day.sh --commit
+#   post-flight.sh --commit
 #
 #   # Commit + push with confirmation
-#   end-of-day.sh --push
+#   post-flight.sh --push
 #
 #   # Full automation (no prompts)
-#   end-of-day.sh --push --force
+#   post-flight.sh --push --force
 #
 #   # With agent hook for orchestration
-#   end-of-day.sh --push --hook ./my-agent-hook.sh
+#   post-flight.sh --push --hook ./my-agent-hook.sh
 #
 # Agent Hook Events:
 #   check:4x4 '{"status":"ok|missing|stale|mismatch"}'
@@ -333,7 +333,7 @@ done
 # ─── Main ────────────────────────────────────────────────────────────────────
 
 main() {
-    echo "${BOLD}[end-of-day] 📋 Session Summary${NC}"
+    echo "${BOLD}[post-flight] 📋 Session Summary${NC}"
     echo ""
     
     check_4x4 || true
@@ -342,7 +342,7 @@ main() {
     check_git_state || true
     
     echo ""
-    echo "${BOLD}[end-of-day] 🔍 Validation${NC}"
+    echo "${BOLD}[post-flight] 🔍 Validation${NC}"
     validate_build || true
     
     if [ "$MODE_COMMIT" -eq 0 ]; then
