@@ -6,8 +6,8 @@ set -euo pipefail
 #
 # Session cleanup & documentation synchronization for solo developers.
 #
-# Ensures 4X4.md, CHANGELOG.md, MEMORY.md are synced, optionally commits and
-# pushes with a single confirmation prompt.
+# Checks 4X4.md, CHANGELOG.md freshness, scans Claude Code memory for
+# conflicted duplicates, optionally commits and pushes.
 #
 # Usage:
 #   post-flight.sh [OPTIONS]
@@ -45,11 +45,10 @@ set -euo pipefail
 # Agent Hook Events:
 #   check:4x4 '{"status":"ok|missing|stale|mismatch"}'
 #   check:changelog '{"status":"ok|missing|stale"}'
-#   check:memory '{"status":"fresh|missing|should_archive","path":"..."}'
+#   check:memory-duplicates '{"status":"ok|found|no_dir","duplicates":N,"orphans":N,"broken":N}'
 #   check:git '{"status":"clean|dirty|needs_push","branch":"...","files_changed":N}'
 #   validate:build '{"status":"ok|error","message":"..."}'
 #   suggest:commit '{"message":"...","files":["..."]}'
-#   action:archive '{"from":"...","to":"..."}'
 #   action:commit '{"message":"...","sha":"..."}'
 #   action:push '{"remote":"...","branch":"...","url":"..."}'
 #   complete '{"status":"success|failed","summary":"..."}'
@@ -143,24 +142,117 @@ check_changelog() {
     return 0
 }
 
-check_memory() {
-    if [ ! -f "$REPO_ROOT/MEMORY.md" ]; then
-        emit_event "check:memory" '{"status":"missing"}' || return 1
-        echo "${YELLOW}⚠ MEMORY.md not found (OK)${NC}"
+check_memory_duplicates() {
+    # Scan Claude Code auto-memory directory for conflicted duplicates,
+    # orphaned files, broken index links, and missing frontmatter.
+    #
+    # Memory layout:
+    #   ~/.claude/projects/<project-hash>/memory/MEMORY.md  (index)
+    #   ~/.claude/projects/<project-hash>/memory/<name>.md  (individual memories)
+
+    # Derive the Claude Code memory dir for the current repo root.
+    # Claude Code slugifies the absolute path: / → -
+    local slug
+    slug=$(echo "$REPO_ROOT" | sed 's|/|-|g')
+    local memory_dir="$HOME/.claude/projects/${slug}/memory"
+
+    if [ ! -d "$memory_dir" ]; then
+        emit_event "check:memory-duplicates" '{"status":"no_dir","duplicates":0,"orphans":0,"broken":0}' || return 1
+        echo "${YELLOW}⚠ No Claude Code memory directory found (OK)${NC}"
         return 0
     fi
-    
-    local timestamp
-    timestamp=$(date +%Y%m%d-%H%M%S)
-    local archive_path="$REPO_ROOT/PROJECT/1-INBOX/MEMORY-${timestamp}.md"
-    
-    if [ "$DRY_RUN" -eq 0 ]; then
-        mkdir -p "$(dirname "$archive_path")"
-        mv "$REPO_ROOT/MEMORY.md" "$archive_path"
-        emit_event "action:archive" "{\"from\":\"MEMORY.md\",\"to\":\"$archive_path\"}" || return 1
-        echo "${GREEN}✓ MEMORY.md archived → PROJECT/1-INBOX/MEMORY-${timestamp}.md${NC}"
+
+    local index_file="$memory_dir/MEMORY.md"
+    local duplicates=0
+    local orphans=0
+    local broken_links=0
+    local missing_frontmatter=0
+    local issues=""
+
+    # Collect all .md files in the memory dir (excluding MEMORY.md index)
+    local memory_files=()
+    while IFS= read -r -d '' f; do
+        memory_files+=("$f")
+    done < <(find "$memory_dir" -maxdepth 1 -name "*.md" ! -name "MEMORY.md" -print0 2>/dev/null)
+
+    if [ ${#memory_files[@]} -eq 0 ] && [ ! -f "$index_file" ]; then
+        emit_event "check:memory-duplicates" '{"status":"ok","duplicates":0,"orphans":0,"broken":0}' || return 1
+        echo "${GREEN}✓ Memory: no files to check${NC}"
+        return 0
+    fi
+
+    # --- Check 1: Orphaned files (in dir but not linked from MEMORY.md) ---
+    if [ -f "$index_file" ]; then
+        for mf in "${memory_files[@]}"; do
+            local basename
+            basename=$(basename "$mf")
+            if ! grep -qF "$basename" "$index_file" 2>/dev/null; then
+                orphans=$((orphans + 1))
+                issues="${issues}  orphan: ${basename}\n"
+            fi
+        done
+
+        # --- Check 2: Broken links (referenced in MEMORY.md but file missing) ---
+        while IFS= read -r linked; do
+            if [ ! -f "$memory_dir/$linked" ]; then
+                broken_links=$((broken_links + 1))
+                issues="${issues}  broken link: ${linked}\n"
+            fi
+        done < <(grep -oE '\([^)]+\.md\)' "$index_file" 2>/dev/null | tr -d '()' | sort -u)
     else
-        echo "${GREEN}✓ MEMORY.md would be archived → PROJECT/1-INBOX/MEMORY-${timestamp}.md${NC}"
+        # No index but files exist — all are orphans
+        orphans=${#memory_files[@]}
+        for mf in "${memory_files[@]}"; do
+            issues="${issues}  orphan (no index): $(basename "$mf")\n"
+        done
+    fi
+
+    # --- Check 3: Duplicate topics (same type + similar name/description) ---
+    # Extract type values from frontmatter and look for duplicates within each type
+    declare -A type_files
+    for mf in "${memory_files[@]}"; do
+        local ftype
+        ftype=$(sed -n '/^---$/,/^---$/{ s/^type:[[:space:]]*//p; }' "$mf" 2>/dev/null | head -1)
+        if [ -z "$ftype" ]; then
+            missing_frontmatter=$((missing_frontmatter + 1))
+            issues="${issues}  missing frontmatter: $(basename "$mf")\n"
+            continue
+        fi
+        local bn
+        bn=$(basename "$mf")
+        if [ -n "${type_files[$ftype]+x}" ]; then
+            type_files[$ftype]="${type_files[$ftype]}|$bn"
+        else
+            type_files[$ftype]="$bn"
+        fi
+    done
+
+    # Flag types with 3+ files as potential duplicates (some overlap is normal)
+    for ftype in "${!type_files[@]}"; do
+        local count
+        count=$(echo "${type_files[$ftype]}" | tr '|' '\n' | wc -l | tr -d ' ')
+        if [ "$count" -ge 3 ]; then
+            duplicates=$((duplicates + 1))
+            local file_list
+            file_list=$(echo "${type_files[$ftype]}" | tr '|' ', ')
+            issues="${issues}  possible duplicates (type=$ftype, ${count} files): ${file_list}\n"
+        fi
+    done
+
+    # --- Report ---
+    local total=$((duplicates + orphans + broken_links + missing_frontmatter))
+
+    emit_event "check:memory-duplicates" "{\"status\":\"$([ "$total" -gt 0 ] && echo found || echo ok)\",\"duplicates\":$duplicates,\"orphans\":$orphans,\"broken\":$broken_links,\"missing_frontmatter\":$missing_frontmatter}" || return 1
+
+    if [ "$total" -eq 0 ]; then
+        echo "${GREEN}✓ Memory: ${#memory_files[@]} files, no duplicates or conflicts${NC}"
+    else
+        echo "${YELLOW}⚠ Memory: ${total} issue(s) found (${#memory_files[@]} files checked)${NC}"
+        if [ -n "$issues" ]; then
+            echo -e "$issues" | while IFS= read -r line; do
+                [ -n "$line" ] && echo "  ${YELLOW}${line}${NC}"
+            done
+        fi
     fi
     return 0
 }
@@ -202,7 +294,7 @@ suggest_commit_message() {
     local files_changed
     files_changed=$(git diff --name-only 2>/dev/null | tr '\n' ',' | sed 's/,$//')
     
-    local message="docs: Session cleanup — updated docs and archived MEMORY.md"
+    local message="docs: Session cleanup — updated docs"
     
     emit_event "suggest:commit" "{\"message\":\"$message\",\"files\":\"$files_changed\"}" || return 1
     return 0
@@ -282,7 +374,7 @@ validate_build() {
 do_commit() {
     cd "$REPO_ROOT" || fail "Cannot cd to repo root"
     
-    local message="docs: Session cleanup — updated docs and archived MEMORY.md"
+    local message="docs: Session cleanup — updated docs"
     
     if [ "$DRY_RUN" -eq 0 ]; then
         git add -A
@@ -338,7 +430,7 @@ main() {
     
     check_4x4 || true
     check_changelog || true
-    check_memory || true
+    check_memory_duplicates || true
     check_git_state || true
     
     echo ""

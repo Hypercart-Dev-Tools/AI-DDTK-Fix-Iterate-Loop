@@ -863,7 +863,7 @@ export function createServer() {
     "post_flight_session_cleanup",
     {
       description:
-        "Solo developer post-flight session cleanup — ensures 4X4.md, CHANGELOG.md, and MEMORY.md are synced. Optionally commits and pushes with confirmation. Archives MEMORY.md to PROJECT/1-INBOX/ for clean sessions. Runs build validation.",
+        "Solo developer post-flight session cleanup — checks 4X4.md and CHANGELOG.md freshness, scans Claude Code memory for conflicted duplicates (orphans, broken links, duplicate topics). Optionally commits and pushes with confirmation. Runs build validation.",
       inputSchema: {
         mode: z.enum(["report", "commit", "push"]).default("report").describe("report (default, no git actions), commit (with confirmation), or push (commit + push with confirmations)"),
         dryRun: z.boolean().default(false).describe("Show what would happen without executing"),

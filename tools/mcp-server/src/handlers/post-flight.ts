@@ -90,10 +90,10 @@ export function createPostFlightHandlers(deps: PostFlightHandlerDeps) {
             status: line.includes("✓") ? "ok" : line.includes("⚠") ? "stale" : "error",
             message: line,
           });
-        } else if (line.includes("MEMORY.md")) {
+        } else if (line.includes("Memory:")) {
           checks.push({
-            check: "MEMORY.md",
-            status: line.includes("archived") ? "ok" : "ok",
+            check: "memory-duplicates",
+            status: line.includes("✓") ? "ok" : line.includes("⚠") ? "stale" : "error",
             message: line,
           });
         } else if (line.includes("Build validation") || line.includes("syntax check") || line.includes("npm build") || line.includes("composer validate") || line.includes("No build validators")) {

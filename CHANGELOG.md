@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [1.9.1] - 2026-04-09
+
+### Changed
+- **`experimental/post-flight.sh` — replace MEMORY.md archiving with duplicate detection** — `check_memory()` removed; new `check_memory_duplicates()` scans the Claude Code auto-memory directory (`~/.claude/projects/*/memory/`) for orphaned files not linked from MEMORY.md index, broken index links pointing to missing files, duplicate topics (3+ memory files sharing the same `type` frontmatter), and missing frontmatter. Reports findings without auto-fixing — consistent with the script's read-only default mode. The old archive-to-`PROJECT/1-INBOX/` behavior was misaligned with Claude Code's per-file memory model. MCP handler and tool description updated to reflect the new check. Event name changed from `check:memory` / `action:archive` to `check:memory-duplicates`.
+
 ## [1.9.0] - 2026-04-05
 
 ### Added

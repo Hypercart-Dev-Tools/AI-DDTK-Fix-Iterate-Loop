@@ -175,12 +175,11 @@ post-flight.sh --hook ./agent-hook.sh --json-events \
 The hook receives events like:
 - `check:4x4` — 4X4.md state
 - `check:changelog` — CHANGELOG.md state
-- `check:memory` — MEMORY.md state
+- `check:memory-duplicates` — Claude Code memory duplicate scan results
 - `check:git` — git working tree state
 - `validate:build` — syntax check results
 - `suggest:commit` — proposed commit message
 - `action:commit` — actually committing (agent can gate this)
-- `action:archive` — archiving MEMORY.md
 
 ### 🤔 Still Dumb?
 
@@ -207,7 +206,7 @@ The script has been drafted and placed at `experimental/post-flight.sh`.
 post-flight.sh
 ```
 - ✓ Checks 4X4.md, CHANGELOG.md, MEMORY.md freshness
-- ✓ Archives MEMORY.md if present → `PROJECT/1-INBOX/MEMORY-<timestamp>.md`
+- ✓ Scans Claude Code memory for conflicted duplicates (orphans, broken links, duplicate topics)
 - ✓ Reports git state (dirty, untracked, branch info)
 - ✓ Runs quick build validation (PHP syntax check, etc.)
 - ✓ **NO commit, NO push** — just reporting
@@ -253,7 +252,7 @@ post-flight.sh --push --dry-run
 
 1. **4X4.md** — Exists and accessible
 2. **CHANGELOG.md** — Exists and accessible
-3. **MEMORY.md** — Archives to `PROJECT/1-INBOX/MEMORY-<timestamp>.md`
+3. **Memory Duplicates** — Scans Claude Code auto-memory directory for orphans, broken links, duplicate topics, and missing frontmatter
 4. **Git State** — Current branch, modified files, untracked files
 5. **Build Validation** — PHP syntax check (if available)
 
@@ -263,12 +262,14 @@ Auto-generated:
 docs: Session cleanup — updated docs and archived MEMORY.md
 ```
 
-#### **Archive Behavior**
-If MEMORY.md exists:
-```
-MEMORY.md → PROJECT/1-INBOX/MEMORY-20260405-150230.md
-```
-Keeps MEMORY.md fresh for each session without losing context.
+#### **Memory Duplicate Detection**
+Scans `~/.claude/projects/<project-hash>/memory/` for:
+- Orphaned `.md` files not linked from `MEMORY.md` index
+- Broken links in `MEMORY.md` pointing to missing files
+- Duplicate topics (3+ files with the same `type` frontmatter)
+- Missing frontmatter (`name`, `description`, `type`)
+
+Reports findings only — does not auto-fix or archive.
 
 ### Integration with Agents
 
