@@ -440,6 +440,7 @@ main() {
     if [ "$MODE_COMMIT" -eq 0 ]; then
         echo ""
         echo "${CYAN}ℹ Report complete. Use --commit or --push to commit changes.${NC}"
+        echo "${YELLOW}Reminder: if this work should be live on the remote dev web app server, deploy/push it there separately.${NC}"
         emit_event "complete" '{"status":"success","summary":"Report complete"}' || true
         exit 0
     fi
@@ -465,6 +466,7 @@ main() {
     
     echo ""
     echo "${GREEN}${BOLD}✓ Session closed cleanly${NC}"
+    echo "${YELLOW}Reminder: if this work should be live on the remote dev web app server, deploy/push it there separately.${NC}"
     emit_event "complete" '{"status":"success","summary":"Session closed"}' || true
     exit 0
 }
