@@ -1,5 +1,54 @@
 # Development Server & Port Conflict Audit
 
+> **AI Agent Instructions — Read This First**
+>
+> This file is the **canonical port and service registry** for this machine's local development environment. Before adding any new tool, server, or daemon, agents must:
+>
+> 1. **Read this file** — check the Port Allocation Registry below for conflicts
+> 2. **Assign an unused port** — pick from unallocated ports above 8000; never reuse an existing entry
+> 3. **Add a registry entry** — append a row to the Port Allocation Registry *before* installing
+> 4. **Run the audit** after install: `~/bin/ai-ddtk/tools/servers-audit.sh --output /tmp/servers-now.md`
+> 5. **Verify no new conflicts** — diff output against the previous snapshot if one exists
+> 6. **Update this file** — confirm the entry is correct and annotate with any notes
+>
+> **Port 80 / 443 are a mutex** — only one service holds them at a time:
+> - Dify (Docker): `docker compose up` in `~/Documents/GH Repos/dify/docker`
+> - Valet (WordPress .test sites): `valet start` / `valet stop`
+> - Local WP (WordPress .local sites): start a site in Local WP GUI after `valet stop`
+>
+> Never bind `0.0.0.0:80` or `0.0.0.0:443` from a new service without first checking who holds the mutex.
+
+---
+
+## Port Allocation Registry
+
+Fixed assignments. Never reuse a port. Update this table when adding or removing a service.
+
+| Port | Service | Owner | Hostname | Notes |
+|------|---------|-------|----------|-------|
+| 80 | **MUTEX** — see above | Dify / Valet / Local WP | varies | Only one holder at a time |
+| 443 | **MUTEX** — see above | Valet (HTTPS) | *.test | Only when Valet holds 80 |
+| 3000 | Dify web frontend | Docker | dify.test (internal) | |
+| 3306 | MySQL | Homebrew | localhost | binoid_scratchpad |
+| 5001 | Dify API | Docker | dify.test (internal) | |
+| 5002 | Dify plugin daemon | Docker | dify.test | |
+| 5003 | Dify plugin debug | Docker | dify.test | |
+| 5432 | Homebrew Postgres 17 | Homebrew | localhost | Do not expose Docker Postgres here |
+| 5433 | Dify Postgres (exposed) | Docker | localhost | EXPOSE_POSTGRES_PORT=5433 in .env |
+| 6379 | Dify Redis | Docker | dify.test | |
+| 8080 | Weaviate | Docker | dify.test | |
+| 8194 | Dify sandbox | Docker | dify.test | |
+| 8741 | (reserved — LTVera dev) | TBD | ltvera.test | Nothing listening yet |
+| 11434 | Ollama | Homebrew | localhost | |
+
+**Rules for new services:**
+- Pick an unallocated port above 8000
+- Docker services: bind to `127.0.0.1:<port>` unless cross-compose access is required
+- Add your Valet proxy if you want a clean hostname: `valet proxy <name> --to=http://127.0.0.1:<port>`
+- Add a `/etc/hosts` entry only for `.local` hostnames managed by Local WP (never add manually)
+
+---
+
 **Purpose:** Capture a baseline snapshot of your local development environment — running services, ports, hostnames, and DNS config — so you can diff against it when something breaks unexpectedly.
 
 **Why a snapshot matters:** Services like Local WP, Homebrew daemons, and macOS mDNS can change state without user action — auto-updates, OS patches, background service restarts, or router config reloads. A baseline lets you quickly identify what changed when you get a hostname conflict error or port collision out of nowhere.

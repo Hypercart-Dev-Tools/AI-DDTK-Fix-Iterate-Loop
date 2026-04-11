@@ -14,10 +14,11 @@ import { createWpAjaxTestHandlers } from "./handlers/wp-ajax-test.js";
 import { createQmHandlers } from "./handlers/qm.js";
 import { WPCC_LATEST_REPORT_URI, WPCC_LATEST_SCAN_URI, WPCC_SCAN_URI_TEMPLATE, createWpccHandlers } from "./handlers/wpcc.js";
 import { createPostFlightHandlers } from "./handlers/post-flight.js";
+import { createServersHandlers } from "./handlers/servers.js";
 import { SessionStore, SiteState } from "./state.js";
 import { loadOrGenerateToken, getTokenFilePath } from "./utils/token.js";
 
-const MCP_SERVER_VERSION = "0.9.0";
+const MCP_SERVER_VERSION = "0.10.0";
 const DEFAULT_HTTP_PORT = 3100;
 const MCP_HTTP_PATH = "/mcp";
 const MAX_REQUEST_BODY_BYTES = 1024 * 1024; // 1 MB
@@ -166,6 +167,7 @@ export function createServer() {
   const wpccHandlers = createWpccHandlers({ repoRoot });
   const qmHandlers = createQmHandlers({ getCookiesForSite: (user, domain) => pwAuthHandlers.getCookiesForSite(user, domain), repoRoot });
   const postFlightHandlers = createPostFlightHandlers({ repoRoot });
+  const serversHandlers = createServersHandlers({ repoRoot });
 
   const server = new McpServer({
     name: "ai-ddtk-mcp",
@@ -898,6 +900,112 @@ export function createServer() {
             skipValidation,
           }),
         );
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  // ── Server Registry Tools ─────────────────────────────────────────────────
+
+  server.registerTool(
+    "servers_check_port",
+    {
+      description:
+        "Check whether a port is free, allocated, or a mutex port in the local development server registry (tools/servers.md). Use this before assigning a port to a new service.",
+      inputSchema: {
+        port: z.number().int().min(1).max(65535).describe("Port number to check, e.g. 8025"),
+      },
+      outputSchema: {
+        port: z.number(),
+        status: z.enum(["free", "allocated", "mutex"]),
+        entry: z
+          .object({
+            port: z.number(),
+            service: z.string(),
+            owner: z.string(),
+            hostname: z.string(),
+            notes: z.string(),
+          })
+          .nullable(),
+        registryPath: z.string(),
+      },
+    },
+    async ({ port }) => {
+      try {
+        return successResult(await serversHandlers.checkPort(port));
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "servers_list_registry",
+    {
+      description:
+        "List all entries in the local development server port registry (tools/servers.md). Returns the full allocation table as structured JSON so agents can find free ports without parsing markdown.",
+      outputSchema: {
+        entries: z.array(
+          z.object({
+            port: z.number(),
+            service: z.string(),
+            owner: z.string(),
+            hostname: z.string(),
+            notes: z.string(),
+          }),
+        ),
+        allocatedPorts: z.array(z.number()),
+        mutexPorts: z.array(z.number()),
+        registryPath: z.string(),
+      },
+    },
+    async () => {
+      try {
+        return successResult(await serversHandlers.listRegistry());
+      } catch (error) {
+        return errorResult(error);
+      }
+    },
+  );
+
+  server.registerTool(
+    "servers_add_entry",
+    {
+      description:
+        "Add a new service entry to the local development server port registry (tools/servers.md). Validates that the port is not already allocated and is not a mutex port (80/443) before writing. Returns a conflict object if the port is taken.",
+      inputSchema: {
+        port: z.number().int().min(1).max(65535).describe("Port number to assign, e.g. 8025"),
+        service: z.string().min(1).describe("Service name, e.g. 'Mailpit web UI'"),
+        owner: z.string().min(1).describe("Who manages this service, e.g. 'Homebrew', 'Docker', 'Node'"),
+        hostname: z.string().min(1).describe("Hostname or bind address, e.g. 'localhost' or 'mailpit.test'"),
+        notes: z.string().default("").describe("Optional notes, e.g. 'SMTP on 1025'"),
+      },
+      outputSchema: {
+        added: z.boolean(),
+        entry: z.object({
+          port: z.number(),
+          service: z.string(),
+          owner: z.string(),
+          hostname: z.string(),
+          notes: z.string(),
+        }),
+        conflict: z
+          .object({
+            port: z.number(),
+            service: z.string(),
+            owner: z.string(),
+            hostname: z.string(),
+            notes: z.string(),
+          })
+          .nullable(),
+        registryPath: z.string(),
+        message: z.string(),
+      },
+    },
+    async ({ port, service, owner, hostname, notes = "" }) => {
+      try {
+        return successResult(await serversHandlers.addEntry({ port, service, owner, hostname, notes }));
       } catch (error) {
         return errorResult(error);
       }

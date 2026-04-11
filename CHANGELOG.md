@@ -13,6 +13,17 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.0.0] - 2026-04-11
+
+### Added
+- **MCP tools: `servers_check_port`, `servers_list_registry`, `servers_add_entry`** — three new Server Registry tools in MCP server v0.10.0. `servers_list_registry` returns the full Port Allocation Registry from `tools/servers.md` as structured JSON so agents never need to parse markdown. `servers_check_port` returns `free`, `allocated`, or `mutex` for any given port with the conflicting entry if taken. `servers_add_entry` validates the port is not already allocated or a mutex port (80/443), then writes the new row to `tools/servers.md` with correct table formatting — preventing duplicate ports and malformed table edits. These tools enforce the Server Registry Workflow automatically rather than relying on agents reading instructions.
+- **Server Registry Workflow in `AGENTS.md`** — new "Server Registry Workflow" section and workflow trigger (`"install", "add", "set up" a new server, tool, or daemon`) instructs all agents to read `tools/servers.md`, reserve a port, install, audit, and update before and after adding any networked service.
+- **Port Allocation Registry in `tools/servers.md`** — machine-readable registry table with all known local services (Dify, Valet, Local WP, Homebrew MySQL/Postgres/Ollama, Docker services) and port 80/443 mutex rules. Agents are instructed at the top of the file with a 6-step workflow callout.
+- **Bug fixes: `tools/servers-audit.sh`** — three crashes fixed: (1) `local` keyword used outside a function at lines 1225, 1229, 1250 — replaced with bare variable initialization; (2) `grep -Eq "^${lower_name}$"` with unescaped regex metacharacters from process names containing `(` — changed to `grep -Fxq` (fixed-string whole-line match); (3) broken symlink `~/bin/servers-audit.sh` pointing to non-existent `experimental/servers-audit.sh` — updated to `~/bin/ai-ddtk/tools/servers-audit.sh`.
+
+### Changed
+- **MCP server version bump to v0.10.0** — new Server Registry area added; tool count updated from 23 to 26 across 7 areas in AGENTS.md.
+
 ## [1.9.1] - 2026-04-09
 
 ### Changed

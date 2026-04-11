@@ -358,7 +358,7 @@ classify_manager() {
         fi
     fi
 
-    if [ -n "$BREW_RUNNING_NAMES" ] && printf '%s\n' "$BREW_RUNNING_NAMES" | grep -Eq "^${lower_name}$"; then
+    if [ -n "$BREW_RUNNING_NAMES" ] && printf '%s\n' "$BREW_RUNNING_NAMES" | grep -Fxq "$lower_name"; then
         printf 'Homebrew'
         return
     fi
@@ -1222,11 +1222,11 @@ fi
 # Homebrew services with auto-start conflicts with Local WP
 if [ "$(uname -s)" = "Darwin" ] && [ -s "$LAUNCHD_SERVICES_RAW" ] && [ "$LOCAL_SITE_COUNT" -gt 0 ]; then
     if command -v jq >/dev/null 2>&1; then
-        local autostart_services
+        autostart_services=""
         autostart_services="$(jq -r '.[] | select(.RunAtLoad == true and (.Label | startswith("homebrew"))) | "\(.Label): \(.Program)"' "$LAUNCHD_SERVICES_RAW" 2>/dev/null || true)"
 
         if [ -n "$autostart_services" ]; then
-            local web_services
+            web_services=""
             web_services="$(echo "$autostart_services" | grep -Ei 'nginx|httpd|apache|php|caddy' || true)"
 
             if [ -n "$web_services" ]; then
@@ -1247,7 +1247,7 @@ fi
 # KeepAlive services that auto-restart on crash (even after manual stop)
 if [ "$(uname -s)" = "Darwin" ] && [ -s "$LAUNCHD_SERVICES_RAW" ]; then
     if command -v jq >/dev/null 2>&1; then
-        local keepalive_services
+        keepalive_services=""
         keepalive_services="$(jq -r '.[] | select(.KeepAlive == true and (.Label | startswith("homebrew"))) | "\(.Label): \(.Program)"' "$LAUNCHD_SERVICES_RAW" 2>/dev/null || true)"
 
         if [ -n "$keepalive_services" ]; then

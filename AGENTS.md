@@ -129,7 +129,7 @@ If you need a **persistent background server** (e.g., for HTTP mode or external 
 
 #### Available MCP Tools
 
-The server exposes **23 typed tools** across 6 areas:
+The server exposes **26 typed tools** across 7 areas:
 
 | Area | Tools |
 |------|-------|
@@ -139,6 +139,7 @@ The server exposes **23 typed tools** across 6 areas:
 | **Query Monitor** | `qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries` |
 | **AJAX Testing** | `wp_ajax_test` |
 | **Tmux** | `tmux_start`, `tmux_send`, `tmux_capture`, `tmux_stop`, `tmux_list`, `tmux_status` |
+| **Server Registry** | `servers_check_port`, `servers_list_registry`, `servers_add_entry` |
 
 #### Available MCP Prompts
 
@@ -190,8 +191,25 @@ For detailed command syntax, parameters, examples, and troubleshooting, see:
 | “login to WP admin”, “browser automation”, “inspect DOM” | `pw-auth` |
 | “test this AJAX endpoint” | `wp-ajax-test` |
 | “slow”, “bottleneck”, “profile” | QM profiling (`qm_profile_page`, `qm_slow_queries`, `qm_duplicate_queries`) + WP Performance Timer |
-| “fix”, “verify”, “iterate”, “debug” | Fix-Iterate Loop |
+| “fix”, “verify”, “iterate”, “debug” | Fix-Iterate Loop || "install", "add", "set up" a new server, tool, or daemon | **Server Registry Workflow** (see below) |
 
+### Server Registry Workflow
+
+**Any time a new networked service is installed** (Homebrew daemon, Docker container, local dev server, etc.), run this workflow before and after:
+
+1. **Read the port registry** — `cat ~/bin/ai-ddtk/tools/servers.md` — check for conflicts with the intended port
+2. **Reserve the port** — add a row to the Port Allocation Registry in `tools/servers.md` before installing
+3. **Install and start** the service
+4. **Run the audit** — `~/bin/ai-ddtk/tools/servers-audit.sh --output /tmp/servers-now.md`
+5. **Confirm no new conflicts** in the audit output
+6. **Update the registry entry** with confirmed port, hostname, and any notes
+
+**Port 80/443 are a mutex.** Only one service holds them at a time: Dify (Docker), Valet (*.test), or Local WP (*.local). Never bind `0.0.0.0:80` from a new service without checking first.
+
+**Hostname namespace rules:**
+- `*.local` — managed exclusively by Local WP; never add manually
+- `*.test` — managed by Valet/dnsmasq; add via `valet proxy <name> --to=http://127.0.0.1:<port>`
+- Manual `/etc/hosts` entries for `.test` hostnames **override dnsmasq** — avoid unless intentional
 ### Task Management
 
 Use task tools for complex or multi-step work. Mark tasks complete immediately after finishing them.
