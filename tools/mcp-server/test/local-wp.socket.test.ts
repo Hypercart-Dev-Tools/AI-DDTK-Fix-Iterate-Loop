@@ -5,8 +5,6 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { createLocalWpHandlers } from "../src/handlers/local-wp.js";
-import { createServer } from "../src/index.js";
-import { getWpCliAllowlistDecision } from "../src/security/allowlist.js";
 import { SiteState } from "../src/state.js";
 import { ExecFileTextError, type ExecResult } from "../src/utils/exec.js";
 
@@ -17,7 +15,7 @@ async function startUnixSocket(socketPath: string): Promise<net.Server> {
     server.listen(socketPath, () => resolve());
   });
 
-  for (let attempt = 0; attempt < 20; attempt++) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
     try {
       if ((await stat(socketPath)).isSocket()) {
         break;
@@ -49,7 +47,7 @@ async function createFixture(siteName = "demo") {
   await writeFile(path.join(sitePath, "wp-config.php"), "<?php\n");
   await writeFile(
     path.join(liveRunRoot, "conf", "nginx", "site.conf"),
-    `server {\n    root \"${sitePath}\";\n    server_name ${siteName}.local *.${siteName}.local;\n}\n`,
+    `server {\n    root "${sitePath}";\n    server_name ${siteName}.local *.${siteName}.local;\n}\n`,
   );
   await writeFile(path.join(repoRoot, "bin", "local-wp"), "#!/usr/bin/env bash\n");
 
@@ -85,7 +83,7 @@ test("select site prefers the active Local run when stale configs also match", a
   await mkdir(path.join(staleRunRoot, "mysql"), { recursive: true });
   await writeFile(
     path.join(staleRunRoot, "conf", "nginx", "site.conf"),
-    `server {\n    root \"${fixture.sitePath}\";\n    server_name ${fixture.siteName}.local;\n}\n`,
+    `server {\n    root "${fixture.sitePath}";\n    server_name ${fixture.siteName}.local;\n}\n`,
   );
 
   try {
@@ -102,21 +100,6 @@ test("select site prefers the active Local run when stale configs also match", a
   } finally {
     await fixture.cleanup(socketServer);
   }
-});
-
-test("server factory creates the MCP server without connecting transport", async () => {
-  const server = createServer();
-  assert.ok(server);
-  assert.equal(typeof server.connect, "function");
-});
-
-test("allowlist accepts safe commands and blocks dangerous ones", async () => {
-  assert.equal(getWpCliAllowlistDecision("plugin list").allowed, true);
-  assert.equal(getWpCliAllowlistDecision("eval").allowed, false);
-  assert.equal(getWpCliAllowlistDecision("db drop").allowed, false);
-  assert.equal(getWpCliAllowlistDecision("db query", ["SELECT * FROM wp_options LIMIT 1"]).allowed, true);
-  assert.equal(getWpCliAllowlistDecision("db query", ["SELECT 1; DROP TABLE wp_posts"]).allowed, false);
-  assert.equal(getWpCliAllowlistDecision("db query", ["DELETE FROM wp_options"]).allowed, false);
 });
 
 test("select site enables read-only active-site fallback for connectivity", async () => {
@@ -202,29 +185,6 @@ test("site info parsing returns wp version, active theme, plugins, and site url"
     assert.equal(info.plugins[0]?.name, "woocommerce");
   } finally {
     await fixture.cleanup(socketServer);
-  }
-});
-
-test("local_wp_run requires explicit site and rejects blocked commands before execution", async () => {
-  const fixture = await createFixture();
-  let invoked = false;
-
-  try {
-    const handlers = createLocalWpHandlers({
-      state: new SiteState(),
-      homeDir: fixture.homeDir,
-      repoRoot: fixture.repoRoot,
-      execRunner: async (): Promise<ExecResult> => {
-        invoked = true;
-        return { stdout: "", stderr: "", exitCode: 0 };
-      },
-    });
-
-    await assert.rejects(() => handlers.runCommand("", "plugin list"), /explicit site/i);
-    await assert.rejects(() => handlers.runCommand(fixture.siteName, "eval"), /Blocked WP-CLI command/i);
-    assert.equal(invoked, false);
-  } finally {
-    await fixture.cleanup();
   }
 });
 

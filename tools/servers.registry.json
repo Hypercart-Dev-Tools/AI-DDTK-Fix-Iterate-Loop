@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "mutexEntries": [
+    {
+      "port": 80,
+      "service": "Local WP (`127.0.0.1`) + Valet (`127.0.0.2`)",
+      "owner": "Local WP + Valet",
+      "hostname": "`*.local` / `*.test`",
+      "notes": "Coexist on separate IPs — never bind `0.0.0.0:80`"
+    },
+    {
+      "port": 443,
+      "service": "Local WP (`127.0.0.1`) + Valet (`127.0.0.2`)",
+      "owner": "Local WP + Valet",
+      "hostname": "`*.local` / `*.test`",
+      "notes": "Same coexistence as port 80"
+    }
+  ],
+  "entries": [
+    {
+      "port": 3306,
+      "service": "MySQL",
+      "owner": "Homebrew",
+      "hostname": "localhost",
+      "notes": "_(add database name)_"
+    },
+    {
+      "port": 5432,
+      "service": "PostgreSQL",
+      "owner": "Homebrew",
+      "hostname": "localhost",
+      "notes": "Do NOT expose Docker Postgres here — use a unique high port"
+    },
+    {
+      "port": 11434,
+      "service": "Ollama",
+      "owner": "Homebrew",
+      "hostname": "localhost",
+      "notes": "Local LLM server"
+    }
+  ],
+  "ranges": [
+    {
+      "label": "8000–9999",
+      "service": "_(reserved range for user services)_",
+      "owner": "—",
+      "hostname": "—",
+      "notes": "Pick from here for new services"
+    }
+  ]
+}

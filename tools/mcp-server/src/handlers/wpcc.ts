@@ -1,12 +1,15 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
+import * as z from "zod/v4";
 import { ExecFileTextError, execFileText, type ExecFileText, type ExecResult } from "../utils/exec.js";
+import { parseJsonWithSchema } from "../utils/json-schema.js";
 
 const DEFAULT_TIMEOUT_MS = 300_000;
 const DEFAULT_MAX_BUFFER = 25 * 1024 * 1024;
 const DEFAULT_SCAN_RESOURCE_LIMIT = 10;
 const JSON_MIME_TYPE = "application/json";
 const HTML_MIME_TYPE = "text/html";
+const wpccScanSchema = z.record(z.string(), z.unknown());
 
 export const WPCC_LATEST_SCAN_URI = "wpcc://latest-scan";
 export const WPCC_LATEST_REPORT_URI = "wpcc://latest-report";
@@ -244,7 +247,7 @@ export function createWpccHandlers(deps: WpccHandlerDeps) {
       let scan: Record<string, unknown> | null = null;
 
       if (logPath) {
-        scan = JSON.parse(await readFile(logPath, "utf8")) as Record<string, unknown>;
+        scan = parseJsonWithSchema(await readFile(logPath, "utf8"), wpccScanSchema, "WPCC scan log");
       } else if (result.exitCode === 0) {
         throw new Error("WPCC scan completed but no JSON log file could be determined.");
       }

@@ -1,0 +1,80 @@
+#!/bin/bash
+# local-nginx-shim — Wrapper around Local WP's bundled nginx binary.
+#
+# Purpose: Rewrite Local WP's router nginx config to bind 127.0.0.1:80 instead
+# of 0.0.0.0:80 (wildcard), so Local WP can coexist with Valet on 127.0.0.2:80.
+#
+# Local WP regenerates its router config from templates in the protected app
+# bundle on every router start — we can't patch the template, so we patch the
+# *generated* config just before nginx reads it. This shim sits in place of
+# Local WP's nginx binary and:
+#
+#   1. Receives the original args from Local WP (including `-c <config>`)
+#   2. If the config path is a Local WP router config, rewrites `listen 80` →
+#      `listen 127.0.0.1:80` in the config file AND its sibling includes
+#      (server-block.conf, server-block-ssl.conf)
+#   3. Exec's the real nginx binary (renamed `nginx.real`) with all args
+#
+# Per-site nginx configs (which live in `run/<site-id>/conf/nginx/`, not
+# `run/router/nginx/conf/`) are left untouched — they use high ports, not 80/443.
+#
+# Marker line below is used by the installer to detect an already-shimmed install.
+# MARKER: local-nginx-shim v1
+
+set -euo pipefail
+
+SHIM_DIR="$(cd "$(dirname "$0")" && pwd)"
+REAL_NGINX="$SHIM_DIR/nginx.real"
+
+if [ ! -x "$REAL_NGINX" ]; then
+  echo "local-nginx-shim: FATAL — $REAL_NGINX not found or not executable" >&2
+  echo "local-nginx-shim: run experimental/local-nginx-shim-install.sh to repair" >&2
+  exit 127
+fi
+
+# --- Extract -c <config> from argv ---
+CONFIG=""
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "-c" ]; then
+    CONFIG="$arg"
+    break
+  fi
+  prev="$arg"
+done
+
+# --- Patch only if the config path looks like Local WP's ROUTER config ---
+# Router configs live at: .../Local/run/router/nginx/conf/nginx.conf
+# Per-site configs live at: .../Local/run/<site-id>/conf/nginx/nginx.conf
+# We only touch router configs.
+if [ -n "$CONFIG" ] && [ -f "$CONFIG" ] && [[ "$CONFIG" == */run/router/nginx/conf/* ]]; then
+  CONFIG_DIR="$(dirname "$CONFIG")"
+
+  # Patch the main nginx.conf in place: wildcard port 80 → 127.0.0.1:80
+  # Only patch if it actually has a wildcard bind (idempotent, safe to re-run)
+  if grep -q 'listen 80 default_server' "$CONFIG" 2>/dev/null; then
+    sed -i '' \
+      -e 's|listen 80 default_server;|listen 127.0.0.1:80 default_server;|' \
+      -e 's|listen \[::\]:80 default_server;|listen [::1]:80 default_server;|' \
+      "$CONFIG"
+  fi
+
+  # Patch server-block.conf (included by every .local site's HTTP server block)
+  if [ -f "$CONFIG_DIR/server-block.conf" ] && grep -q 'listen 80;' "$CONFIG_DIR/server-block.conf" 2>/dev/null; then
+    sed -i '' \
+      -e 's|listen 80;|listen 127.0.0.1:80;|' \
+      -e 's|listen \[::\]:80;|listen [::1]:80;|' \
+      "$CONFIG_DIR/server-block.conf"
+  fi
+
+  # Patch server-block-ssl.conf (HTTPS counterpart — port 443 has same issue)
+  if [ -f "$CONFIG_DIR/server-block-ssl.conf" ] && grep -q 'listen 443 ssl;' "$CONFIG_DIR/server-block-ssl.conf" 2>/dev/null; then
+    sed -i '' \
+      -e 's|listen 443 ssl;|listen 127.0.0.1:443 ssl;|' \
+      -e 's|listen \[::\]:443 ssl;|listen [::1]:443 ssl;|' \
+      "$CONFIG_DIR/server-block-ssl.conf"
+  fi
+fi
+
+# --- Hand off to the real nginx ---
+exec "$REAL_NGINX" "$@"

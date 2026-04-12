@@ -1,7 +1,7 @@
 {
   "name": "ai-ddtk-mcp",
-  "version": "0.10.0",
-  "description": "AI-DDTK MCP server for LocalWP, pw-auth, wp-ajax-test, tmux, WPCC, Query Monitor, post-flight session cleanup, and server port registry workflows",
+  "version": "0.11.1",
+  "description": "AI-DDTK MCP server for LocalWP, pw-auth, wp-ajax-test, tmux, WPCC, Query Monitor, post-flight session cleanup, server port registry, and live environment probes",
   "type": "module",
   "main": "dist/src/index.js",
   "bin": {
@@ -13,7 +13,10 @@
     "mcp": "node dist/src/index.js",
     "mcp:http": "node dist/src/index.js --http",
     "start": "npm run mcp",
-    "test": "npm run build && node --test dist/test/*.test.js"
+    "test": "npm run test:unit",
+    "test:unit": "npm run build && node --test dist/test/*.unit.test.js dist/test/pw-auth.test.js dist/test/qm.test.js dist/test/tmux.test.js dist/test/wp-ajax-test.test.js dist/test/wpcc.test.js",
+    "test:socket": "npm run build && node --test dist/test/*.socket.test.js",
+    "test:all": "npm run test:unit && npm run test:socket"
   },
   "keywords": [
     "mcp",

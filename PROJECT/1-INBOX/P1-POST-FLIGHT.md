@@ -1,3 +1,13 @@
+---
+title: "Post-Flight Session Cleanup Script"
+status: inbox
+priority: P1
+created: 2026-04-11
+updated: 2026-04-11
+author: noelsaw
+goal: 
+---
+
 # Post-Flight Session Cleanup Script
 
 ## Overview

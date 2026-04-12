@@ -3,9 +3,63 @@ import { mkdir, writeFile } from "node:fs/promises";
 import https from "node:https";
 import http from "node:http";
 import path from "node:path";
+import * as z from "zod/v4";
+import { parseJsonWithSchema } from "../utils/json-schema.js";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 const PROFILE_RETRIEVE_DELAY_MS = 500;
+
+const qmQuerySchema = z.object({
+  i: z.number(),
+  sql: z.string(),
+  time: z.number(),
+  stack: z.array(z.string()),
+  result: z.union([z.number(), z.string()]),
+}).passthrough();
+
+const qmProfileDataSchema = z.object({
+  overview: z.object({
+    time_taken: z.number(),
+    time_limit: z.number(),
+    time_usage: z.number(),
+    memory: z.number(),
+    memory_limit: z.number(),
+    memory_usage: z.number(),
+  }).nullable(),
+  db_queries: z.union([
+    z.object({
+      total: z.number(),
+      time: z.number(),
+      queries: z.array(qmQuerySchema),
+      dupes: z.object({
+        total: z.number(),
+        queries: z.record(z.string(), z.array(z.number())),
+      }).optional(),
+      errors: z.object({
+        total: z.number(),
+        errors: z.array(z.record(z.string(), z.unknown())),
+      }).optional(),
+    }).passthrough(),
+    z.record(z.string(), z.never()),
+  ]),
+  cache: z.object({
+    hit_percentage: z.number().nullable(),
+    hits: z.number().nullable(),
+    misses: z.number().nullable(),
+  }).passthrough(),
+  http: z.unknown(),
+  logger: z.unknown(),
+  transients: z.unknown(),
+  conditionals: z.unknown(),
+  _meta: z.object({
+    nonce: z.string(),
+    url: z.string(),
+    method: z.string(),
+    status: z.number(),
+    timestamp: z.string(),
+    qm_version: z.string(),
+  }),
+}).passthrough();
 
 export interface QmQuery {
   i: number;
@@ -287,7 +341,7 @@ export function createQmHandlers(deps: QmHandlerDeps) {
       throw new Error(`Failed to retrieve QM profile (HTTP ${profileRes.statusCode}): ${profileRes.body.slice(0, 200)}`);
     }
 
-    const profileData = JSON.parse(profileRes.body) as QmProfileData;
+    const profileData = parseJsonWithSchema(profileRes.body, qmProfileDataSchema, "Query Monitor profile response") as QmProfileData;
 
     // Persist profile to temp/qm-profiles/<domain>-<timestamp>.json
     try {

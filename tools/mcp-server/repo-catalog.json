@@ -1,0 +1,2534 @@
+[
+  {
+    "path": ".ai-ddtk.config",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".github/workflows/ci-mcp-server.yml",
+    "area": ".github",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".github/workflows/sync-wpcc.yml",
+    "area": ".github",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".github/workflows/weekly-ux-audit.yml",
+    "area": ".github",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".gitignore",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".mcp.README.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": ".mcp.json",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".mcp.local.example.json",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".vscode/launch.json",
+    "area": ".vscode",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".vscode/tasks.json",
+    "area": ".vscode",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": ".wpcignore",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "4X4.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "AGENTS.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "CHANGELOG.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "CLAUDE.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "LICENSE",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "MEMORY.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "NOTICE",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/1-INBOX/P1-MCP-SERVER.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/1-INBOX/P1-PLAYWRIGHT.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/1-INBOX/P1-POST-FLIGHT.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/1-INBOX/P1-UX-REFACTOR.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/1-INBOX/P2-DISCOVERY-PREFLIGHT.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/1-INBOX/P3-AUTO-LOGIN.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/1-INBOX/P3-ROADMAP-PERPLEXITY.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/1-INBOX/P3-VSCODE-AGENT.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/2-WORKING/P3-WP-MCP-ADAPTER.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/3-DONE/P1-AUDIT-MATT.md",
+    "area": "PROJECT",
+    "lifecycle_class": "archive-candidate",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/3-DONE/P1-INSTALL-SH.md",
+    "area": "PROJECT",
+    "lifecycle_class": "archive-candidate",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/3-DONE/P1-SCD-FEEDBACK.md",
+    "area": "PROJECT",
+    "lifecycle_class": "archive-candidate",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/3-DONE/blank.md",
+    "area": "PROJECT",
+    "lifecycle_class": "archive-candidate",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/4-MISC/UX-AUDIT-WEEKLY-CANDIDATE.md",
+    "area": "PROJECT",
+    "lifecycle_class": "archive-candidate",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/DOCS-INSTRUCTIONS.md",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "PROJECT/project.sh",
+    "area": "PROJECT",
+    "lifecycle_class": "project-tracking",
+    "status": "tracked"
+  },
+  {
+    "path": "README-AI-DDTK.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "README.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/aiddtk-tmux",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/k6-harness",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/k6-smart-coupons",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/local-wp",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/mcp-local-config",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/pw-auth",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/pw-auth-helpers/auth-flow.js",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/pw-auth-helpers/dom-check.js",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/pw-auth-helpers/parse-prefix.js",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/pw-auth-helpers/require-playwright.js",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/pw-auth-helpers/url-origin.js",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/wp-ajax-test",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "bin/wpcc",
+    "area": "bin",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "composer.json",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "composer.lock",
+    "area": "root",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/CI-CD-INTEGRATION.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/CLI-REFERENCE.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/INSTALL-AGENT-NOTES.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/LOCAL-WP-COMMANDS.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/MCP-ADAPTER-SETUP.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/PW-AUTH-COMMANDS.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/TROUBLESHOOTING.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/WORDPRESS-TESTING-QUICKSTART.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/WPCC-COMMANDS.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "docs/mcp-adapter-abilities.md",
+    "area": "docs",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/ci-cd/github-actions.yml",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/ci-cd/gitlab-ci.yml",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/mcp/local-snippet.example.json",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/playwright-basics/01-setup.js",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/playwright-basics/02-form-submission.js",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/playwright-basics/03-menu-check.js",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/playwright-basics/04-db-query.js",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/playwright-basics/05-common-patterns.js",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/playwright-basics/README.md",
+    "area": "examples",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "examples/playwright-basics/package.json",
+    "area": "examples",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/AGENTS-V2.md",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/README.md",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/README.md",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/WP-WSC-PROFILE.md",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/WPCC-WSC-REPORT.html",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/README.md",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/compare-cachegrind.py",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/profile-callers.py",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/pw-qm-check.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/pw-xdebug-profile-run.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/woo-smart-coupons-discovery.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/woo-smart-coupons.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/woo-storefront.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/wp-baseline.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/k6/scripts/xdebug-info.php",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/post-flight.sh",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/preflight.md",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/theme-crash-loop.sh",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/.eslintrc.json",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/.gitignore",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/.vscode/launch.json",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/.vscode/tasks.json",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/CHANGELOG.md",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/README.md",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/package.json",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/src/commands.ts",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/src/extension.ts",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/src/manager.ts",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/src/mcpConfig.ts",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/src/statusBar.ts",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/vscode-extension/tsconfig.json",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/wire-project",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/woo-cart-probes/.env.example",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/woo-cart-probes/k6-loggedin-cart-probe.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/woo-cart-probes/pw-guest-cart-probe.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "experimental/woo-cart-probes/pw-loggedin-cart-probe.js",
+    "area": "experimental",
+    "lifecycle_class": "experimental",
+    "status": "tracked"
+  },
+  {
+    "path": "fix-iterate-loop.md",
+    "area": "root",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "install.sh",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "local-wp",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "package-lock.json",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "phpstan.neon",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "preflight.sh",
+    "area": "root",
+    "lifecycle_class": "uncategorized",
+    "status": "tracked"
+  },
+  {
+    "path": "recipes/fix-iterate-loop.md",
+    "area": "recipes",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "recipes/integration-test-update-options.md",
+    "area": "recipes",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "recipes/performance-audit.md",
+    "area": "recipes",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "recipes/phpstan-wordpress-setup.md",
+    "area": "recipes",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "recipes/seed-test-content.md",
+    "area": "recipes",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "recipes/valet-clone-lab.md",
+    "area": "recipes",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "recipes/weekly-ux-audit.md",
+    "area": "recipes",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "temp/.gitkeep",
+    "area": "temp",
+    "lifecycle_class": "temporary",
+    "status": "tracked"
+  },
+  {
+    "path": "temp/[CLIENT]-CHILDTHEME-HANDOFF.md",
+    "area": "temp",
+    "lifecycle_class": "temporary",
+    "status": "tracked"
+  },
+  {
+    "path": "temp/mcp/local-snippets/.gitkeep",
+    "area": "temp",
+    "lifecycle_class": "temporary",
+    "status": "tracked"
+  },
+  {
+    "path": "temp/mcp/notes/.gitkeep",
+    "area": "temp",
+    "lifecycle_class": "temporary",
+    "status": "tracked"
+  },
+  {
+    "path": "templates/.mcp.json",
+    "area": "templates",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "templates/.wpcignore.template",
+    "area": "templates",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "templates/ai-ddtk-abilities.php",
+    "area": "templates",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "templates/dev-login-cli.php",
+    "area": "templates",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "templates/phpstan.neon.template",
+    "area": "templates",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "test/Dockerfile",
+    "area": "test",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "test/test-install.sh",
+    "area": "test",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "test/test-update-options-ability.php",
+    "area": "test",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "test/test-wrapper-cleanup.sh",
+    "area": "test",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/.gitkeep",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/README.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/mcp-configs/claude-desktop.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/mcp-configs/cline.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/mcp-configs/cursor.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/mcp-configs/vscode.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/package-lock.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/package.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/handlers/local-wp.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/handlers/post-flight.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/handlers/pw-auth.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/handlers/qm.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/handlers/servers.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/handlers/tmux.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/handlers/wp-ajax-test.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/handlers/wpcc.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/index.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/security/allowlist.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/state.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/utils/exec.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/src/utils/token.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/start.sh",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/test/pw-auth.test.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/test/qm.test.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/test/tmux.test.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/test/wp-ajax-test.test.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/test/wpcc.test.ts",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/mcp-server/tsconfig.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/qm-bridge/ai-ddtk-qm-bridge.php",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/qm-bridge/ai-ddtk-test-delays.php",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/servers-audit-bugs.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/servers-audit.sh",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/servers-preflight.sh",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/servers.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/ux-audit.sh",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/valet-site-copy.sh",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-ajax-test/.gitignore",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-ajax-test/AI-INSTRUCTIONS.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-ajax-test/README.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-ajax-test/ROADMAP.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-ajax-test/index.js",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-ajax-test/install.sh",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-ajax-test/package.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.augment/rules/data-services-debugging.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.github/CLA-SIGNATURES.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.github/PULL_REQUEST_TEMPLATE.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.github/workflows/README.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.github/workflows/ci.yml",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.github/workflows/wp-performance.yml",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.gitignore",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.gitleaks.toml",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/.npmrc",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/AGENTS.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/CHANGELOG.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/CLA-CORPORATE.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/CLA.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/CONTRIBUTING.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/DISCLOSURE-POLICY.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/DISTRIBUTION-README.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/FAQS.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/LICENSE",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/LICENSE-COMMERCIAL.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/LICENSE-SUMMARY.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PACKAGE-SUMMARY.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/2-WORKING/BACKLOG.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/2-WORKING/P1-IRL-DSM-FP-01.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/3-COMPLETED/NEXT-CALIBRATION.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/3-COMPLETED/PROJECT-AUTOMATION.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/4-MISC/MARKETING.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/4-MISC/PROJECT-LOGIC-DUPLICATION.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/DOCS-INSTRUCTIONS.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/EXAMPLES/GITHUB-ISSUE-PROTOTYPE.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/PROJECT/MARKETING-X-POSTS-GOLDEN-RULES.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/README.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/SHELL-QUICKSTART.md",
+    "area": "tools",
+    "lifecycle_class": "documentation",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/.github/workflows/wp-performance.yml",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/PATTERN-LIBRARY.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/PATTERN-LIBRARY.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/PHP-JSON-CONVERTER-GUIDE.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/TEMPLATES/_AI_INSTRUCTIONS.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/.gitignore-integrations-template",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/MCP-README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/MCP-TEST-CLIENT-README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/MCP-TESTING-GUIDE.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/MCP-TESTING-QUICKSTART.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/PATTERN-LIBRARY-MANAGER-README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/ai-triage.py",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/check-pattern-library-json.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/check-performance.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/create-github-issue.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/detect-wc-coupon-in-thankyou.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/detect-wc-smart-coupons-perf.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/experimental/README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/experimental/golden-rules-analyzer.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/find-dry.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/fixtures/wp-json-html-escape.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/format-slack-message.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/json-to-html.py",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/json-to-html.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/lib/colors.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/lib/common-helpers.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/lib/false-positive-filters.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/lib/json-helpers.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/mcp-server.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/mcp-test-client.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/mcp-test-suite.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/merge-json-scans.py",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/pattern-library-manager.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/post-to-slack.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/pre-commit-credential-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/report-templates/report-template.html",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/run",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/scan-and-merge.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/templates/report-template.html",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/test-slack-integration.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/validators/context-pattern-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/validators/superglobal-manipulation-validator.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/wc-coupon-thankyou-snippet.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/wp-audit",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/bin/wp-check-completion.bash",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/config/CONFIG-README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/config/severity-levels.example.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/config/severity-levels.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/issues/.gitignore",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/issues/README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/lib/pattern-loader.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/logs/.gitkeep",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/ajax-polling-unbounded.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/array-merge-in-loop.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/asset-version-time.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/db-query-in-constructor.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/disallowed-php-short-tags.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/dry/README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/duplicate-capability-strings.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/duplicate-functions.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/duplicate-option-names.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/duplicate-transient-keys.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/file-get-contents-url.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/get-users-no-limit.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/hcc-005-expensive-polling.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/headless/api-key-exposure.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/headless/fetch-no-error-handling.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/headless/graphql-no-error-handling.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/headless/hardcoded-wordpress-url.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/headless/missing-auth-headers.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/headless/nextjs-missing-revalidate.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/http-no-timeout.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/js/duplicate-storage-keys.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/kiss-sbi.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/like-leading-wildcard.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/limit-multiplier-from-count.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/nodejs/command-injection.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/nodejs/eval-injection.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/nodejs/path-traversal.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/nodejs/unhandled-promise.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/nopaging-true.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/order-by-rand.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/php-dynamic-include.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/php-eval-injection.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/php-hardcoded-credentials.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/php-shell-exec-functions.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/php-user-controlled-file-write.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/pre-get-posts-unbounded.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/rest-no-pagination.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/spo-002-superglobal-manipulation.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/superglobal-with-nonce-context.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/timezone-sensitive-code.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/transient-no-expiration.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/unbounded-numberposts.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/unbounded-posts-per-page.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/unbounded-sql-terms.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/unbounded-wc-get-orders.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/unbounded-wc-get-products.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/unsanitized-superglobal-isset-bypass.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/unsanitized-superglobal-read.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/wc-coupon-in-thankyou.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/wc-smart-coupons-thankyou-perf.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/wcs-no-limit.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/wp-json-html-escape.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/wp-query-unbounded.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/wp-user-query-meta-bloat.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/patterns/wpdb-query-no-prepare.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/reports/.gitkeep",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/reports/2026-01-07-163420-UTC-triage.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/reports/wp-security-audit-log-irl-scan.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/stdout.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/test-cached-grep.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/Dockerfile",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/expected/fixture-expectations.json",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/admin-no-capability.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/ajax-antipatterns.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/ajax-antipatterns.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/ajax-safe.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/antipatterns.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/array-merge-in-loop.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/clean-code.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/cron-interval-validation.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/db-query-in-constructor.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/dry/duplicate-capabilities.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/dry/duplicate-functions.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/dry/duplicate-options.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/dry/duplicate-transients.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/dry/file-a.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/dry/file-b.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/dry/file-c.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/eval-and-include-antipatterns.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/file-get-contents-url.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/headless/api-key-exposure-violations.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/headless/fetch-antipatterns.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/headless/graphql-antipatterns.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/headless/nextjs-antipatterns.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/http-no-timeout.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/js/command-injection-violations.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/js/eval-violations.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/js/promise-antipatterns.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/js/security-antipatterns.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/limit-multiplier-from-count.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/mitigation-isolated-test.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/mitigation-test.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/n-plus-one-optimized.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/phase1-comment-filtering.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/phase1-html-rest-filtering.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/phase2-branch-misattribution.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/phase2-guards-detection.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/phase2-sanitizer-multiline.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/phase2-sanitizers-detection.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/phase2-wpdb-safety.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/php-hardcoded-credentials.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/php-short-tags.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/php-user-controlled-file-write.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/pre-get-posts-unbounded.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/shell-exec-antipatterns.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/unbounded-wc-get-orders.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/unbounded-wc-get-products.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/unsanitized-superglobal-isset-bypass.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/unsanitized-superglobal-read.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wc-n-plus-one.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wcs-no-limit.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wp-query-unbounded-admin-only-class-method.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wp-query-unbounded-class-method-scope.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wp-query-unbounded-mitigated-1.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wp-query-unbounded-mitigated-2.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wp-query-unbounded-mitigated.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wp-query-unbounded-private-static-method-scope.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wp-query-unbounded.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wp-user-query-meta-bloat.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/fixtures/wpdb-no-prepare.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/install-docker-helper.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/irl/.gitkeep",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/irl/README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/irl/_AI_AUDIT_INSTRUCTIONS.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/lib/precheck.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/lib/reporter.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/lib/runner.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/lib/utils.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/run-fixture-tests-v2.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/run-fixture-tests.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/run-tests-ci-mode.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/run-tests-docker.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/test-ai-triage-simple.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/test-ai-triage-smoke.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/test-baseline-functionality.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/test-golden-rules.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/test-js-pattern.js",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/test-mitigation-detection.php",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/test-phase1-modules.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/verify-phase1-improvements.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/verify-phase2-context-signals.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/tests/verify-phase2.1-improvements.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/README.md",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/context-pattern-absent-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/context-pattern-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/http-timeout-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/loop-context-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/mitigation-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/parameter-presence-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/phpcs-ignore-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/pre-get-posts-unbounded-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/security-guard-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/sql-limit-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/transient-expiration-check.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/dist/validators/validator-template.sh",
+    "area": "tools",
+    "lifecycle_class": "generated-artifact",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/install.sh",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/package.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/stdout.json",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  },
+  {
+    "path": "tools/wp-code-check/validators/context-pattern-check.sh",
+    "area": "tools",
+    "lifecycle_class": "canonical-source",
+    "status": "tracked"
+  }
+]

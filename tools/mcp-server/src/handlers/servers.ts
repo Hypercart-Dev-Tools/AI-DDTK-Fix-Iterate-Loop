@@ -1,20 +1,13 @@
-import { readFile, writeFile } from "node:fs/promises";
-import path from "node:path";
-import { homedir } from "node:os";
-
-const REGISTRY_HEADER = "| Port | Service | Owner | Hostname | Notes |";
-const REGISTRY_SEPARATOR = "|------|---------|-------|----------|-------|";
-const MUTEX_PORTS = new Set([80, 443]);
+import {
+  type RegistryEntry,
+  getMutexPorts,
+  readServerRegistry,
+  resolveRegistryDataPath,
+  resolveRegistryMarkdownPath,
+  writeServerRegistry,
+} from "../server-registry.js";
 
 export type PortStatus = "free" | "allocated" | "mutex";
-
-export type RegistryEntry = {
-  port: number;
-  service: string;
-  owner: string;
-  hostname: string;
-  notes: string;
-};
 
 export type ServersCheckPortResult = Record<string, unknown> & {
   port: number;
@@ -40,156 +33,85 @@ export type ServersAddEntryResult = Record<string, unknown> & {
 
 export interface ServersHandlerDeps {
   repoRoot: string;
-  registryPath?: string;
-}
-
-function resolveRegistryPath(repoRoot: string, override?: string): string {
-  if (override) {
-    return override.startsWith("~") ? override.replace("~", homedir()) : override;
-  }
-  return path.join(repoRoot, "tools/servers.md");
-}
-
-/**
- * Parse the Port Allocation Registry table from servers.md.
- * Returns only rows that begin with a numeric port (skips mutex-only rows
- * that start with bold text like "**MUTEX**").
- */
-function parseRegistry(content: string): RegistryEntry[] {
-  const lines = content.split("\n");
-  const tableStart = lines.findIndex((l) => l.includes(REGISTRY_HEADER));
-  if (tableStart === -1) return [];
-
-  const entries: RegistryEntry[] = [];
-
-  for (let i = tableStart + 2; i < lines.length; i++) {
-    const line = lines[i].trim();
-    // Stop at blank line or non-table line
-    if (!line.startsWith("|") || line === "") break;
-
-    const cells = line
-      .split("|")
-      .map((c) => c.trim())
-      .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
-
-    if (cells.length < 4) continue;
-
-    const portNum = parseInt(cells[0] ?? "", 10);
-    if (isNaN(portNum)) continue; // skip mutex header rows
-
-    entries.push({
-      port: portNum,
-      service: cells[1] ?? "",
-      owner: cells[2] ?? "",
-      hostname: cells[3] ?? "",
-      notes: cells[4] ?? "",
-    });
-  }
-
-  return entries;
-}
-
-/**
- * Append a new row immediately before the blank line that follows the last
- * table row, preserving the existing table formatting.
- */
-function appendRegistryRow(content: string, entry: RegistryEntry): string {
-  const lines = content.split("\n");
-  const tableStart = lines.findIndex((l) => l.includes(REGISTRY_HEADER));
-  if (tableStart === -1) {
-    throw new Error("Port Allocation Registry table not found in servers.md");
-  }
-
-  // Find the last table row (last line beginning with "|" after tableStart)
-  let lastTableRow = tableStart + 1; // separator line
-  for (let i = tableStart + 2; i < lines.length; i++) {
-    if (lines[i].trim().startsWith("|")) {
-      lastTableRow = i;
-    } else {
-      break;
-    }
-  }
-
-  const newRow = `| ${entry.port} | ${entry.service} | ${entry.owner} | ${entry.hostname} | ${entry.notes} |`;
-  lines.splice(lastTableRow + 1, 0, newRow);
-  return lines.join("\n");
+  registryDataPath?: string;
+  markdownPath?: string;
 }
 
 export function createServersHandlers(deps: ServersHandlerDeps) {
-  const { repoRoot, registryPath: registryPathOverride } = deps;
+  const { repoRoot, registryDataPath: registryDataPathOverride, markdownPath: markdownPathOverride } = deps;
+  const registryDataPath = resolveRegistryDataPath(repoRoot, registryDataPathOverride);
+  const markdownPath = resolveRegistryMarkdownPath(repoRoot, markdownPathOverride);
 
   async function checkPort(port: number): Promise<ServersCheckPortResult> {
-    const registryPath = resolveRegistryPath(repoRoot, registryPathOverride);
-    const content = await readFile(registryPath, "utf8");
-    const entries = parseRegistry(content);
+    const registry = await readServerRegistry(registryDataPath);
+    const mutexPorts = new Set(getMutexPorts(registry));
 
-    if (MUTEX_PORTS.has(port)) {
+    if (mutexPorts.has(port)) {
       return {
         port,
         status: "mutex",
         entry: null,
-        registryPath,
+        registryPath: markdownPath,
       };
     }
 
-    const match = entries.find((e) => e.port === port);
+    const match = registry.entries.find((e) => e.port === port);
     return {
       port,
       status: match ? "allocated" : "free",
       entry: match ?? null,
-      registryPath,
+      registryPath: markdownPath,
     };
   }
 
   async function listRegistry(): Promise<ServersListRegistryResult> {
-    const registryPath = resolveRegistryPath(repoRoot, registryPathOverride);
-    const content = await readFile(registryPath, "utf8");
-    const entries = parseRegistry(content);
+    const registry = await readServerRegistry(registryDataPath);
 
     return {
-      entries,
-      allocatedPorts: entries.map((e) => e.port),
-      mutexPorts: [...MUTEX_PORTS],
-      registryPath,
+      entries: registry.entries,
+      allocatedPorts: registry.entries.map((e) => e.port),
+      mutexPorts: getMutexPorts(registry),
+      registryPath: markdownPath,
     };
   }
 
   async function addEntry(entry: RegistryEntry): Promise<ServersAddEntryResult> {
-    const registryPath = resolveRegistryPath(repoRoot, registryPathOverride);
-    const content = await readFile(registryPath, "utf8");
-    const entries = parseRegistry(content);
+    const registry = await readServerRegistry(registryDataPath);
+    const mutexPorts = new Set(getMutexPorts(registry));
 
     // Check for conflict
-    const conflict = entries.find((e) => e.port === entry.port) ?? null;
+    const conflict = registry.entries.find((e) => e.port === entry.port) ?? null;
     if (conflict) {
       return {
         added: false,
         entry,
         conflict,
-        registryPath,
+        registryPath: markdownPath,
         message: `Port ${entry.port} is already allocated to "${conflict.service}" (${conflict.owner}). Choose a different port.`,
       };
     }
 
-    if (MUTEX_PORTS.has(entry.port)) {
+    if (mutexPorts.has(entry.port)) {
       return {
         added: false,
         entry,
         conflict: null,
-        registryPath,
+        registryPath: markdownPath,
         message: `Port ${entry.port} is a mutex port shared by Dify, Valet, and Local WP. Do not register individual services on it.`,
       };
     }
 
-    const updated = appendRegistryRow(content, entry);
-    await writeFile(registryPath, updated, "utf8");
+    await writeServerRegistry(registryDataPath, markdownPath, {
+      ...registry,
+      entries: [...registry.entries, entry],
+    });
 
     return {
       added: true,
       entry,
       conflict: null,
-      registryPath,
-      message: `Port ${entry.port} registered for "${entry.service}" in ${registryPath}.`,
+      registryPath: markdownPath,
+      message: `Port ${entry.port} registered for "${entry.service}" in ${markdownPath}.`,
     };
   }
 

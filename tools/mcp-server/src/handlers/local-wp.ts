@@ -2,11 +2,24 @@ import { access, readFile, readdir, stat } from "node:fs/promises";
 import { constants } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import * as z from "zod/v4";
 import { assertAllowedWpCliCommand } from "../security/allowlist.js";
 import type { SiteState } from "../state.js";
 import { ExecFileTextError, execFileText, type ExecFileText } from "../utils/exec.js";
+import { parseJsonWithSchema } from "../utils/json-schema.js";
 
 const DEFAULT_TIMEOUT_MS = 60_000;
+
+const localWpThemeSchema = z.object({
+  name: z.string().optional(),
+  status: z.string().optional(),
+}).passthrough();
+
+const localWpPluginSchema = z.object({
+  name: z.string().optional(),
+  status: z.string().optional(),
+  version: z.string().nullable().optional(),
+}).passthrough();
 
 export type SiteSummary = Record<string, unknown> & {
   name: string;
@@ -203,13 +216,12 @@ function parseCliInfo(stdout: string): Record<string, string> {
   return parsed;
 }
 
-function parseJsonArray<T>(stdout: string): T[] {
+function parseJsonArray<TSchema extends z.ZodTypeAny>(stdout: string, schema: TSchema, label: string): Array<z.infer<TSchema>> {
   if (!stdout.trim()) {
     return [];
   }
 
-  const parsed = JSON.parse(stdout);
-  return Array.isArray(parsed) ? parsed : [];
+  return parseJsonWithSchema(stdout, z.array(schema), label);
 }
 
 function buildTextCommand(commandParts: string[]): string {
@@ -366,9 +378,11 @@ export function createLocalWpHandlers(deps: LocalWpHandlerDeps) {
       ]);
 
       const cliInfo = parseCliInfo(cliInfoResult.stdout);
-      const themes = parseJsonArray<Array<{ name?: string; status?: string }>[number]>(themesResult.stdout);
-      const plugins = parseJsonArray<Array<{ name?: string; status?: string; version?: string | null }>[number]>(
+      const themes = parseJsonArray(themesResult.stdout, localWpThemeSchema, "local-wp theme list");
+      const plugins = parseJsonArray(
         pluginsResult.stdout,
+        localWpPluginSchema,
+        "local-wp plugin list",
       );
       const activeTheme = themes.find((theme) => theme.status === "active")?.name ?? null;
 

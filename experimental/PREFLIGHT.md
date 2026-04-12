@@ -50,7 +50,20 @@ AI-DDTK CLI tools (`wpcc`, `pw-auth`, `local-wp`, `aiddtk-tmux`) are added to PA
 
 Report what's available. Missing items are worth noting to the user but are not blockers for most tasks.
 
-### 4. Establish WordPress site context (if relevant)
+### 4. Check local server environment (if MCP is connected)
+
+If the user's task involves accessing a local site (`.local`, `.test`, `localhost:<port>`), quickly surface port 80 / service conflicts before diagnosing anything:
+
+- **`servers_monitor_check`** — runs the conflict scanner (port conflicts, wildcard binds, stale `/etc/hosts`, missing services). Returns severity counts + structured issue list. Safe read-only call.
+- **`dev_context_status`** — reports current mode (`valet` / `localwp` / `conflict` / `none`), which services own port 80, and Valet proxy registrations.
+
+Both tools fail soft: if the backing scripts aren't installed on the user's machine, they return `status: "not_installed"` / `mode: "not_installed"` and you can skip mentioning them.
+
+If `servers_monitor_check` returns `status: "issues"` with any **critical** or **high** severity issues, flag them to the user *before* they ask — these usually explain "why can't I reach my site?" questions that are about to come up.
+
+Skip this step if the user is working in a pure WordPress code context (plugin/theme files, no live site access needed).
+
+### 5. Establish WordPress site context (if relevant)
 
 If the current task involves a WordPress site:
 - MCP available: call `local_wp_list_sites` then `local_wp_get_site_info` for the target site
@@ -59,7 +72,7 @@ If the current task involves a WordPress site:
 
 Skip this step if the task doesn't involve a live WordPress site.
 
-### 5. Summarise what's available
+### 6. Summarise what's available
 
 Give the user a brief summary of what you found. Example:
 

@@ -1,0 +1,15 @@
+# servers-monitor.conf — Config for servers-monitor.sh
+# Copy this to /Users/<you>/secrets/servers-monitor.conf and fill in real values.
+# NEVER commit the real config — it contains your Resend API key.
+
+# Resend.com API key (from https://resend.com/api-keys)
+RESEND_API_KEY="re_XXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+# From address (must be on a verified Resend domain)
+FROM_EMAIL="alerts@updates.yourdomain.com"
+
+# Where to send alerts
+TO_EMAIL="you@example.com"
+
+# Device name shown in email subject (e.g., "noels-macbook", "studio-dev")
+DEVICE_NAME="my-dev-machine"

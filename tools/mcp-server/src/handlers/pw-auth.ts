@@ -1,10 +1,70 @@
 import { readdir, readFile, rm, stat } from "node:fs/promises";
 import path from "node:path";
+import * as z from "zod/v4";
 import { ExecFileTextError, execFileText, type ExecFileText, type ExecResult } from "../utils/exec.js";
+import { parseJsonWithSchema } from "../utils/json-schema.js";
 
 const DEFAULT_TIMEOUT_MS = 120_000;
 const DEFAULT_MAX_AGE_HOURS = 12;
 const JSON_MIME_TYPE = "application/json";
+
+const pwAuthDoctorJsonSchema = z.object({
+  status: z.string().optional(),
+  site_url: z.string().optional(),
+  user: z.string().optional(),
+  checks: z.array(z.object({
+    name: z.string(),
+    status: z.string(),
+    summary: z.string(),
+    detail: z.string().nullable().optional(),
+  }).passthrough()).optional(),
+  auth: z.object({
+    exists: z.boolean().optional(),
+    file_path: z.string().nullable().optional(),
+    status: z.string().optional(),
+  }).optional(),
+  remediations: z.array(z.string()).optional(),
+}).passthrough();
+
+const pwAuthCheckDomJsonSchema = z.object({
+  status: z.string().optional(),
+  url: z.string().optional(),
+  selector: z.string().nullable().optional(),
+  selectors: z.array(z.string()).optional(),
+  extract: z.string().optional(),
+  wait_for: z.string().nullable().optional(),
+  assertion: z.record(z.string(), z.unknown()).nullable().optional(),
+  auth_used: z.boolean().optional(),
+  value: z.union([z.string(), z.boolean()]).nullable().optional(),
+  results: z.array(z.object({
+    selector: z.string(),
+    status: z.string(),
+    match_count: z.number(),
+    value: z.union([z.string(), z.boolean()]).nullable(),
+    assertion: z.object({
+      type: z.string(),
+      passed: z.boolean(),
+      message: z.string(),
+    }).nullable(),
+    screenshot_path: z.string().nullable(),
+    errors: z.array(z.string()),
+  }).passthrough()).optional(),
+  artifacts: z.object({
+    output_dir: z.string().nullable().optional(),
+    result_json: z.string().nullable().optional(),
+    extract_file: z.string().nullable().optional(),
+    failure_screenshot: z.string().nullable().optional(),
+  }).optional(),
+  errors: z.array(z.string()).optional(),
+}).passthrough();
+
+const playwrightStorageStateSchema = z.object({
+  cookies: z.array(z.object({
+    name: z.string(),
+    value: z.string(),
+    domain: z.string(),
+  }).passthrough()).optional(),
+}).passthrough();
 
 export const AUTH_STATUS_URI_TEMPLATE = "auth://status/{user}";
 
@@ -422,9 +482,9 @@ export function createPwAuthHandlers(deps: PwAuthHandlerDeps) {
         }
       }
 
-      let parsed: Record<string, unknown>;
+      let parsed: z.infer<typeof pwAuthDoctorJsonSchema>;
       try {
-        parsed = JSON.parse(stdout.trim()) as Record<string, unknown>;
+        parsed = parseJsonWithSchema(stdout.trim(), pwAuthDoctorJsonSchema, "pw-auth doctor");
       } catch {
         return {
           status: "blocked",
@@ -439,18 +499,18 @@ export function createPwAuthHandlers(deps: PwAuthHandlerDeps) {
         };
       }
 
-      const rawAuth = parsed["auth"] as Record<string, unknown> | undefined;
+      const rawAuth = parsed.auth;
       return {
-        status: (parsed["status"] as string) ?? "blocked",
-        siteUrl: (parsed["site_url"] as string) ?? siteUrl,
-        user: (parsed["user"] as string) ?? user,
-        checks: (parsed["checks"] as PwAuthDoctorCheck[]) ?? [],
+        status: parsed.status ?? "blocked",
+        siteUrl: parsed.site_url ?? siteUrl,
+        user: parsed.user ?? user,
+        checks: (parsed.checks as PwAuthDoctorCheck[] | undefined) ?? [],
         auth: {
-          exists: (rawAuth?.["exists"] as boolean) ?? false,
-          filePath: (rawAuth?.["file_path"] as string | null) ?? null,
-          authStatus: (rawAuth?.["status"] as string) ?? "missing",
+          exists: rawAuth?.exists ?? false,
+          filePath: rawAuth?.file_path ?? null,
+          authStatus: rawAuth?.status ?? "missing",
         },
-        remediations: (parsed["remediations"] as string[]) ?? [],
+        remediations: parsed.remediations ?? [],
         stdout,
         stderr,
         exitCode,
@@ -505,9 +565,9 @@ export function createPwAuthHandlers(deps: PwAuthHandlerDeps) {
         }
       }
 
-      let parsed: Record<string, unknown>;
+      let parsed: z.infer<typeof pwAuthCheckDomJsonSchema>;
       try {
-        parsed = JSON.parse(stdout.trim()) as Record<string, unknown>;
+        parsed = parseJsonWithSchema(stdout.trim(), pwAuthCheckDomJsonSchema, "pw-auth check dom");
       } catch {
         const fallbackSelectors = selector ? [selector] : (selectors ?? "").split(",").map((s) => s.trim()).filter(Boolean);
         return {
@@ -529,25 +589,25 @@ export function createPwAuthHandlers(deps: PwAuthHandlerDeps) {
         };
       }
 
-      const rawArtifacts = parsed["artifacts"] as Record<string, unknown> | undefined;
+      const rawArtifacts = parsed.artifacts;
       return {
-        status: (parsed["status"] as string) ?? "error",
-        url: (parsed["url"] as string) ?? url,
-        selector: (parsed["selector"] as string | null) ?? null,
-        selectors: (parsed["selectors"] as string[]) ?? [],
-        extract: (parsed["extract"] as string) ?? extract,
-        waitFor: (parsed["wait_for"] as string | null) ?? null,
-        assertion: (parsed["assertion"] as Record<string, unknown> | null) ?? null,
-        authUsed: (parsed["auth_used"] as boolean) ?? false,
-        value: (parsed["value"] as string | boolean | null) ?? null,
-        results: (parsed["results"] as PwAuthCheckDomItemResult[]) ?? [],
+        status: parsed.status ?? "error",
+        url: parsed.url ?? url,
+        selector: parsed.selector ?? null,
+        selectors: parsed.selectors ?? [],
+        extract: parsed.extract ?? extract,
+        waitFor: parsed.wait_for ?? null,
+        assertion: parsed.assertion ?? null,
+        authUsed: parsed.auth_used ?? false,
+        value: parsed.value ?? null,
+        results: (parsed.results as PwAuthCheckDomItemResult[] | undefined) ?? [],
         artifacts: {
-          outputDir: (rawArtifacts?.["output_dir"] as string | null) ?? null,
-          resultJson: (rawArtifacts?.["result_json"] as string | null) ?? null,
-          extractFile: (rawArtifacts?.["extract_file"] as string | null) ?? null,
-          failureScreenshot: (rawArtifacts?.["failure_screenshot"] as string | null) ?? null,
+          outputDir: rawArtifacts?.output_dir ?? null,
+          resultJson: rawArtifacts?.result_json ?? null,
+          extractFile: rawArtifacts?.extract_file ?? null,
+          failureScreenshot: rawArtifacts?.failure_screenshot ?? null,
         },
-        errors: (parsed["errors"] as string[]) ?? [],
+        errors: parsed.errors ?? [],
         stdout,
         stderr,
         exitCode,
@@ -587,7 +647,7 @@ export function createPwAuthHandlers(deps: PwAuthHandlerDeps) {
         throw new Error(`No pw-auth state for user "${user}". Run pw_auth_login first.`);
       }
 
-      const state = JSON.parse(raw) as { cookies?: Array<{ name: string; value: string; domain: string }> };
+      const state = parseJsonWithSchema(raw, playwrightStorageStateSchema, "pw-auth storage state");
       const cookies = state.cookies ?? [];
 
       const normalizedDomain = domain.toLowerCase().replace(/^\./, "");
