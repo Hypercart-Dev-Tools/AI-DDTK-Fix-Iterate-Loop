@@ -1,64 +1,100 @@
-# LLM Document Management Rules
+# Repository Structure and Document Management Rules
 
-## Folder Structure
-- **1-INBOX**: All new documents start here
-All files should be named with Prefix of P1-P3 followed by a dash and the name of the document. This will help us to quickly understand the priority of the document and the status without opening it up. This should be reflected in the metadata of the document as well.
-- **2-WORKING**: Active work only (max 3 documents)
-- **3-COMPLETED**: Finished documents with completion dates
-- **4-MISC**: Archives and uncertain status items
+This document defines the canonical folder structure, file lifecycle rules, and document management protocols for the AI-DDTK repository.
 
-Docs outside this folder structure are:
-- Changelog - please continuously udpate this file with every change
+## 1. Top-Level Directory Canonical Purposes
+- **`bin/`**: Executable scripts and command-line wrappers for AI-DDTK tools.
+- **`docs/`**: Canonical reference documentation and setup guides for the project.
+- **`examples/`**: Sample configurations and basic implementations for reference.
+- **`experimental/`**: Prototypes, spikes, and scripts that are not yet fully proven or stable.
+- **`PROJECT/`**: Exclusively for project planning, task tracking, inbox, working, and done states.
+- **`recipes/`**: Step-by-step instructional guides for specific optional workflows.
+- **`temp/`**: Gitignored location for sensitive, disposable runtime artifacts, and generated reports (not for long-term reference docs).
+- **`templates/`**: Reusable boilerplate files and code templates.
+- **`test/`**: Scripts and fixtures for testing AI-DDTK components.
+- **`tools/`**: Core canonical source code, stable utilities, and MCP server implementations.
 
-## Document Metadata (Required at Top)
+## 2. Directory Lifecycle Rules
+
+### The `PROJECT/` Directory
+The `PROJECT/` directory is strictly for managing the lifecycle of project docs. 
+- **1-INBOX**: All new documents start here. Files must be prefixed with `P1-`, `P2-`, or `P3-` followed by the document name to reflect priority.
+- **2-WORKING**: Active work only. Maximum of 3 concurrent documents.
+- **3-DONE**: Finished documents.
+- **4-MISC**: Archives, reference materials, and items with uncertain status.
+
+### The `temp/` Directory
+- The `temp/` directory is strictly for sensitive and disposable runtime artifacts (e.g., test outputs, logs, Playwright auth states, screenshots).
+- It must **never** be used for long-term reference documentation or canonical source files.
+
+### The `experimental/` Directory
+- **Qualification**: Scripts, tools, or ideas that are actively being spiked, tested, or refined but are not yet proven stable or integrated into core workflows.
+- **Promotion Criteria**: An item triggers promotion out of `experimental/` into `tools/` or `bin/` when it has been successfully used in a real workflow, its false positives/bugs are mitigated, and it has an accompanying update to canonical documentation (e.g., `AGENTS.md` or `CLI-REFERENCE.md`).
+
+### Dense Directories
+- Any dense directory (e.g., a complex tool under `tools/` or a deep nest of examples) **must** have an owning `README.md` or index document explaining its purpose and contents to prevent ambiguity.
+
+## 3. Generated Artifacts and Retention Rules
+
+- **In-Repo vs. Gitignored**: 
+  - *In-Repo*: Highly valuable, curated, and manually reviewed reports (e.g., curated UX audits) should be saved as markdown in `docs/` or `PROJECT/` as appropriate.
+  - *Gitignored*: All automated, repetitive, or raw scan outputs (e.g., JSON performance profiles, HTML WPCC reports, `.xref-registry.json`) belong in `temp/` or must be covered by `.gitignore`/`.wpcignore`. 
+- **Retention Rules**:
+  - **Keep**: Curated docs, metadata catalogs (`repo-catalog.json`), and validated configuration files.
+  - **Archive**: Completed project tracking docs (move to `PROJECT/3-DONE/` or `PROJECT/4-MISC/`).
+  - **Purge**: Temporary runtime files, raw scan logs, and auth states in `temp/` can be safely deleted or overwritten at any time.
+
+*Note: The repository's `.gitignore` has been reviewed and correctly covers `temp/`, `dist/`, logs, `.env` credentials, Playwright `.auth/` states, and generated IDE files.*
+
+## 4. LLM Document Management Flow
+
+### Document Metadata (Required at Top for Project Docs)
 ```markdown
 ---
-Author: [Name]
-Date: YYYY-MM-DD
-Status: [INBOX|IN PROGRESS|COMPLETED|MISC]
-Goal: [Brief purpose statement]
+title: "Document Title"
+author: [Name]
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+status: [inbox|working|done|misc]
+priority: [P1|P2|P3]
+goal: [Brief purpose statement]
 ---
 ```
+*(Note: Use lower-case keys for metadata. Project docs without metadata will be updated by the `project.sh` hygiene script).*
 
-## Core Flow
-1. **Create**: Always in `1-INBOX` with format: `YYYY-MM-DD-feature-name.md`
-2. **Activate**: Move to `2-IN PROGRESS` when starting. 
-3. **Complete**: Move to `3-COMPLETED`. Replace prefix with `DONE-YYYY-MM-DD-`
-4. **Archive**: Move to `4-MISC` if reference/uncertain status
-5. Do not create any new docs unless specifically requested. 
-6. Do not create summary docs unless specifically requested. 
-7. Do update current project docs for checkmarks, todos, and statuses after completion. 
+### Core Flow
+1. **Create**: Always in `1-INBOX` with format: `P[1-3]-feature-name.md`
+2. **Activate**: Move to `2-WORKING` when starting work. 
+3. **Complete**: Move to `3-DONE` when finished.
+4. **Archive**: Move to `4-MISC` if it's purely reference or paused indefinitely.
+5. **No Unrequested Summaries**: Do not create summary docs unless specifically requested. 
+6. **Update State**: Continuously update current project docs for checkmarks, todos, and statuses after completion.
 
-## File Operations
-- **New docs**: Only in `1-INBOX`
-- **Active work**: Only in `2-IN PROGRESS` (max 3 simultaneous)
-- **Updates**: Only touch files in `2-WORKING`
-- **Never delete**: Archive to `3-COMPLETED` or `4-MISC` instead
+### File Operations & Triage
+- **New docs**: Only in `1-INBOX`.
+- **Active work**: Only in `2-WORKING` (max 3 simultaneous).
+- **Updates**: Only touch files in `2-WORKING`.
+- **Never delete**: Archive to `3-DONE` or `4-MISC` instead.
 
-## Continuous Scanning (Every Interaction)
-### Check
-1. **1-INBOX** count: If >5 items → prompt triage
-2. **2-IN PROGRESS** count: If >3 items → warn about context switching
-3. **Stale WIP**: Flag items unchanged >7 days
+### Continuous Scanning (Every Interaction)
+#### Check
+1. **1-INBOX** count: If >5 items → prompt triage.
+2. **2-WORKING** count: If >3 items → warn about context switching.
+3. **Stale WIP**: Flag items unchanged >7 days. Ask user if not sure how to triage certain docs.
 
-Ask user if not sure how to triage certain docs.
-### Triage Actions
-- `1-INBOX → 2-IN PROGRESS`: User confirms active work
-- `1-INBOX → 3-COMPLETED`: Already done/obsolete
-- `1-INBOX → 4-MISC`: Reference or uncertain status
-- `2-IN PROGRESS → 3-COMPLETED`: Work finished
-- `2-IN PROGRESS → 4-MISC`: Paused indefinitely
-- **Stale WIP**: Prompt to complete, archive, or cancel
+#### Triage Actions
+- `1-INBOX → 2-WORKING`: User confirms active work.
+- `1-INBOX → 3-DONE`: Already done/obsolete.
+- `1-INBOX → 4-MISC`: Reference or uncertain status.
+- `2-WORKING → 3-DONE`: Work finished.
+- `2-WORKING → 4-MISC`: Paused indefinitely.
+- **Stale WIP**: Prompt to complete, archive, or cancel.
 
-## Document Standards
-- Markdown format only
-- One purpose per document
-- Update metadata when moving folders
-- Link related documents explicitly
-
-## Forbidden
-- Files in multiple locations (no copies)
-- Generic names ("doc.md", "notes.md")
-- Active work outside `2-IN PROGRESS`
-- More than 3 items in `2-IN PROGRESS`
-- Skipping metadata headers
+### Document Standards
+- Markdown format only.
+- One purpose per document.
+- Update metadata when moving folders.
+- Link related documents explicitly.
+- Do not create files in multiple locations (no copies).
+- Avoid generic names ("doc.md", "notes.md").
+- Skipping metadata headers is forbidden.
