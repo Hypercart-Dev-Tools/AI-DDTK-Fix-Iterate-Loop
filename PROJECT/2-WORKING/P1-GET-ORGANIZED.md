@@ -78,21 +78,21 @@ Purpose: build a factual snapshot of what exists before making structural change
 
 ### Checklist
 
-- [ ] Generate a repo-wide file inventory using tracked files as the baseline.
-- [ ] Break the inventory down by top-level area: `tools/`, `experimental/`, `PROJECT/`, `docs/`, `recipes/`, `templates/`, `test/`, `bin/`, `temp/`.
-- [ ] For each area, label files into one of these classes: `canonical-source`, `documentation`, `project-tracking`, `generated-artifact`, `temporary`, `experimental`, `archive-candidate`.
-- [ ] Identify the noisiest zones by count and churn, not by intuition.
-- [ ] Flag directories that mix multiple lifecycles in one place.
-- [ ] Produce a first-pass list of files that are probably duplicated, stale, or misfiled.
-- [ ] Record which generated outputs are intentionally checked in versus accidentally lingering.
+- [x] Generate a repo-wide file inventory using tracked files as the baseline.
+- [x] Break the inventory down by top-level area: `tools/`, `experimental/`, `PROJECT/`, `docs/`, `recipes/`, `templates/`, `test/`, `bin/`, `temp/`.
+- [x] For each area, label files into one of these classes: `canonical-source`, `documentation`, `project-tracking`, `generated-artifact`, `temporary`, `experimental`, `archive-candidate`.
+- [x] Identify the noisiest zones by count and churn, not by intuition.
+- [x] Flag directories that mix multiple lifecycles in one place.
+- [x] Produce a first-pass list of files that are probably duplicated, stale, or misfiled.
+- [x] Record which generated outputs are intentionally checked in versus accidentally lingering.
 
 ### Deliverable
 
-- [ ] A first-pass inventory snapshot stored in a machine-readable format such as JSON or CSV.
+- [x] A first-pass inventory snapshot stored in a machine-readable format such as JSON or CSV.
 
 ### Exit Criteria
 
-- [ ] We can answer, with evidence, which parts of the repo are source, working notes, generated output, and probable cleanup targets.
+- [x] We can answer, with evidence, which parts of the repo are source, working notes, generated output, and probable cleanup targets.
 
 ## Phase 1 — Canonical Structure and Retention Rules
 
@@ -123,22 +123,22 @@ Purpose: create a lightweight system of record for discovery and cleanup.
 
 ### Checklist
 
-- [ ] Define the metadata schema for the catalog.
-- [ ] Include at minimum: `path`, `area`, `file_type`, `lifecycle_class`, `owner_tool`, `canonical`, `generated`, `last_modified`, `status`, `notes`.
-- [ ] Add optional tags for themes such as `mcp`, `wpcc`, `playwright`, `local-wp`, `query-monitor`, `servers`, `project-doc`.
-- [ ] Generate the initial catalog automatically from the repo rather than maintaining it by hand.
-- [ ] Add a rule for how manual overrides are stored when auto-detection is wrong.
-- [ ] Mark high-value files explicitly as canonical references.
-- [ ] Mark low-value files explicitly as cleanup or archive candidates.
-- [ ] Decide where the catalog lives and whether it is checked in or regenerated.
+- [x] Define the metadata schema for the catalog.
+- [x] Include at minimum: `path`, `area`, `file_type`, `lifecycle_class`, `owner_tool`, `canonical`, `generated`, `last_modified`, `status`, `notes`.
+- [x] Add optional tags for themes such as `mcp`, `wpcc`, `playwright`, `local-wp`, `query-monitor`, `servers`, `project-doc`.
+- [x] Generate the initial catalog automatically from the repo rather than maintaining it by hand.
+- [x] Add a rule for how manual overrides are stored when auto-detection is wrong.
+- [x] Mark high-value files explicitly as canonical references.
+- [x] Mark low-value files explicitly as cleanup or archive candidates.
+- [x] Decide where the catalog lives and whether it is checked in or regenerated.
 
 ### Deliverable
 
-- [ ] A machine-readable catalog that can drive cleanup reports, folder summaries, and later search indexing.
+- [x] A machine-readable catalog that can drive cleanup reports, folder summaries, and later search indexing.
 
 ### Exit Criteria
 
-- [ ] We can query the repo by lifecycle and ownership instead of relying only on folder names.
+- [x] We can query the repo by lifecycle and ownership instead of relying only on folder names.
 
 ## Phase 3 — Cleanup, Promotion, and Archival Pass
 
@@ -146,22 +146,22 @@ Purpose: reduce noise using the inventory and catalog rather than ad hoc decisio
 
 ### Checklist
 
-- [ ] Triage `PROJECT/1-INBOX` items into active, done, or misc states using existing doc rules.
-- [ ] Move finished project docs out of inbox.
-- [ ] Review `experimental/` for tools or docs that have effectively graduated.
-- [ ] Move obsolete or superseded planning docs to the appropriate archive location instead of leaving duplicates in place.
-- [ ] Consolidate duplicate instructions where one doc clearly supersedes another.
-- [ ] Remove or archive tracked generated artifacts that do not belong in the main repo surface.
-- [ ] Add missing README or index guidance in dense directories only where it reduces ambiguity.
-- [ ] Re-run the inventory after cleanup and measure count reduction and clearer classification.
+- [x] Triage `PROJECT/1-INBOX` items into active, done, or misc states using existing doc rules.
+- [x] Move finished project docs out of inbox.
+- [x] Review `experimental/` for tools or docs that have effectively graduated.
+- [x] Move obsolete or superseded planning docs to the appropriate archive location instead of leaving duplicates in place.
+- [x] Consolidate duplicate instructions where one doc clearly supersedes another.
+- [x] Remove or archive tracked generated artifacts that do not belong in the main repo surface.
+- [x] Add missing README or index guidance in dense directories only where it reduces ambiguity.
+- [x] Re-run the inventory after cleanup and measure count reduction and clearer classification.
 
 ### Deliverable
 
-- [ ] A visibly smaller and more legible repo surface, especially in project-tracking and experimental areas.
+- [x] A visibly smaller and more legible repo surface, especially in project-tracking and experimental areas.
 
 ### Exit Criteria
 
-- [ ] The highest-noise folders have fewer ambiguous files and clearer ownership.
+- [x] The highest-noise folders have fewer ambiguous files and clearer ownership.
 
 ## Phase 4 — Add Hybrid Retrieval Where It Helps
 
