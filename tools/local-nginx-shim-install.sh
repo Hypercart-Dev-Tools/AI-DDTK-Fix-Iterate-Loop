@@ -2,7 +2,7 @@
 # local-nginx-shim-install.sh — Installer for the Local WP nginx coexistence shim.
 #
 # This replaces Local WP's bundled nginx binary with a wrapper (see
-# experimental/local-nginx-shim) that rewrites router config bindings from
+# tools/local-nginx-shim) that rewrites router config bindings from
 # 0.0.0.0:80 → 127.0.0.1:80 at runtime, enabling Local WP + Valet coexistence.
 #
 # Usage:
@@ -246,9 +246,9 @@ ${BOLD}SAFETY${RESET}
     touched — only router configs under run/router/nginx/conf/ are patched.
 
 ${BOLD}SEE ALSO${RESET}
-    experimental/local-nginx-shim       The shim itself (this script installs it)
-    experimental/dev-context.sh         Alternative: context switcher (mutex model)
-    ~/bin/servers.md                    Full machine registry
+    tools/local-nginx-shim       The shim itself (this script installs it)
+    tools/dev-context.sh         Alternative: context switcher (mutex model)
+    ~/bin/servers.md             Full machine registry
 EOF
 }
 

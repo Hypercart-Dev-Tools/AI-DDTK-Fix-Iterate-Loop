@@ -64,7 +64,9 @@ Example structure — replace with real assignments in the machine-specific copy
    ```
 
 3. **Set up continuous monitoring:**
-   - Configure `~/Documents/GH Repos/AI-DDTK/experimental/servers-monitor.sh`
+  - Copy [tools/servers-monitor.conf.example](tools/servers-monitor.conf.example) to `~/secrets/servers-monitor.conf` and fill in real values
+  - Run [tools/servers-monitor.sh](tools/servers-monitor.sh) in JSON mode once to confirm the monitor is healthy before wiring email alerts
+  - The monitor now skips overlapping runs with a single-instance lock, recovers stale locks automatically, and bounds probe/email execution with timeouts so LaunchAgent-triggered runs do not pile up
    - Install the LaunchAgent at `~/Library/LaunchAgents/com.neochro.servers-monitor.plist`
    - Alerts email via Resend.com when the conflict baseline changes
 

@@ -1,3 +1,5 @@
+_Archived draft. Superseded by [AGENTS.md](../../AGENTS.md). Kept only as historical reference._
+
 ## Communication & Documentation
 
 - Precise, concise chat replies/updates: Short as possible, detailed enough.

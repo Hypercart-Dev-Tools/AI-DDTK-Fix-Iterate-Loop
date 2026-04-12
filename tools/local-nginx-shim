@@ -28,7 +28,7 @@ REAL_NGINX="$SHIM_DIR/nginx.real"
 
 if [ ! -x "$REAL_NGINX" ]; then
   echo "local-nginx-shim: FATAL — $REAL_NGINX not found or not executable" >&2
-  echo "local-nginx-shim: run experimental/local-nginx-shim-install.sh to repair" >&2
+  echo "local-nginx-shim: run tools/local-nginx-shim-install.sh to repair" >&2
   exit 127
 fi
 

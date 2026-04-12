@@ -67,6 +67,8 @@ Embeddings can help with discovery, clustering, and semantic lookup across notes
 
 Organize first, index second.
 
+Respect existing ignore boundaries.
+
 If the repo lacks clear file lifecycle rules, embeddings will help search the mess without reducing the mess. The right sequence is:
 
 1. Inventory the repo.
@@ -74,6 +76,8 @@ If the repo lacks clear file lifecycle rules, embeddings will help search the me
 3. Clean up and normalize the highest-noise areas.
 4. Add metadata-backed discovery.
 5. Add hybrid lexical + semantic retrieval where it clearly improves workflow.
+
+Do not override existing `.gitignore` folder rules just to be more thorough. If a directory or file family is already intentionally gitignored, treat it as lower-priority cleanup territory and usually do only a single pass there unless the operator explicitly asks for deeper work.
 
 ## Operator Preflight
 
@@ -115,6 +119,8 @@ Purpose: define what belongs where and how long it should live.
 - [x] Define the canonical purpose of each top-level directory in one sentence.
 - [x] Confirm `PROJECT/` is only for planning, tracking, inbox, working, and done states.
 - [x] Confirm `temp/` is for sensitive and disposable runtime artifacts, not long-term reference docs.
+- [x] Treat `temp/` as a one-pass cleanup area by default, with more work there only if the operator explicitly wants to spend extra time on it.
+- [x] Treat existing `.gitignore` boundaries as intentional by default; do not punch through ignored directories for extra cleanup passes unless the operator explicitly wants that work.
 - [x] Define what qualifies for `experimental/` and what conditions trigger promotion out of it.
 - [x] Define which report outputs belong in-repo versus gitignored runtime storage.
 - [x] Review `.gitignore` coverage for reports, screenshots, scans, auth state, and logs.
@@ -186,16 +192,29 @@ When deciding whether a doc or file should stay active, move to `3-DONE`, move t
 - [x] Use `CHANGELOG.md`, `4X4.md`, and recent git history as first-class triage signals instead of folder location alone.
 - [x] Add a redaction pass for client names, project names, and filenames that embed client or project identifiers.
 - [x] Have the orchestrating agent ask the user for known client, project, hostname, and branded filename terms before running large cleanup or publication passes.
-- [ ] Review `experimental/` for tools or docs that have effectively graduated.
+- [x] Review `experimental/` for tools or docs that have effectively graduated.
 - [x] Move obsolete or superseded planning docs to the appropriate archive location instead of leaving duplicates in place.
-- [ ] Consolidate duplicate instructions where one doc clearly supersedes another.
-- [ ] Remove or archive tracked generated artifacts that do not belong in the main repo surface.
-- [ ] Add missing README or index guidance in dense directories only where it reduces ambiguity.
+- [x] Consolidate duplicate instructions where one doc clearly supersedes another.
+- [x] Remove or archive tracked generated artifacts that do not belong in the main repo surface.
+- [x] Add missing README or index guidance in dense directories only where it reduces ambiguity.
 - [x] Re-run the inventory after cleanup and measure count reduction and clearer classification.
 
 ### Deliverable
 
 - [ ] A visibly smaller and more legible repo surface, especially in project-tracking and experimental areas.
+
+### Current Review Notes
+
+- `temp/` is intentionally a one-pass cleanup area for this workflow. Keep it fully gitignored as a cross-repo convention, do one pragmatic review there, and avoid repeated cleanup cycles unless the operator explicitly wants deeper work.
+- Focus follow-on cleanup effort on public-facing folders such as `docs/`, `bin/`, `tools/`, `examples/`, `experimental/`, and `PROJECT/`, where clearer structure improves shared operator and agent workflows.
+- Promotion work should prioritize reusable scripts and utilities that are broadly applicable outside one local machine or one incident.
+- `wire-project` and `post-flight` were already promoted during this pass and removed the clearest graduation candidates from `experimental/`.
+- Promoted `servers-monitor.sh`, `dev-context.sh`, `local-nginx-shim`, `local-nginx-shim-install.sh`, and `servers-monitor.conf.example` into `tools/` after confirming they are reusable operator utilities with clear docs and MCP integration points.
+- The strongest remaining promotion candidate is `experimental/vscode-extension`, but it still needs a dedicated promotion pass with explicit support and packaging decisions rather than a blind folder move.
+- `experimental/k6/` and `experimental/theme-crash-loop.sh` remain valid experimental assets for now because they are useful but still niche or setup-heavy.
+- The duplicate draft instructions in `experimental/AGENTS-V2.md` were archived to `PROJECT/4-MISC/AGENTS-V2.md` because `AGENTS.md` is the canonical source of truth.
+- Removed tracked WPCC-generated report leftovers and `stdout.json` artifacts that were already runtime outputs by policy, and expanded the WPCC ignore rules so those files do not drift back into the main repo surface.
+- Added local index guidance to `tools/README.md`; left `temp/` fully gitignored by design rather than creating a repo-specific tracked exception there.
 
 ### Exit Criteria
 

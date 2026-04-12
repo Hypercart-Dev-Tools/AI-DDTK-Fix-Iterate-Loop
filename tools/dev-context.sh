@@ -217,125 +217,81 @@ cmd_status() {
   else
     warn "valet CLI not found in PATH"
   fi
-
-  head "Port 80 listeners (raw)"
-  local listeners
-  listeners="$(port80_listeners)"
-  if [ -n "$listeners" ]; then
-    echo "$listeners" | awk '{printf "  %-12s PID %-8s %s\n", $1, $2, $9}'
-  else
-    info "(nothing listening on port 80)"
-  fi
-  printf "\n"
 }
 
 cmd_valet() {
-  head "Switching to VALET mode"
+  head "Switching to Valet Mode"
+
+  if [ -n "$(port80_wildcard)" ]; then
+    warn "A wildcard listener currently owns port 80"
+    info "Stop Local WP's router before relying on Valet-only routing"
+  fi
 
   if localwp_router_running; then
-    warn "Local WP router is running and binds 0.0.0.0:80 (will block Valet)"
-    err "Stop all sites in the Local WP GUI first, then retry."
-    err "Local WP doesn't expose a CLI to stop the router without the GUI."
-    info "Tip: Local WP → click the 'Stop' button on each running site"
-    info "     (or fully quit Local WP with Cmd+Q)"
+    warn "Local WP router appears to be running"
+    info "Stop all sites in Local WP or quit the app before continuing"
     exit 1
   fi
 
-  # Free port 80 if anything else is holding the wildcard
-  local wildcard
-  wildcard="$(port80_wildcard)"
-  if [ -n "$wildcard" ]; then
-    err "Something is binding 0.0.0.0:80 (neither Valet nor Local WP recognised):"
-    echo "$wildcard" | awk '{print "      " $1 " PID " $2 " " $9}'
-    err "Stop this process first, then retry 'dev-context valet'."
+  if command -v valet >/dev/null 2>&1; then
+    info "Restarting Valet"
+    valet restart >/dev/null
+    ok "Valet restarted"
+  else
+    err "valet CLI not found in PATH"
     exit 1
   fi
 
-  if [ -n "$(port80_valet)" ]; then
-    ok "Valet already on 127.0.0.2:80 — no change needed"
-  else
-    info "Starting Valet nginx..."
-    valet start
-    ok "Valet started"
-  fi
-
-  if dify_running; then
-    ok "Docker Dify untouched (still on 8741/8742)"
-    info "Dify accessible at http://dify.test via Valet proxy"
-  else
-    info "Docker Dify is not running (start manually if needed)"
-  fi
-
-  printf "\n"
   cmd_status
 }
 
 cmd_localwp() {
-  head "Switching to LOCAL WP mode"
+  head "Switching to Local WP Mode"
 
   if [ -n "$(port80_valet)" ]; then
-    info "Stopping Valet nginx (dnsmasq keeps running for *.test DNS)..."
-    valet stop
-    ok "Valet stopped"
-  else
-    info "Valet nginx already stopped"
+    info "Stopping Valet nginx so Local WP can reclaim port 80"
+    if command -v valet >/dev/null 2>&1; then
+      valet stop >/dev/null || true
+      ok "Valet stopped"
+    else
+      warn "valet CLI not found; stop Valet manually if it is running"
+    fi
   fi
 
-  # Verify port 80 is actually free now
-  local remaining
-  remaining="$(port80_listeners)"
-  if [ -n "$remaining" ]; then
-    warn "Port 80 still has listeners:"
-    echo "$remaining" | awk '{print "      " $1 " PID " $2 " " $9}'
-    warn "Local WP will fail to bind unless these are stopped."
-  else
-    ok "Port 80 is free — Local WP router can now bind 0.0.0.0:80"
-  fi
+  info "Start or restart the needed Local WP site from the Local app"
+  info "Local WP's router should then reclaim port 80"
 
-  if dify_running; then
-    warn "Docker Dify is still running, but http://dify.test is NOT reachable in this mode"
-    info "Valet proxy is down — access Dify directly at http://localhost:8741"
-  fi
-
-  head "Next steps"
-  info "1. Open Local WP"
-  info "2. Click 'Start site' on the site you want (e.g., Bloomz-Prod-08-15)"
-  info "3. Local WP will bind 0.0.0.0:80 and the site will be reachable at http://<site>.local"
-  info ""
-  info "When done, run 'dev-context valet' to bring Valet + Dify routing back"
-  printf "\n"
+  cmd_status
 }
 
 cmd_help() {
   cat <<EOF
-${BOLD}dev-context${RESET} — Port 80 context switcher
-
-${BOLD}USAGE${RESET}
-    dev-context <command>
-
-${BOLD}COMMANDS${RESET}
-    ${BOLD}status${RESET}      Show current mode, services, and port 80 listeners
-    ${BOLD}valet${RESET}       Switch to Valet mode (serves *.test + Dify proxy)
-    ${BOLD}localwp${RESET}     Switch to Local WP mode (serves *.local)
-    ${BOLD}help${RESET}        Show this message
-
-${BOLD}WHY${RESET}
-    Local WP's router nginx binds 0.0.0.0:80 (wildcard) and cannot coexist
-    with Valet's 127.0.0.2:80 binding. Docker Dify uses its own high ports
-    (8741/8742) and is never affected by this switch.
-
-${BOLD}SEE ALSO${RESET}
-    ~/bin/servers.md                   Full machine registry + decision tree
-    ~/bin/servers-conflict-free.md     Architecture plan
-    ~/bin/servers-monitor              Conflict monitor (runs every 30 min)
+Usage:
+  dev-context status [--json]   Show current state
+  dev-context valet             Switch to Valet mode
+  dev-context localwp           Switch to Local WP mode
+  dev-context help              Show this help
 EOF
 }
 
-# --- Dispatch ---
-case "${1:-help}" in
-  status)  shift; cmd_status "$@" ;;
-  valet)   cmd_valet ;;
-  localwp) cmd_localwp ;;
-  help|-h|--help) cmd_help ;;
-  *)       err "Unknown command: $1"; echo; cmd_help; exit 1 ;;
+case "${1:-status}" in
+  status)
+    shift || true
+    cmd_status "$@"
+    ;;
+  valet)
+    cmd_valet
+    ;;
+  localwp)
+    cmd_localwp
+    ;;
+  help|-h|--help)
+    cmd_help
+    ;;
+  *)
+    err "Unknown command: ${1:-}"
+    echo
+    cmd_help
+    exit 1
+    ;;
 esac

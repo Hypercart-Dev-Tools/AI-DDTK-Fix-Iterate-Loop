@@ -140,6 +140,19 @@ test_wire_project_harness() {
     return 0
 }
 
+test_servers_monitor_harness() {
+    cd "$TOOLKIT_DIR"
+
+    local output
+    output="$(bash ./test/test-servers-monitor.sh 2>&1)"
+    if [ $? -ne 0 ]; then
+        echo "$output"
+        return 1
+    fi
+
+    return 0
+}
+
 test_uninstall() {
     cd "$TOOLKIT_DIR"
     
@@ -172,6 +185,7 @@ run_test "Install is idempotent" test_install_idempotent
 run_test "WPCC wrapper works" test_wpcc_wrapper
 run_test "Wrapper cleanup harness passes" test_wrapper_cleanup_harness
 run_test "wire-project harness passes" test_wire_project_harness
+run_test "servers-monitor harness passes" test_servers_monitor_harness
 run_test "Uninstall removes PATH entry" test_uninstall
 
 echo ""

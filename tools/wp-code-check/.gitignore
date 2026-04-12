@@ -12,6 +12,8 @@ dist/logs/*.json
 
 # HTML reports from scans (may contain proprietary code)
 dist/reports/*.html
+dist/reports/*.md
+dist/reports/*.json
 !dist/reports/.gitkeep
 
 # User-created project templates (contain absolute paths)
@@ -47,6 +49,8 @@ dist/PATTERN-LIBRARY.md.tmp.*
 
 # Data analysis temporary files (from STANDARDIZED DATA ANALYSIS PATTERN)
 # See AGENTS.md for usage guidelines
+stdout.json
+dist/stdout.json
 data-stream.json
 data-stream-*.json
 data-stream.txt

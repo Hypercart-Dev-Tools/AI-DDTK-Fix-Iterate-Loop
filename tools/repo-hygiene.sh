@@ -2,8 +2,8 @@
 
 set -euo pipefail
 
-# ─── cleanup.sh ──────────────────────────────────────────────────────────────
-# Maintainer script for AI-DDTK repository organization and cleanup.
+# ─── repo-hygiene.sh ─────────────────────────────────────────────────────────
+# Maintainer script for AI-DDTK repository organization and hygiene.
 # Phase 0: Builds the repository metadata catalog.
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ def load_overrides(path):
     if not os.path.exists(path):
         with open(path, "w", encoding="utf-8") as handle:
             json.dump({
-                "_README": "Path-keyed overrides for cleanup.sh. Each key is a tracked repo path. Values may override lifecycle_class, owner_tool, canonical, generated, status, notes, and tags.",
+                "_README": "Path-keyed overrides for repo-hygiene.sh. Each key is a tracked repo path. Values may override lifecycle_class, owner_tool, canonical, generated, status, notes, and tags.",
                 "overrides": {}
             }, handle, indent=2)
         return {}
@@ -140,8 +140,8 @@ def get_owner_tool(path):
         ("tools/dev-context.sh", "servers"),
         ("tools/servers-monitor", "servers"),
         ("tools/local-nginx-shim", "servers"),
-        ("PROJECT/cleanup.sh", "project-cleanup"),
-        ("tools/cleanup.sh", "repo-cleanup"),
+        ("PROJECT/project.sh", "project-hygiene"),
+        ("tools/repo-hygiene.sh", "repo-hygiene"),
         ("PROJECT/", "project-docs"),
     ]
 
@@ -229,7 +229,7 @@ def get_notes(path, lifecycle_class, owner_tool):
         notes.append("Experimental surface; promotion requires real workflow proof and doc updates.")
     if lifecycle_class == "archive-candidate":
         notes.append("Candidate for archival or review rather than active source-of-truth use.")
-    if owner_tool == "repo-cleanup":
+    if owner_tool == "repo-hygiene":
         notes.append("Source of truth for generating the repo metadata catalog.")
     return " ".join(notes)
 

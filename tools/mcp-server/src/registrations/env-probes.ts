@@ -38,7 +38,7 @@ export function registerEnvProbeTools(server: McpServer, handlers: EnvProbesHand
     "servers_monitor_check",
     {
       description:
-        "Run experimental/servers-monitor.sh --json to detect live port conflicts, stale /etc/hosts entries, missing services, and wildcard port 80 binds on the local machine. Read-only (no email sent, no baseline modified). Returns structured issue list grouped by severity. Safe to call at session start as a preflight check. Gracefully returns status='not_installed' or 'not_configured' if the monitor isn't set up.",
+        "Run tools/servers-monitor.sh --json to detect live port conflicts, stale /etc/hosts entries, missing services, and wildcard port 80 binds on the local machine. Read-only (no email sent, no baseline modified). Returns structured issue list grouped by severity. Safe to call at session start as a preflight check. Gracefully returns status='not_installed' or 'not_configured' if the monitor isn't set up.",
       outputSchema: {
         status: z.enum(["ok", "issues", "not_configured", "not_installed", "error"]),
         message: z.string().optional(),
@@ -62,7 +62,7 @@ export function registerEnvProbeTools(server: McpServer, handlers: EnvProbesHand
     "dev_context_status",
     {
       description:
-        "Run experimental/dev-context.sh status --json to report the current development mode (valet | localwp | conflict | none), which local services are running (Valet nginx, dnsmasq, Local WP router, Docker Dify), and who owns port 80. Use this when diagnosing site reachability issues or before suggesting a context switch. Gracefully returns mode='not_installed' if the script is missing.",
+        "Run tools/dev-context.sh status --json to report the current development mode (valet | localwp | conflict | none), which local services are running (Valet nginx, dnsmasq, Local WP router, Docker Dify), and who owns port 80. Use this when diagnosing site reachability issues or before suggesting a context switch. Gracefully returns mode='not_installed' if the script is missing.",
       outputSchema: {
         mode: z.enum(["valet", "localwp", "conflict", "none", "not_installed"]),
         message: z.string().optional(),

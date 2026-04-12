@@ -103,6 +103,16 @@ Next steps:
 
 ---
 
+### Promoted Out of `experimental/`
+
+These assets were useful enough to graduate into the maintained [tools/](../tools/README.md) surface and should now be treated as supported operator utilities rather than experimental prototypes:
+
+- [tools/dev-context.sh](../tools/dev-context.sh) — Local WP / Valet context switcher with JSON status output
+- [tools/servers-monitor.sh](../tools/servers-monitor.sh) plus [tools/servers-monitor.conf.example](../tools/servers-monitor.conf.example) — live machine conflict monitor and config template
+- [tools/local-nginx-shim](../tools/local-nginx-shim) and [tools/local-nginx-shim-install.sh](../tools/local-nginx-shim-install.sh) — Local WP coexistence shim and installer
+
+---
+
 ### `k6/` — Load Testing Harness (NEW)
 
 **Status:** Experimental
@@ -161,7 +171,6 @@ cat .gitignore | grep mcp.local.json
 - [ ] Add `--dry-run` flag to preview changes
 - [ ] Add `--force` flag to overwrite existing config
 - [ ] Support for multiple MCP servers in `.mcp.local.json`
-- [ ] Integration with `install.sh` to make globally available
 - [ ] Support for detecting WordPress site type (plugin, theme, site)
 - [ ] Auto-generate project-specific WPCC templates
 

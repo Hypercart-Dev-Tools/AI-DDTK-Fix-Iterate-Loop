@@ -5,7 +5,6 @@ PROJECT/.xref-registry.json*
 PROJECT/.scrub-list.json
 PROJECT/.scrub-log.jsonl
 !temp/.gitkeep
-!temp/README.md
 !temp/*/.gitkeep
 !temp/*/*/.gitkeep
 !temp/mcp/

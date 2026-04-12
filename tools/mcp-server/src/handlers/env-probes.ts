@@ -2,7 +2,7 @@
  * env-probes.ts — Live environment probes for the local dev machine.
  *
  * Unlike handlers/servers.ts (which reads/writes the static registry in
- * tools/servers.md), this module shells out to experimental scripts that
+ * tools/servers.md), this module shells out to maintained operator scripts that
  * inspect the running machine state: port 80 ownership, port conflicts,
  * service health, etc.
  *
@@ -82,9 +82,9 @@ export type DevContextStatusResult = Record<string, unknown> & {
 
 export interface EnvProbesDeps {
   repoRoot: string;
-  /** Override for the servers-monitor.sh path. Defaults to `<repo>/experimental/servers-monitor.sh`. */
+  /** Override for the servers-monitor.sh path. Defaults to `<repo>/tools/servers-monitor.sh`. */
   monitorScriptPath?: string;
-  /** Override for the dev-context.sh path. Defaults to `<repo>/experimental/dev-context.sh`. */
+  /** Override for the dev-context.sh path. Defaults to `<repo>/tools/dev-context.sh`. */
   devContextScriptPath?: string;
   /** Exec implementation (injectable for tests). */
   exec?: ExecFileText;
@@ -159,8 +159,8 @@ async function fileExecutable(filePath: string): Promise<boolean> {
 export function createEnvProbesHandlers(deps: EnvProbesDeps) {
   const { repoRoot } = deps;
   const exec = deps.exec ?? execFileText;
-  const monitorScriptPath = resolvePath(repoRoot, deps.monitorScriptPath, "experimental/servers-monitor.sh");
-  const devContextScriptPath = resolvePath(repoRoot, deps.devContextScriptPath, "experimental/dev-context.sh");
+  const monitorScriptPath = resolvePath(repoRoot, deps.monitorScriptPath, "tools/servers-monitor.sh");
+  const devContextScriptPath = resolvePath(repoRoot, deps.devContextScriptPath, "tools/dev-context.sh");
 
   /**
    * Run servers-monitor.sh --json and return the parsed result.
@@ -172,7 +172,7 @@ export function createEnvProbesHandlers(deps: EnvProbesDeps) {
     if (!(await fileExecutable(monitorScriptPath))) {
       return {
         status: "not_installed",
-        message: `servers-monitor.sh not found or not executable at ${monitorScriptPath}. See experimental/servers-monitor.conf.example to set up.`,
+        message: `servers-monitor.sh not found or not executable at ${monitorScriptPath}. See tools/servers-monitor.conf.example to set up.`,
         scriptPath: monitorScriptPath,
       };
     }
