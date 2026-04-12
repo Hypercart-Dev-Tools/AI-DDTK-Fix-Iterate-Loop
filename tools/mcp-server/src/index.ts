@@ -6,26 +6,8 @@ import { fileURLToPath } from "node:url";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { createEnvProbesHandlers } from "./handlers/env-probes.js";
-import { createLocalWpHandlers } from "./handlers/local-wp.js";
-import { createPostFlightHandlers } from "./handlers/post-flight.js";
-import { createPwAuthHandlers } from "./handlers/pw-auth.js";
-import { createQmHandlers } from "./handlers/qm.js";
-import { createServersHandlers } from "./handlers/servers.js";
-import { createTmuxHandlers } from "./handlers/tmux.js";
-import { createWpAjaxTestHandlers } from "./handlers/wp-ajax-test.js";
-import { createWpccHandlers } from "./handlers/wpcc.js";
-import { registerEnvProbeTools } from "./registrations/env-probes.js";
-import { registerLocalWpTools } from "./registrations/local-wp.js";
-import { registerPostFlightTools } from "./registrations/post-flight.js";
-import { registerPrompts } from "./registrations/prompts.js";
-import { registerPwAuthTools } from "./registrations/pw-auth.js";
-import { registerQmTools } from "./registrations/qm.js";
-import { registerServersTools } from "./registrations/servers.js";
-import { registerTmuxTools } from "./registrations/tmux.js";
-import { registerWpAjaxTestTools } from "./registrations/wp-ajax-test.js";
-import { registerWpccTools } from "./registrations/wpcc.js";
-import { SessionStore, SiteState } from "./state.js";
+import { registerAllTools } from "./registrations/index.js";
+import { SessionStore } from "./state.js";
 import { getTokenFilePath, loadOrGenerateToken } from "./utils/token.js";
 
 const MCP_SERVER_VERSION = "0.11.1";
@@ -46,35 +28,13 @@ function getPackageRoot(moduleUrl: string): string {
 export function createServer() {
   const packageRoot = getPackageRoot(import.meta.url);
   const repoRoot = path.resolve(packageRoot, "../..");
-  const state = new SiteState();
-  const localWpHandlers = createLocalWpHandlers({ state, repoRoot });
-  const pwAuthHandlers = createPwAuthHandlers({ repoRoot });
-  const tmuxHandlers = createTmuxHandlers({ repoRoot });
-  const wpAjaxTestHandlers = createWpAjaxTestHandlers({ repoRoot });
-  const wpccHandlers = createWpccHandlers({ repoRoot });
-  const qmHandlers = createQmHandlers({
-    getCookiesForSite: (user, domain) => pwAuthHandlers.getCookiesForSite(user, domain),
-    repoRoot,
-  });
-  const postFlightHandlers = createPostFlightHandlers({ repoRoot });
-  const serversHandlers = createServersHandlers({ repoRoot });
-  const envProbesHandlers = createEnvProbesHandlers({ repoRoot });
 
   const server = new McpServer({
     name: "ai-ddtk-mcp",
     version: MCP_SERVER_VERSION,
   });
 
-  registerLocalWpTools(server, localWpHandlers);
-  registerPwAuthTools(server, pwAuthHandlers);
-  registerWpAjaxTestTools(server, wpAjaxTestHandlers);
-  registerTmuxTools(server, tmuxHandlers);
-  registerWpccTools(server, wpccHandlers);
-  registerQmTools(server, qmHandlers);
-  registerPostFlightTools(server, postFlightHandlers);
-  registerServersTools(server, serversHandlers);
-  registerEnvProbeTools(server, envProbesHandlers);
-  registerPrompts(server);
+  registerAllTools(server, { repoRoot });
 
   return server;
 }

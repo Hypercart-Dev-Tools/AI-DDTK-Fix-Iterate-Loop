@@ -6,7 +6,7 @@ import {
   WPCC_SCAN_URI_TEMPLATE,
   type createWpccHandlers,
 } from "../handlers/wpcc.js";
-import { errorResult, successResult, withResourceError } from "./shared.js";
+import { errorResult, successResult } from "./shared.js";
 
 type WpccHandlers = ReturnType<typeof createWpccHandlers>;
 
@@ -86,7 +86,7 @@ export function registerWpccTools(server: McpServer, handlers: WpccHandlers): vo
       description: "Most recent WP Code Check JSON scan artifact.",
       mimeType: "application/json",
     },
-    async () => withResourceError(() => handlers.readLatestScanResource()),
+    async () => handlers.readLatestScanResource(),
   );
 
   server.registerResource(
@@ -96,21 +96,20 @@ export function registerWpccTools(server: McpServer, handlers: WpccHandlers): vo
       description: "Most recent WP Code Check HTML report artifact.",
       mimeType: "text/html",
     },
-    async () => withResourceError(() => handlers.readLatestReportResource()),
+    async () => handlers.readLatestReportResource(),
   );
 
   server.registerResource(
     "wpcc_scan_by_id",
     new ResourceTemplate(WPCC_SCAN_URI_TEMPLATE, {
-      list: async () =>
-        withResourceError(async () => ({
-          resources: await handlers.listScanResources(),
-        })),
+      list: async () => ({
+        resources: await handlers.listScanResources(),
+      }),
     }),
     {
       description: "Specific WP Code Check JSON scan artifact by timestamp id.",
       mimeType: "application/json",
     },
-    async (uri) => withResourceError(() => handlers.readScanResource(getWpccScanId(uri))),
+    async (uri) => handlers.readScanResource(getWpccScanId(uri)),
   );
 }

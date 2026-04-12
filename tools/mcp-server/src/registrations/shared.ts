@@ -17,12 +17,3 @@ export function errorResult(error: unknown) {
     content: [{ type: "text" as const, text: message }],
   };
 }
-
-export async function withResourceError<T>(callback: () => Promise<T>): Promise<T> {
-  try {
-    return await callback();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(message, { cause: error });
-  }
-}

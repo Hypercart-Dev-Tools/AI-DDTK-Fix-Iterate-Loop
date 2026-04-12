@@ -1,7 +1,7 @@
 import { ResourceTemplate, type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import * as z from "zod/v4";
 import { AUTH_STATUS_URI_TEMPLATE, type createPwAuthHandlers } from "../handlers/pw-auth.js";
-import { errorResult, successResult, withResourceError } from "./shared.js";
+import { errorResult, successResult } from "./shared.js";
 
 type PwAuthHandlers = ReturnType<typeof createPwAuthHandlers>;
 
@@ -236,15 +236,14 @@ export function registerPwAuthTools(server: McpServer, handlers: PwAuthHandlers)
   server.registerResource(
     "auth_status_by_user",
     new ResourceTemplate(AUTH_STATUS_URI_TEMPLATE, {
-      list: async () =>
-        withResourceError(async () => ({
-          resources: await handlers.listStatusResources(),
-        })),
+      list: async () => ({
+        resources: await handlers.listStatusResources(),
+      }),
     }),
     {
       description: "Metadata-only Playwright auth status by user. Never exposes raw storageState, cookies, or tokens, and avoids synthesizing missing-user file paths.",
       mimeType: "application/json",
     },
-    async (uri) => withResourceError(() => handlers.readStatusResource(getAuthStatusUser(uri))),
+    async (uri) => handlers.readStatusResource(getAuthStatusUser(uri)),
   );
 }
