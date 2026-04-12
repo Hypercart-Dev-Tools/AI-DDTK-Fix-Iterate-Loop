@@ -47,18 +47,18 @@ Embeddings can help with discovery, clustering, and semantic lookup across notes
 
 ## Goals
 
-- [ ] Reduce ambiguity about where new files belong.
-- [ ] Separate source-of-truth files from generated artifacts and temporary outputs.
-- [ ] Create a machine-readable catalog of important files and directories.
-- [ ] Make cleanup repeatable instead of one-off.
-- [ ] Add semantic retrieval only after the repo has usable metadata and folder hygiene.
+- [x] Reduce ambiguity about where new files belong.
+- [x] Separate source-of-truth files from generated artifacts and temporary outputs.
+- [x] Create a machine-readable catalog of important files and directories.
+- [x] Make cleanup repeatable instead of one-off.
+- [x] Add semantic retrieval only after the repo has usable metadata and folder hygiene.
 
 ## Non-Goals
 
-- [ ] Do not redesign the entire repo structure in one pass.
-- [ ] Do not build a full knowledge platform before cleanup basics exist.
-- [ ] Do not index every file blindly into a vector store.
-- [ ] Do not treat generated artifacts as equal to canonical docs or source code.
+- [x] Do not redesign the entire repo structure in one pass.
+- [x] Do not build a full knowledge platform before cleanup basics exist.
+- [x] Do not index every file blindly into a vector store.
+- [x] Do not treat generated artifacts as equal to canonical docs or source code.
 
 ## Guiding Principle
 
