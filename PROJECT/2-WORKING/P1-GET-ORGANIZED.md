@@ -100,22 +100,22 @@ Purpose: define what belongs where and how long it should live.
 
 ### Checklist
 
-- [ ] Define the canonical purpose of each top-level directory in one sentence.
-- [ ] Confirm `PROJECT/` is only for planning, tracking, inbox, working, and done states.
-- [ ] Confirm `temp/` is for sensitive and disposable runtime artifacts, not long-term reference docs.
-- [ ] Define what qualifies for `experimental/` and what conditions trigger promotion out of it.
-- [ ] Define which report outputs belong in-repo versus gitignored runtime storage.
-- [ ] Review `.gitignore` coverage for reports, screenshots, scans, auth state, and logs.
-- [ ] Write simple retention rules for generated content: keep, archive, or purge.
-- [ ] Decide what must always have an owning doc or README in dense directories.
+- [x] Define the canonical purpose of each top-level directory in one sentence.
+- [x] Confirm `PROJECT/` is only for planning, tracking, inbox, working, and done states.
+- [x] Confirm `temp/` is for sensitive and disposable runtime artifacts, not long-term reference docs.
+- [x] Define what qualifies for `experimental/` and what conditions trigger promotion out of it.
+- [x] Define which report outputs belong in-repo versus gitignored runtime storage.
+- [x] Review `.gitignore` coverage for reports, screenshots, scans, auth state, and logs.
+- [x] Write simple retention rules for generated content: keep, archive, or purge.
+- [x] Decide what must always have an owning doc or README in dense directories.
 
 ### Deliverable
 
-- [ ] A short policy section or reference doc update that names the lifecycle rules for canonical, experimental, generated, and temporary files.
+- [x] A short policy section or reference doc update that names the lifecycle rules for canonical, experimental, generated, and temporary files.
 
 ### Exit Criteria
 
-- [ ] A contributor can decide where a new file belongs without guessing.
+- [x] A contributor can decide where a new file belongs without guessing.
 
 ## Phase 2 — Build a Repo Metadata Catalog
 
