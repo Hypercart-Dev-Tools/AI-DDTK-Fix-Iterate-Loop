@@ -136,7 +136,7 @@ Create comprehensive CLI reference for all tools:
 
 **Deliverables**:
 - `docs/CLI-REFERENCE.md` (main reference)
-- `docs/pw-auth-commands.md` (detailed pw-auth guide)
+- `docs/PW-AUTH-COMMANDS.md` (detailed pw-auth guide)
 - Update README.md with link to CLI reference
 
 ---
@@ -291,9 +291,9 @@ RISK
 
 **Files to Create**:
 - `docs/CLI-REFERENCE.md` — Master reference
-- `docs/pw-auth-commands.md` — Detailed pw-auth guide
-- `docs/wpcc-commands.md` — WPCC reference
-- `docs/local-wp-commands.md` — local-wp wrapper guide
+- `docs/PW-AUTH-COMMANDS.md` — Detailed pw-auth guide
+- `docs/WPCC-COMMANDS.md` — WPCC reference
+- `docs/LOCAL-WP-COMMANDS.md` — local-wp wrapper guide
 
 **Content Structure**:
 ```

@@ -27,7 +27,7 @@ export class CommandHandler {
     const terminal = vscode.window.createTerminal('AI-DDTK: Wire Project');
     terminal.show();
 
-    // Use the wire-project script from experimental folder
+    // Use the supported wire-project command path.
     const wireProjectScript = this.manager.getWireProjectScript();
     terminal.sendText(`bash "${wireProjectScript}" "${workspaceRoot}"`);
     terminal.sendText('echo "Wire project complete. Restart your editor to activate MCP."');

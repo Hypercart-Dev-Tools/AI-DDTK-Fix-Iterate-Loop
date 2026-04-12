@@ -35,7 +35,13 @@ WIRED=()
 
 add_gitignore() {
   [[ -f "$GITIGNORE" ]] || touch "$GITIGNORE"
-  grep -qF "$1" "$GITIGNORE" 2>/dev/null || echo "$1" >> "$GITIGNORE"
+  if ! grep -qF "$1" "$GITIGNORE" 2>/dev/null; then
+    if [[ -s "$GITIGNORE" ]] && [[ "$(tail -c 1 "$GITIGNORE" 2>/dev/null || true)" != "" ]]; then
+      printf '\n%s\n' "$1" >> "$GITIGNORE"
+    else
+      printf '%s\n' "$1" >> "$GITIGNORE"
+    fi
+  fi
 }
 
 add_md_ref() {

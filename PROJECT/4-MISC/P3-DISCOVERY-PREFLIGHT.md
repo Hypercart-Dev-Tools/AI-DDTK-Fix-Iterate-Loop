@@ -1,9 +1,9 @@
 ---
 title: "Discovery Preflight"
-status: inbox
+status: misc
 priority: P2
 created: 2026-03-25
-updated: 2026-03-25
+updated: 2026-04-11
 author: noelsaw1
 goal: 
 ---

@@ -52,7 +52,7 @@ npm run vscode:prepublish  # Production build
 
 ### `wire-project`
 
-**Status:** Experimental
+**Status:** Promoted to supported command
 **Purpose:** Automate per-project MCP configuration for AI-DDTK
 
 A CLI script that wires a WordPress project for AI-DDTK MCP integration by:
@@ -65,10 +65,10 @@ A CLI script that wires a WordPress project for AI-DDTK MCP integration by:
 **Usage:**
 ```bash
 # From project root
-./experimental/wire-project
+~/bin/ai-ddtk/install.sh wire-project
 
 # Or from anywhere
-./experimental/wire-project /path/to/project
+wire-project /path/to/project
 ```
 
 **Output:**
@@ -147,7 +147,7 @@ mkdir -p /tmp/test-wp-site
 cd /tmp/test-wp-site
 
 # Run wire-project
-/path/to/AI-DDTK/experimental/wire-project
+/path/to/AI-DDTK/bin/wire-project
 
 # Verify files were created
 ls -la .mcp.local.json CLAUDE.md

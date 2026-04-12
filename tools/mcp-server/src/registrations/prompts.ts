@@ -101,7 +101,7 @@ export function registerPrompts(server: McpServer): void {
           role: "user",
           content: {
             type: "text",
-            text: `Please wire the project${projectPath ? ` at ${projectPath}` : " at the current directory"} for AI-DDTK MCP integration.\n\nRun: ~/bin/ai-ddtk/experimental/wire-project${client && client !== "auto" ? ` --client=${client}` : ""}${projectPath ? ` ${projectPath}` : ""}\n\nThen confirm which config files were created and which editors are now configured.`,
+            text: `Please wire the project${projectPath ? ` at ${projectPath}` : " at the current directory"} for AI-DDTK MCP integration.\n\nRun: ~/bin/ai-ddtk/install.sh wire-project${client && client !== "auto" ? ` --client=${client}` : ""}${projectPath ? ` ${projectPath}` : ""}\n\nThen confirm which config files were created and which editors are now configured.`,
           },
         },
       ],

@@ -112,7 +112,7 @@ Replace multi-doc setup reconstruction with explicit commands and machine-readab
 
 ### Tasks
 
-- [ ] Promote `experimental/wire-project` into a supported `install.sh` subcommand.
+- [x] Promote `wire-project` into a supported `install.sh` subcommand.
 - [ ] Ensure the supported wiring path handles `.mcp.local.json`, `.gitignore`, and agent-reference setup consistently.
 - [ ] Add a `doctor-project` style command that verifies toolkit install, project wiring, editor config presence, MCP build state, and relevant workflow prerequisites.
 - [ ] Update `preflight.sh` to distinguish between `built`, `configured`, `discoverable`, and `live session availability` where possible.
@@ -123,7 +123,7 @@ Replace multi-doc setup reconstruction with explicit commands and machine-readab
 
 - install.sh
 - preflight.sh
-- experimental/wire-project
+- bin/wire-project
 - README.md
 - AGENTS.md
 - docs/TROUBLESHOOTING.md

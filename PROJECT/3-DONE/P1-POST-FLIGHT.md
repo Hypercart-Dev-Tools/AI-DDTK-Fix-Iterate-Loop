@@ -1,6 +1,6 @@
 ---
 title: "Post-Flight Session Cleanup Script"
-status: inbox
+status: done
 priority: P1
 created: 2026-04-11
 updated: 2026-04-11
@@ -13,7 +13,7 @@ goal:
 ## Overview
 
 **Status**: ✅ DRAFT COMPLETE
-**Location**: `experimental/post-flight.sh`
+**Location**: `bin/post-flight`
 **Purpose**: Solo developer post-flight session cleanup — ensures 4X4.md, CHANGELOG.md, MEMORY.md are synced, optionally commits and pushes.
 
 ---
@@ -93,13 +93,13 @@ Check:
 
 ```bash
 #!/usr/bin/env bash
-# post-flight.sh — Session cleanup & doc synchronization
+# post-flight — Session cleanup & doc synchronization
 #
 # Ensures 4X4.md, CHANGELOG.md, MEMORY.md are synced after session.
 # Reports findings, suggests fixes, but does NOT auto-commit/push unless --auto-commit.
 #
 # Usage:
-#   post-flight.sh [--auto-commit] [--push] [--no-validate] [--hook <script>]
+#   post-flight [--auto-commit] [--push] [--no-validate] [--hook <script>]
 #
 # Exit codes:
 #   0 = OK, all docs fresh, working tree clean
@@ -177,7 +177,7 @@ main() {
 
 The agent could call it like:
 ```bash
-post-flight.sh --hook ./agent-hook.sh --json-events \
+post-flight --hook ./agent-hook.sh --json-events \
   && git log -1 --oneline \
   || echo "Session cleanup needed"
 ```
@@ -207,13 +207,13 @@ Not dumb—it's **solving a real problem**. But I'd recommend:
 
 ## ✅ Implementation Complete
 
-The script has been drafted and placed at `experimental/post-flight.sh`.
+The script has been drafted and placed at `bin/post-flight`.
 
 ### Key Features
 
 #### **Default Behavior (No Flags)**
 ```bash
-post-flight.sh
+post-flight
 ```
 - ✓ Checks 4X4.md, CHANGELOG.md, MEMORY.md freshness
 - ✓ Scans Claude Code memory for conflicted duplicates (orphans, broken links, duplicate topics)
@@ -224,7 +224,7 @@ post-flight.sh
 
 #### **Commit Mode**
 ```bash
-post-flight.sh --commit
+post-flight --commit
 ```
 - Runs all checks (as above)
 - Prompts: "Continue with commit?" `[y/N]`
@@ -233,7 +233,7 @@ post-flight.sh --commit
 
 #### **Push Mode**
 ```bash
-post-flight.sh --push
+post-flight --push
 ```
 - Implies `--commit`
 - After commit, prompts: "Push to remote?" `[y/N]`
@@ -242,7 +242,7 @@ post-flight.sh --push
 
 #### **Force Mode (Automation)**
 ```bash
-post-flight.sh --push --force
+post-flight --push --force
 ```
 - Skips ALL confirmation prompts
 - Archives MEMORY.md, commits, pushes automatically
@@ -251,7 +251,7 @@ post-flight.sh --push --force
 
 #### **Dry-Run Mode**
 ```bash
-post-flight.sh --push --dry-run
+post-flight --push --dry-run
 ```
 - Shows what WOULD happen, but doesn't execute
 - Useful for testing, previewing before automation
@@ -286,7 +286,7 @@ Reports findings only — does not auto-fix or archive.
 The script emits **structured events** that agents can hook into:
 
 ```bash
-post-flight.sh --push --hook ./agent-hook.sh
+post-flight --push --hook ./agent-hook.sh
 ```
 
 **Agent Hook Protocol**: Hook receives `<script> <event-name> '<json-payload>'`

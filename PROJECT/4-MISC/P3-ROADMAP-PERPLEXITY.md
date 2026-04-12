@@ -1,9 +1,9 @@
 ---
 title: "AI-DDTK Roadmap"
-status: working
+status: misc
 priority: P1
 created: 2026-03-07
-updated: 2026-03-09
+updated: 2026-04-11
 author: "Perplexity -> Claude Code Reviewed and Edited"
 goal: 
 ---

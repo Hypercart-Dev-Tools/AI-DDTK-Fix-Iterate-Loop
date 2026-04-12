@@ -142,7 +142,7 @@ export class AiDdtkManager {
   }
 
   getWireProjectScript(): string {
-    return path.join(this.aiDdtkPath, 'experimental', 'wire-project');
+    return path.join(this.aiDdtkPath, 'bin', 'wire-project');
   }
 }
 

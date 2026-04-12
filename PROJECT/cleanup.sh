@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
-# project.sh — PROJECT folder hygiene · Phases 0–4 + repo-case + secrets + scrub
-# version 1.6 - attn: update this number as improvements are added
+# cleanup.sh — PROJECT folder hygiene · Phases 0–4 + repo-case + secrets + scrub
+# version 1.8 - attn: update this number as improvements are added
 # =============================================================================
 # Phase 0 (auto):    pre-check git cleanliness + zip backup before mutations.
 # Phase 1 (default): scan .md files stale >N days → add/downgrade P3 prefix.
@@ -28,47 +28,53 @@
 #   of PROJECT/ under temp/ and blocks if git is dirty (use --force to bypass).
 #
 # USAGE — Phase 1 (prefix hygiene)
-#   ./PROJECT/project.sh                    # dry-run — safe default, no writes
-#   ./PROJECT/project.sh --apply            # rename files (git mv when in repo)
-#   ./PROJECT/project.sh --apply --force    # apply even if git is dirty
-#   ./PROJECT/project.sh --json             # structured JSON output only
-#   ./PROJECT/project.sh --days 14          # custom stale threshold (default: 8)
-#   ./PROJECT/project.sh --include-done     # also scan the 3-DONE/ subfolder
-#   ./PROJECT/project.sh --no-exclude-meta  # include DOCS-INSTRUCTIONS.md
+#   ./PROJECT/cleanup.sh                    # dry-run — safe default, no writes
+#   ./PROJECT/cleanup.sh --apply            # rename files (git mv when in repo)
+#   ./PROJECT/cleanup.sh --apply --force    # apply even if git is dirty
+#   ./PROJECT/cleanup.sh --json             # structured JSON output only
+#   ./PROJECT/cleanup.sh --days 14          # custom stale threshold (default: 8)
+#   ./PROJECT/cleanup.sh --include-done     # also scan the 3-DONE/ subfolder
+#   ./PROJECT/cleanup.sh --no-exclude-meta  # include DOCS-INSTRUCTIONS.md
 #
 # USAGE — Phase 2 (cross-reference registry)
-#   ./PROJECT/project.sh scan               # build .xref-registry.json + report
-#   ./PROJECT/project.sh scan --check       # report only, no file written
-#   ./PROJECT/project.sh scan --json        # JSON registry to stdout only
+#   ./PROJECT/cleanup.sh scan               # build .xref-registry.json + report
+#   ./PROJECT/cleanup.sh scan --check       # report only, no file written
+#   ./PROJECT/cleanup.sh scan --json        # JSON registry to stdout only
 #
 # USAGE — Phase 3 (frontmatter enforcement)
-#   ./PROJECT/project.sh meta               # dry-run — report missing/incomplete
-#   ./PROJECT/project.sh meta --apply       # inject/normalize frontmatter
-#   ./PROJECT/project.sh meta --json        # structured JSON report only
-#   ./PROJECT/project.sh meta --include-done # also scan 3-DONE/ subfolder
+#   ./PROJECT/cleanup.sh meta               # dry-run — report missing/incomplete
+#   ./PROJECT/cleanup.sh meta --apply       # inject/normalize frontmatter
+#   ./PROJECT/cleanup.sh meta --json        # structured JSON report only
+#   ./PROJECT/cleanup.sh meta --include-done # also scan 3-DONE/ subfolder
 #
 # USAGE — Phase 4 (folder promotion / demotion)
-#   ./PROJECT/project.sh promote            # dry-run — recommend folder moves
-#   ./PROJECT/project.sh promote --apply    # execute moves (git mv when in repo)
-#   ./PROJECT/project.sh promote --json     # structured JSON report only
+#   ./PROJECT/cleanup.sh promote            # dry-run — recommend folder moves
+#   ./PROJECT/cleanup.sh promote --apply    # execute moves (git mv when in repo)
+#   ./PROJECT/cleanup.sh promote --json     # structured JSON report only
 #
 # USAGE — Repo Case (repo-wide lowercase filename normalization)
-#   ./PROJECT/project.sh uppercase          # dry-run — find lowercase *.md/*.txt across repo
-#   ./PROJECT/project.sh uppercase --apply  # rename to UPPERCASE.md / UPPERCASE.txt
-#   ./PROJECT/project.sh uppercase --json   # structured JSON action plan only
+#   ./PROJECT/cleanup.sh uppercase          # dry-run — find lowercase *.md/*.txt across repo
+#   ./PROJECT/cleanup.sh uppercase --apply  # rename to UPPERCASE.md / UPPERCASE.txt
+#   ./PROJECT/cleanup.sh uppercase --json   # structured JSON action plan only
 #
 # USAGE — Secrets (detect accidentally committed credentials & secrets)
-#   ./PROJECT/project.sh secrets            # scan repo for secrets — report only
-#   ./PROJECT/project.sh secrets --json     # structured JSON report only
-#   ./PROJECT/project.sh secrets --project-only  # limit scan to PROJECT/ folder
+#   ./PROJECT/cleanup.sh secrets            # scan repo for secrets — report only
+#   ./PROJECT/cleanup.sh secrets --json     # structured JSON report only
+#   ./PROJECT/cleanup.sh secrets --project-only  # limit scan to PROJECT/ folder
 #
 # USAGE — Scrub (redact client/project names from documents)
-#   ./PROJECT/project.sh scrub              # dry-run — report matches, no changes
-#   ./PROJECT/project.sh scrub --apply      # replace matches in-place + log to .scrub-log.jsonl
-#   ./PROJECT/project.sh scrub --json       # structured JSON report only
-#   ./PROJECT/project.sh scrub --path ./src # limit scan to a specific subfolder
+#   ./PROJECT/cleanup.sh scrub-intake       # print reusable intake questions before scrub runs
+#   ./PROJECT/cleanup.sh scrub-intake --json # structured intake prompt payload for agents
+#   ./PROJECT/cleanup.sh scrub              # dry-run — report matches, no changes
+#   ./PROJECT/cleanup.sh scrub --apply      # replace matches in-place + log to .scrub-log.jsonl
+#   ./PROJECT/cleanup.sh scrub --json       # structured JSON report only
+#   ./PROJECT/cleanup.sh scrub --path ./src # limit scan to a specific subfolder
 #   Scrub list: PROJECT/.scrub-list.json (gitignored — contains real client names)
 #   Revert log: PROJECT/.scrub-log.jsonl (gitignored — append-only change history)
+#
+# USAGE — Portable Doc (embed the executable script into CLEANUP.md)
+#   ./PROJECT/cleanup.sh portable-doc         # print a portable CLEANUP.md to stdout
+#   ./PROJECT/cleanup.sh portable-doc --apply # update CLEANUP.md with embedded script appendix
 #
 # PHASE ROADMAP
 #   Phase 0 (this) — pre-check: git cleanliness gate + zip backup
@@ -87,7 +93,7 @@ set -euo pipefail
 # ── Defaults ──────────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCRIPT_NAME="$(basename "$0")"
-COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4) | uppercase | secrets | scrub
+COMMAND="hygiene"       # hygiene (Phase 1) | scan (Phase 2) | meta (Phase 3) | promote (Phase 4) | uppercase | secrets | scrub-intake | scrub | portable-doc
 SECRETS_PROJECT_ONLY=false  # secrets: limit scan to PROJECT/ folder only
 SCRUB_PATH=""               # scrub: optional subfolder path to limit scan scope
 DAYS_THRESHOLD=8
@@ -106,7 +112,9 @@ while [[ $# -gt 0 ]]; do
     promote)           COMMAND="promote" ;;
     uppercase)         COMMAND="uppercase" ;;
     secrets)           COMMAND="secrets" ;;
+    scrub-intake)      COMMAND="scrub-intake" ;;
     scrub)             COMMAND="scrub" ;;
+    portable-doc)      COMMAND="portable-doc" ;;
     --apply)           DRY_RUN=false ;;
     --force)           FORCE=true ;;
     --check)           SCAN_CHECK_ONLY=true ;;
@@ -127,6 +135,142 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+DOC_PATH="$SCRIPT_DIR/2-WORKING/CLEANUP.md"
+PORTABLE_SECTION_START="<!-- PORTABLE-SCRIPT:SECTION-START -->"
+PORTABLE_SECTION_END="<!-- PORTABLE-SCRIPT:SECTION-END -->"
+
+render_portable_doc() {
+  python3 - "$DOC_PATH" "$0" "$PORTABLE_SECTION_START" "$PORTABLE_SECTION_END" <<'PYEOF'
+from pathlib import Path
+import sys
+
+doc_path = Path(sys.argv[1])
+script_path = Path(sys.argv[2])
+section_start = sys.argv[3]
+section_end = sys.argv[4]
+
+doc_text = doc_path.read_text()
+script_text = script_path.read_text()
+
+section_body = (
+    f"{section_start}\n"
+    "```bash\n"
+    f"{script_text.rstrip()}\n"
+    "```\n"
+    f"{section_end}"
+)
+
+if section_start in doc_text and section_end in doc_text:
+    before, remainder = doc_text.split(section_start, 1)
+    _, after = remainder.split(section_end, 1)
+    sys.stdout.write(before.rstrip() + "\n\n" + section_body + after)
+    raise SystemExit(0)
+
+anchor = "## Open Questions"
+if anchor not in doc_text:
+    raise SystemExit("Portable doc anchor not found in CLEANUP.md")
+
+insert_at = doc_text.index(anchor)
+portable_section = (
+    "## Portable Script\n\n"
+    "This appendix is generated from `PROJECT/cleanup.sh`. Refresh it with `./PROJECT/cleanup.sh portable-doc --apply` when the script changes so the document can travel as a one-file artifact.\n\n"
+    f"{section_body}\n\n"
+)
+sys.stdout.write(doc_text[:insert_at].rstrip() + "\n\n" + portable_section + doc_text[insert_at:])
+PYEOF
+}
+
+write_portable_doc() {
+  local tmp_file=""
+
+  tmp_file="$(mktemp "${TMPDIR:-/tmp}/cleanup-portable-XXXXXX")" || exit 99
+  render_portable_doc > "$tmp_file"
+  mv "$tmp_file" "$DOC_PATH"
+}
+
+if [[ "$COMMAND" == "portable-doc" ]]; then
+  if $DRY_RUN; then
+    render_portable_doc
+  else
+    write_portable_doc
+    if $JSON_MODE; then
+      printf '{"tool":"project-cleanup","command":"portable-doc","updated":"%s"}\n' "$DOC_PATH"
+    else
+      echo "Updated $DOC_PATH with embedded cleanup.sh appendix."
+    fi
+  fi
+  exit 0
+fi
+
+print_scrub_intake() {
+  local prompt_text
+  prompt_text=$(cat <<'EOF'
+Before I run cleanup redaction, supply the protected terms for this repo.
+
+Please fill in any that apply:
+- Client names:
+- Project, product, or brand names:
+- Domains, subdomains, or hostnames tied to that client/project:
+- Filenames or directory names that include those identifiers:
+- Preferred replacement tokens if you do not want the defaults:
+
+Default replacement tokens:
+- [CLIENT]
+- [PROJECT]
+- [CLIENT-DOMAIN]
+- [CLIENT-FILE]
+
+Notes:
+- Include alternate spellings, acronyms, and lowercase/slug variants if they matter.
+- If you are unsure, I can do a best-effort scan first, but I will treat that as a review queue rather than auto-apply truth.
+- Filename renames are reviewed separately from content replacements because they may affect links, imports, or external integrations.
+EOF
+)
+
+  if $JSON_MODE; then
+    python3 - <<'PYEOF'
+import json
+
+payload = {
+    "tool": "project-scrub-intake",
+    "phase": "scrub-intake",
+    "version": "1.0.0",
+    "questions": [
+        {"id": "client_names", "label": "Client names", "placeholder": "Acme Corp, Acme Health"},
+        {"id": "project_names", "label": "Project, product, or brand names", "placeholder": "Northstar, CarePortal"},
+        {"id": "domains", "label": "Domains, subdomains, or hostnames", "placeholder": "acmehealth.com, portal.acmehealth.test"},
+        {"id": "filenames", "label": "Filenames or directory names with client/project identifiers", "placeholder": "Acme-export.csv, acme-client-notes.md"},
+        {"id": "replacements", "label": "Preferred replacement tokens", "placeholder": "[CLIENT], [PROJECT], [CLIENT-DOMAIN], [CLIENT-FILE]"},
+    ],
+    "defaults": {
+        "client": "[CLIENT]",
+        "project": "[PROJECT]",
+        "domain": "[CLIENT-DOMAIN]",
+        "filename": "[CLIENT-FILE]",
+    },
+    "prompt_template": "Before I run cleanup redaction, supply the protected terms for this repo. Fill in: client names; project, product, or brand names; domains, subdomains, or hostnames; filenames or directory names that include those identifiers; preferred replacement tokens if you do not want the defaults.",
+}
+print(json.dumps(payload, indent=2))
+PYEOF
+    return 0
+  fi
+
+  echo ""
+  echo "=== project.sh · Scrub Intake Prompt ==="
+  echo "$prompt_text"
+  echo ""
+  echo "##AGENT-PROMPTS"
+  echo "- Ask the user for protected client, project, hostname, and filename terms before running scrub."
+  echo "- Use default replacement tokens unless the user supplies alternatives."
+  echo "- Treat filename renames as a reviewed step separate from content replacement."
+  echo "##END-AGENT-PROMPTS"
+}
+
+if [[ "$COMMAND" == "scrub-intake" ]]; then
+  print_scrub_intake
+  exit 0
+fi
 
 # ── Git detection ─────────────────────────────────────────────────────────────
 USE_GIT=false
@@ -512,7 +656,7 @@ PYEOF
   fi
   $SCAN_CHECK_ONLY && prompts+=("Check-only mode: registry NOT written to disk. Run without --check to save.")
   ! $SCAN_CHECK_ONLY && ! $JSON_MODE && prompts+=("Registry saved to: $(basename "$registry_file")")
-  prompts+=("Run \`./PROJECT/project.sh scan --json\` to get the full machine-readable registry for agent use.")
+  prompts+=("Run \`./PROJECT/cleanup.sh scan --json\` to get the full machine-readable registry for agent use.")
 
   # ── Route output ──────────────────────────────────────────────────────────
   if $JSON_MODE; then
@@ -820,7 +964,7 @@ PYEOF
   if (( needs_update == 0 )); then
     prompts+=("All ${files_scanned} files have complete, canonical frontmatter. Nothing to do.")
   elif $DRY_RUN; then
-    prompts+=("${needs_update} of ${files_scanned} file(s) need frontmatter updates. Run \`./PROJECT/project.sh meta --apply\` to fix them.")
+    prompts+=("${needs_update} of ${files_scanned} file(s) need frontmatter updates. Run \`./PROJECT/cleanup.sh meta --apply\` to fix them.")
     (( missing_fm > 0 )) && prompts+=("${missing_fm} file(s) have no frontmatter at all — they will get a full block injected.")
     prompts+=("Review the 'files' array in JSON output for per-file details.")
   else
@@ -1207,7 +1351,7 @@ for m in d['moves']:
   if (( moves_recommended == 0 )); then
     prompts+=("All ${files_scanned} files are in their correct folders. Nothing to move.")
   elif $DRY_RUN; then
-    prompts+=("${moves_recommended} folder move(s) recommended. Run \`./PROJECT/project.sh promote --apply\` to execute them.")
+    prompts+=("${moves_recommended} folder move(s) recommended. Run \`./PROJECT/cleanup.sh promote --apply\` to execute them.")
     [[ -n "$capacity_warning" ]] && prompts+=("⚠️  $capacity_warning")
     prompts+=("Review the 'moves' array in JSON output for per-file details and scores.")
   else
@@ -1536,7 +1680,7 @@ PYEOF
     (( sev_medium > 0 ))   && prompts+=("MEDIUM: ${sev_medium} potential exposure(s) — IP addresses, internal hostnames, or generic key patterns worth reviewing.")
     prompts+=("Review findings and consider: (1) rotate any exposed credentials, (2) remove from tracked files, (3) add legitimate entries to .secrets-allowlist.")
   fi
-  prompts+=("Run \`./PROJECT/project.sh secrets --json\` for machine-readable output.")
+  prompts+=("Run \`./PROJECT/cleanup.sh secrets --json\` for machine-readable output.")
   $SECRETS_PROJECT_ONLY || prompts+=("Add --project-only to limit scan to the PROJECT/ folder.")
 
   # ── Route output ───────────────────────────────────────────────────────────
@@ -1590,6 +1734,11 @@ for f in d['findings']:
   exit 0
 }
 
+run_scrub_intake() {
+  print_scrub_intake
+  exit 0
+}
+
 # ── Scrub: redact client/project names from repo documents ───────────────────
 run_scrub() {
   command -v python3 &>/dev/null || { echo "ERROR: python3 is required for 'scrub'" >&2; exit 99; }
@@ -1613,6 +1762,7 @@ INITEOF
       echo ""
       echo "  Initialized blank scrub list at PROJECT/.scrub-list.json"
       echo "  Edit it to add your real client/project names, then re-run."
+      echo "  Tip: run ./PROJECT/cleanup.sh scrub-intake to get a reusable user-intake prompt first."
       echo ""
     fi
     exit 0
@@ -1850,7 +2000,7 @@ PYEOF
   if (( total_matches == 0 )) && (( total_warnings == 0 )); then
     prompts+=("No client/project names found across ${files_scanned} files. Documents are clean.")
   elif $DRY_RUN; then
-    (( total_matches > 0 )) && prompts+=("Dry-run: ${total_matches} match(es) in ${files_with_matches} document file(s) will be redacted. Run \`./PROJECT/project.sh scrub --apply\` to apply.")
+    (( total_matches > 0 )) && prompts+=("Dry-run: ${total_matches} match(es) in ${files_with_matches} document file(s) will be redacted. Run \`./PROJECT/cleanup.sh scrub --apply\` to apply.")
     (( total_warnings > 0 )) && prompts+=("WARNING: ${total_warnings} match(es) in ${files_with_warnings} source code file(s). These are NOT auto-replaced — hardcoded values should be moved to config/env vars.")
     prompts+=("Review matches carefully before applying — replacements are logged to .scrub-log.jsonl for revert capability.")
   else
@@ -1940,6 +2090,7 @@ for w in d['warnings']:
 [[ "$COMMAND" == "meta" ]]    && run_meta
 [[ "$COMMAND" == "promote" ]] && run_promote
 [[ "$COMMAND" == "secrets" ]] && run_secrets
+[[ "$COMMAND" == "scrub-intake" ]] && run_scrub_intake
 [[ "$COMMAND" == "scrub" ]]   && run_scrub
  
 run_uppercase() {
@@ -2059,7 +2210,7 @@ run_uppercase() {
   if (( TOTAL_ACTIONS == 0 )); then
     PROMPTS+=("No lowercase .md or .txt filenames need repo-wide normalization.")
   elif $DRY_RUN; then
-    PROMPTS+=("Dry-run: ${TOTAL_ACTIONS} repo-wide rename(s) planned. Run \`./PROJECT/project.sh uppercase --apply\` to apply them.")
+    PROMPTS+=("Dry-run: ${TOTAL_ACTIONS} repo-wide rename(s) planned. Run \`./PROJECT/cleanup.sh uppercase --apply\` to apply them.")
     (( XREF_COUNT > 0 )) && PROMPTS+=("⚠️  ${XREF_COUNT} rename(s) are referenced by other .md/.txt files. Review those references before applying.")
     PROMPTS+=("Run with \`--json\` to get the full machine-readable action plan for agent orchestration.")
   else
@@ -2276,7 +2427,7 @@ PROMPTS=()
 if (( TOTAL_ACTIONS == 0 )); then
   PROMPTS+=("All scanned files are fresh or already P3 — no renames needed. Folder is clean.")
 elif $DRY_RUN; then
-  PROMPTS+=("Dry-run: ${TOTAL_ACTIONS} rename(s) planned. Run \`./PROJECT/project.sh --apply\` to apply them.")
+  PROMPTS+=("Dry-run: ${TOTAL_ACTIONS} rename(s) planned. Run \`./PROJECT/cleanup.sh --apply\` to apply them.")
   if (( XREF_COUNT > 0 )); then
     PROMPTS+=("⚠️  ${XREF_COUNT} file(s) have cross-references in other docs. Review before applying to avoid broken links.")
     PROMPTS+=("Phase 2 (planned): run the link-registry scan to capture and auto-update these references.")

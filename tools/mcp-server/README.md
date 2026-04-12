@@ -25,7 +25,7 @@ This builds `tools/mcp-server/dist/`, installs Node.js dependencies, and prints 
 | **Cursor** | Manual `~/.cursor/mcp.json` entry (or run `wire-project`) | `mcp-configs/cursor.json` |
 | **Claude Desktop** | Manual config file | `mcp-configs/claude-desktop.json` |
 
-Run `wire-project [--client=auto|claude-code|vscode|augment|cursor|all]` to write all applicable config files automatically.
+Run `./install.sh wire-project [--client=auto|claude-code|vscode|augment|cursor|all]` from the AI-DDTK repo, or call `wire-project` directly if `bin/` is already on your `PATH`, to write all applicable config files automatically.
 
 All configs launch the stdio server with:
 

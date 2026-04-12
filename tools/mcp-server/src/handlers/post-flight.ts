@@ -33,7 +33,7 @@ export interface PostFlightHandlerDeps {
 
 export function createPostFlightHandlers(deps: PostFlightHandlerDeps) {
   const { repoRoot, timeoutMs = DEFAULT_TIMEOUT_MS, execRunner = execFileText } = deps;
-  const scriptPath = path.join(repoRoot, "experimental/post-flight.sh");
+  const scriptPath = path.join(repoRoot, "bin/post-flight");
 
   async function runPostFlight(options: {
     mode?: PostFlightMode;

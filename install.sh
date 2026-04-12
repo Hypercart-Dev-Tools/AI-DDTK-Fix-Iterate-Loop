@@ -19,6 +19,7 @@
 #   ./install.sh update-wpcc  # Pull latest WP Code Check
 #   ./install.sh setup-wpcc   # Initial WPCC subtree setup
 #   ./install.sh setup-mcp    # Build MCP server + show launcher-based client config
+#   ./install.sh wire-project # Wire the current or target project for MCP editor integration
 #   ./install.sh status       # Show versions and status
 #   ./install.sh uninstall    # Remove PATH entries
 #
@@ -86,6 +87,7 @@ show_usage() {
     echo "  update-wpcc   Pull latest WP Code Check"
     echo "  setup-wpcc    Initial WPCC subtree setup"
     echo "  setup-mcp     Build MCP server + show launcher-based client config"
+    echo "  wire-project  Wire the current or target project for MCP editor integration"
     echo "  doctor-playwright  Run pw-auth doctor via install.sh convenience wrapper"
     echo "  status        Show versions and status"
     echo "  uninstall     Remove PATH entries"
@@ -488,6 +490,15 @@ doctor_playwright() {
     "$BIN_DIR/pw-auth" doctor "$@"
 }
 
+wire_project() {
+    if [ ! -x "$BIN_DIR/wire-project" ]; then
+        echo -e "${RED}wire-project not found or not executable at: $BIN_DIR/wire-project${NC}"
+        return 1
+    fi
+
+    "$BIN_DIR/wire-project" "$@"
+}
+
 uninstall() {
     echo -e "${CYAN}Removing AI-DDTK from PATH...${NC}"
 
@@ -538,6 +549,10 @@ case "${1:-}" in
         ;;
     setup-mcp)
         setup_mcp
+        ;;
+    wire-project)
+        shift
+        wire_project "$@"
         ;;
     doctor-playwright)
         shift

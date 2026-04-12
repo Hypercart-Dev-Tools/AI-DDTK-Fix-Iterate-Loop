@@ -1,0 +1,4 @@
+{
+  "_README": "Path-keyed overrides for cleanup.sh. Each key is a tracked repo path. Values may override lifecycle_class, owner_tool, canonical, generated, status, notes, and tags.",
+  "overrides": {}
+}
