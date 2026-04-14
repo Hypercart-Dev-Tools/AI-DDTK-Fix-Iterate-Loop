@@ -73,7 +73,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-05",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "canonical-source",
@@ -89,7 +89,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-03-28",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "documentation",
@@ -205,7 +205,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "documentation",
@@ -221,7 +221,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "documentation",
@@ -335,7 +335,7 @@
     "owner_tool": "project-docs",
     "canonical": false,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-12",
     "status": "working",
     "tags": [
       "PROJECT",
@@ -481,7 +481,7 @@
     "owner_tool": "project-docs",
     "canonical": false,
     "generated": false,
-    "last_modified": "",
+    "last_modified": "2026-04-12",
     "status": "review",
     "tags": [
       "PROJECT",
@@ -624,15 +624,15 @@
     "area": "PROJECT",
     "file_type": "shell",
     "lifecycle_class": "project-tracking",
-    "owner_tool": "project-cleanup",
+    "owner_tool": "project-docs",
     "canonical": false,
     "generated": false,
     "last_modified": "2026-04-11",
     "status": "tracked",
     "tags": [
       "PROJECT",
-      "project-cleanup",
       "project-doc",
+      "project-docs",
       "project-tracking"
     ],
     "notes": ""
@@ -645,7 +645,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-01",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "documentation",
@@ -742,7 +742,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-03-23",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "bin",
@@ -976,7 +976,7 @@
     "owner_tool": "documentation",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-05",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "docs",
@@ -1042,7 +1042,7 @@
     "owner_tool": "documentation",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-03-23",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "docs",
@@ -1308,7 +1308,7 @@
     "owner_tool": "repo",
     "canonical": false,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "experimental"
@@ -1598,7 +1598,7 @@
     "owner_tool": "vscode-extension",
     "canonical": false,
     "generated": false,
-    "last_modified": "2026-04-05",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "experimental",
@@ -1614,7 +1614,7 @@
     "owner_tool": "vscode-extension",
     "canonical": false,
     "generated": false,
-    "last_modified": "2026-04-05",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "experimental",
@@ -1662,7 +1662,7 @@
     "owner_tool": "vscode-extension",
     "canonical": false,
     "generated": false,
-    "last_modified": "2026-04-05",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "experimental",
@@ -1694,7 +1694,7 @@
     "owner_tool": "vscode-extension",
     "canonical": false,
     "generated": false,
-    "last_modified": "2026-04-05",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "experimental",
@@ -2007,62 +2007,6 @@
     "notes": ""
   },
   {
-    "path": "temp/BINOID-CHILDTHEME-HANDOFF.md",
-    "area": "temp",
-    "file_type": "markdown",
-    "lifecycle_class": "archive-candidate",
-    "owner_tool": "runtime-artifacts",
-    "canonical": false,
-    "generated": false,
-    "last_modified": "2026-02-03",
-    "status": "review",
-    "tags": [
-      "archive-candidate",
-      "runtime",
-      "runtime-artifacts",
-      "temp"
-    ],
-    "notes": "Tracked markdown under temp should be reviewed for relocation or archival. Candidate for archival or review rather than active source-of-truth use."
-  },
-  {
-    "path": "temp/mcp/local-snippets/.gitkeep",
-    "area": "temp",
-    "file_type": "config",
-    "lifecycle_class": "temporary",
-    "owner_tool": "runtime-artifacts",
-    "canonical": false,
-    "generated": false,
-    "last_modified": "2026-03-23",
-    "status": "tracked",
-    "tags": [
-      "mcp",
-      "runtime",
-      "runtime-artifacts",
-      "temp",
-      "temporary"
-    ],
-    "notes": ""
-  },
-  {
-    "path": "temp/mcp/notes/.gitkeep",
-    "area": "temp",
-    "file_type": "config",
-    "lifecycle_class": "temporary",
-    "owner_tool": "runtime-artifacts",
-    "canonical": false,
-    "generated": false,
-    "last_modified": "2026-03-23",
-    "status": "tracked",
-    "tags": [
-      "mcp",
-      "runtime",
-      "runtime-artifacts",
-      "temp",
-      "temporary"
-    ],
-    "notes": ""
-  },
-  {
     "path": "templates/.mcp.json",
     "area": "templates",
     "file_type": "json",
@@ -2167,10 +2111,27 @@
     "owner_tool": "test",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",
+      "test"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "test/test-servers-monitor.sh",
+    "area": "test",
+    "file_type": "shell",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "test",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-12",
+    "status": "tracked",
+    "tags": [
+      "canonical-source",
+      "servers",
       "test"
     ],
     "notes": ""
@@ -2240,6 +2201,22 @@
     "notes": ""
   },
   {
+    "path": "tools/README.md",
+    "area": "tools",
+    "file_type": "markdown",
+    "lifecycle_class": "documentation",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-12",
+    "status": "tracked",
+    "tags": [
+      "documentation",
+      "tools"
+    ],
+    "notes": ""
+  },
+  {
     "path": "tools/SERVERS-AUDIT-BUGS.md",
     "area": "tools",
     "file_type": "markdown",
@@ -2264,7 +2241,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",
@@ -2278,17 +2255,67 @@
     "area": "tools",
     "file_type": "shell",
     "lifecycle_class": "canonical-source",
-    "owner_tool": "repo-cleanup",
+    "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",
-      "repo-cleanup",
       "tools"
     ],
-    "notes": "Source of truth for generating the repo metadata catalog."
+    "notes": ""
+  },
+  {
+    "path": "tools/dev-context.sh",
+    "area": "tools",
+    "file_type": "shell",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "servers",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-12",
+    "status": "tracked",
+    "tags": [
+      "canonical-source",
+      "servers",
+      "tools"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "tools/local-nginx-shim",
+    "area": "tools",
+    "file_type": "unknown",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "servers",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-12",
+    "status": "tracked",
+    "tags": [
+      "canonical-source",
+      "servers",
+      "tools"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "tools/local-nginx-shim-install.sh",
+    "area": "tools",
+    "file_type": "shell",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "servers",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-12",
+    "status": "tracked",
+    "tags": [
+      "canonical-source",
+      "servers",
+      "tools"
+    ],
+    "notes": ""
   },
   {
     "path": "tools/mcp-server/README.md",
@@ -2424,7 +2451,7 @@
     "owner_tool": "mcp-server",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",
@@ -2442,7 +2469,7 @@
     "owner_tool": "mcp-server",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",
@@ -2625,7 +2652,7 @@
     "owner_tool": "mcp-server",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-11",
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",
@@ -3233,6 +3260,23 @@
     "notes": ""
   },
   {
+    "path": "tools/repo-hygiene.sh",
+    "area": "tools",
+    "file_type": "shell",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo-hygiene",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-12",
+    "status": "tracked",
+    "tags": [
+      "canonical-source",
+      "repo-hygiene",
+      "tools"
+    ],
+    "notes": "Source of truth for generating the repo metadata catalog."
+  },
+  {
     "path": "tools/servers-audit.sh",
     "area": "tools",
     "file_type": "shell",
@@ -3241,6 +3285,40 @@
     "canonical": true,
     "generated": false,
     "last_modified": "2026-04-11",
+    "status": "tracked",
+    "tags": [
+      "canonical-source",
+      "servers",
+      "tools"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "tools/servers-monitor.conf.example",
+    "area": "tools",
+    "file_type": "template",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "servers",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-12",
+    "status": "tracked",
+    "tags": [
+      "canonical-source",
+      "servers",
+      "tools"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "tools/servers-monitor.sh",
+    "area": "tools",
+    "file_type": "shell",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "servers",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",
@@ -3544,7 +3622,7 @@
     "owner_tool": "wpcc",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-02-01",
+    "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",

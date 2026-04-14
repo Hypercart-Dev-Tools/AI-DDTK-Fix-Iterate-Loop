@@ -576,8 +576,9 @@ mcp-local-config --write-root             # Overwrite .mcp.json (requires confir
 
 1. Reads the repo-root `.mcp.json` (public, checked in)
 2. Scans legacy `temp/mcp/local-snippets/` for JSON snippet files (gitignored)
-3. Deep-merges snippet servers into the base config
-4. Outputs or writes the result
+3. Applies `/.mcp.local.json` when present as the preferred repo-local override
+4. Merges by server name, with later sources overriding earlier ones
+5. Outputs or writes the result
 
 Snippet files can be `{ "mcpServers": { ... } }` or `{ "server-name": { ... } }`.
 

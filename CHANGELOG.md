@@ -20,6 +20,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **Legacy `temp/mcp` cleanup** — removed the tracked `temp/mcp/` scaffold and the `.gitignore` carve-outs that kept it in the repo, while preserving compatibility reads for older local fragment files during migration.
 - **MCP setup docs** — updated the MCP docs to match the new steady state, including the minimal-breakage migration path and the corrected `mcp-local-config` interface.
 
+## [2.1.3] - 2026-04-13
+
+### Changed
+- **Extension release metadata** — aligned the experimental VS Code extension manifest and lockfile on version `0.2.1` so the published/package version matches the precedence change documented in its changelog.
+- **Repo catalog refresh** — regenerated `tools/mcp-server/repo-catalog.json` after removing the tracked `temp/mcp` scaffold so catalog-driven tooling no longer advertises deleted placeholder files.
+- **`mcp-local-config` CLI docs** — corrected the helper behavior description to include `/.mcp.local.json` as the final preferred layer and to describe the merge semantics as later-source override by server name.
+
 ## [2.1.1] - 2026-04-12
 
 ### Changed
