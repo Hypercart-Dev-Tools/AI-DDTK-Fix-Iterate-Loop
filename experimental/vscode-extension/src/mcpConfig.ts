@@ -70,6 +70,14 @@ function loadSnippetsDir(dirPath: string): Record<string, ServerEntry> {
   return merged;
 }
 
+function loadLegacySnippetsDir(dirPath: string): Record<string, ServerEntry> {
+  const merged = loadSnippetsDir(dirPath);
+  if (Object.keys(merged).length > 0) {
+    console.warn('[AI-DDTK] temp/mcp/local-snippets is deprecated; move local MCP entries into .mcp.local.json.');
+  }
+  return merged;
+}
+
 function entryToDefinition(name: string, entry: ServerEntry): vscode.McpStdioServerDefinition {
   return new vscode.McpStdioServerDefinition(
     name,
@@ -121,18 +129,18 @@ export class McpConfigProvider implements vscode.Disposable {
         }
       }
 
-      // Layer 3: .mcp.local.json (gitignored local overrides)
+      // Layer 3: legacy temp/mcp/local-snippets/*.json fragments
+      const snippetsDir = path.join(workspaceRoot, 'temp', 'mcp', 'local-snippets');
+      for (const [name, entry] of Object.entries(loadLegacySnippetsDir(snippetsDir))) {
+        servers.set(name, entry);
+      }
+
+      // Layer 4: .mcp.local.json (gitignored local overrides, preferred)
       const localMcp = readJsonSafe(path.join(workspaceRoot, '.mcp.local.json'));
       if (localMcp) {
         for (const [name, entry] of Object.entries(normalizeSnippet(localMcp, '.mcp.local.json'))) {
           servers.set(name, entry);
         }
-      }
-
-      // Layer 4: temp/mcp/local-snippets/*.json (individual snippet files)
-      const snippetsDir = path.join(workspaceRoot, 'temp', 'mcp', 'local-snippets');
-      for (const [name, entry] of Object.entries(loadSnippetsDir(snippetsDir))) {
-        servers.set(name, entry);
       }
     }
 

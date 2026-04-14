@@ -21,8 +21,8 @@ export async function activate(context: vscode.ExtensionContext) {
   //   Layer 0: static AI-DDTK server (~/bin/ai-ddtk/tools/mcp-server/start.sh)
   //   Layer 1: workspace .mcp.json
   //   Layer 2: .vscode/mcp.json
-  //   Layer 3: .mcp.local.json (gitignored local overrides)
-  //   Layer 4: temp/mcp/local-snippets/*.json (individual snippet files)
+  //   Layer 3: legacy temp/mcp/local-snippets/*.json fragments
+  //   Layer 4: .mcp.local.json (gitignored local overrides, preferred)
   // File watchers trigger re-query when any config changes on disk.
   const mcpChangeEmitter = new vscode.EventEmitter<void>();
   context.subscriptions.push(mcpChangeEmitter);

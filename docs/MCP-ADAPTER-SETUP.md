@@ -4,9 +4,9 @@
 >
 > For Valet clone-lab setup, see the comparison table in [P1-WP-MCP-ADAPTER.md](../PROJECT/2-WORKING/P1-WP-MCP-ADAPTER.md#phase-0--technical-spike). Steps 2–5 are identical; only the WP-CLI invocation style differs.
 
-> **Public repo hygiene:** Treat real site names, internal domains, local filesystem paths, user IDs, and auth details as environment-specific data. Keep the checked-in `.mcp.json` generic and store local-only MCP variants or working snippets under `temp/` rather than committing them.
+> **Public repo hygiene:** Treat real site names, internal domains, local filesystem paths, user IDs, and auth details as environment-specific data. Keep the checked-in `.mcp.json` generic, prefer a gitignored `/.mcp.local.json` for local overrides, and treat `temp/mcp/` as a legacy fragment path rather than the primary workflow.
 
-> **Local helper option:** This repo ships with `.mcp.local.example.json` as a tracked placeholder and `./bin/mcp-local-config` to merge the generic checked-in `.mcp.json` with local-only snippets from `temp/mcp/local-snippets/`.
+> **Local helper option:** This repo ships with `.mcp.local.example.json` as a tracked placeholder. If you still have older fragment files under `temp/mcp/local-snippets/`, use `./bin/mcp-local-config` as a one-time consolidation helper to render them into `/.mcp.local.json`. The repo no longer scaffolds `temp/mcp/` for new setups.
 
 ---
 
@@ -103,9 +103,9 @@ This registers all 12 Phase 1 + Phase 2 abilities (`ai-ddtk/create-post`, `ai-dd
 
 ---
 
-### Step 6 — Add to `.mcp.json`
+### Step 6 — Add a local MCP override
 
-Add the site's adapter server alongside the existing `ai-ddtk` server in `.mcp.json` at the root of the AI-DDTK repo:
+Preferred path: keep the checked-in `.mcp.json` generic and add the site's adapter server to a gitignored `/.mcp.local.json` at the root of the AI-DDTK repo:
 
 ```json
 {
@@ -127,13 +127,15 @@ Add the site's adapter server alongside the existing `ai-ddtk` server in `.mcp.j
 
 **Commit hygiene:** This adapter entry is meant for your local machine. Do not commit a real `<site-name>`, internal hostname, or user mapping into the public repo's checked-in `.mcp.json`.
 
-If you want to keep your real adapter entries out of the tracked `.mcp.json`, store them as JSON snippets under `temp/mcp/local-snippets/` and generate a local merged config with:
+If you are migrating from the older fragment workflow, first consolidate any existing `temp/mcp/local-snippets/*.json` files into `/.mcp.local.json` with:
 
 ```bash
 ./bin/mcp-local-config --write .mcp.local.json
 ```
 
-See `examples/mcp/local-snippet.example.json` for the exact snippet format.
+See `examples/mcp/local-snippet.example.json` for the legacy fragment format.
+
+If your MCP client only reads `.mcp.json`, keep `/.mcp.local.json` as the preferred local source of truth and copy the same server entry into your local `.mcp.json` without committing it.
 
 If you deliberately want to write the merged local config back into the repo-root `.mcp.json`, use the helper's guarded mode and acknowledge the warning prompt:
 
@@ -145,7 +147,7 @@ printf 'OVERWRITE\n' | ./bin/mcp-local-config --write-root
 
 ### Step 7 — Restart Claude Code
 
-Claude Code reads `.mcp.json` at startup. After saving the file, **restart Claude Code** (or reload the window) to connect the new MCP server. Once connected, you'll have three new tools available:
+Claude Code reads `.mcp.json` at startup. After updating the local config your client uses, **restart Claude Code** (or reload the window) to connect the new MCP server. Once connected, you'll have three new tools available:
 
 - `mcp-adapter-discover-abilities` — list all registered abilities
 - `mcp-adapter-get-ability-info` — inspect a specific ability's schema

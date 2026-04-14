@@ -81,6 +81,8 @@ This builds the server at `tools/mcp-server/dist/src/index.js` and installs Node
 > VS Code-based clients (Claude Code, GitHub Copilot, Cline) are workspace-aware — they read config files from the repo root or `.vscode/`. Augment Code and Cursor are editor-level and read from your home directory (`~/.augment/`, `~/.cursor/`). This is why `wire-project` writes `.mcp.local.json` / `.vscode/mcp.json` into the project and merges `~/.augment/settings.json` / `~/.cursor/mcp.json` at the home level.
 >
 > **Fastest setup for any project:** run `~/bin/ai-ddtk/install.sh wire-project` — it auto-detects which editors are installed and writes the right config for each.
+>
+> **Preferred repo-local override:** use `.mcp.local.json` for machine-specific project config. Older `temp/mcp/` fragment scaffolds are legacy compatibility only and should not be the default for new local MCP entries.
 
 **GitHub Copilot / Cline / Continue (VS Code):**
 - **Zero config** if the AI-DDTK VS Code extension is installed — it auto-registers the server via `mcpServerDefinitionProviders`

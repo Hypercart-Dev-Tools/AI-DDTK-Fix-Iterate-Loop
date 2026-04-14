@@ -5,13 +5,17 @@ const path = require('path');
 
 const repoRoot = path.resolve(__dirname, '..');
 const baseConfigPath = path.join(repoRoot, '.mcp.json');
-const snippetsDir = path.join(repoRoot, 'temp', 'mcp', 'local-snippets');
+const localConfigPath = path.join(repoRoot, '.mcp.local.json');
+const legacySnippetsDir = path.join(repoRoot, 'temp', 'mcp', 'local-snippets');
 
 function showHelp() {
   console.log(`AI-DDTK MCP Local Config Helper
 
-Merges the checked-in public-safe .mcp.json with any local-only JSON snippets
-stored under temp/mcp/local-snippets/ and prints the result.
+Builds the effective local MCP config by starting from the checked-in
+public-safe .mcp.json, then applying .mcp.local.json when present.
+
+Legacy compatibility: if older snippet files still exist under
+temp/mcp/local-snippets/, they are merged before .mcp.local.json.
 
 Usage:
   ./bin/mcp-local-config
@@ -21,7 +25,8 @@ Usage:
   printf 'OVERWRITE\n' | ./bin/mcp-local-config --write-root
 
 Notes:
-  - Snippet files must be JSON.
+  - .mcp.local.json is the preferred repo-local override file.
+  - Legacy snippet files must be JSON.
   - A snippet can be either { "mcpServers": { ... } } or { "server-name": { ... } }.
   - Do not commit generated local MCP configs containing real site names.
   - --dry-run previews the merged config for a write target without modifying files.
@@ -116,18 +121,37 @@ function normalizeSnippet(snippet, sourcePath) {
   return validateServerEntries(snippet, sourcePath);
 }
 
-function loadLocalSnippets() {
-  if (!fs.existsSync(snippetsDir)) {
+function listLegacySnippetNames() {
+  if (!fs.existsSync(legacySnippetsDir)) {
+    return [];
+  }
+
+  return fs.readdirSync(legacySnippetsDir)
+    .filter((entry) => entry.endsWith('.json'))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function loadPreferredLocalOverrides() {
+  if (!fs.existsSync(localConfigPath)) {
     return {};
   }
 
+  const localConfig = readJsonFile(localConfigPath);
+  return normalizeSnippet(localConfig, localConfigPath);
+}
+
+function loadLegacySnippets() {
+  const snippetNames = listLegacySnippetNames();
+  if (snippetNames.length === 0) {
+    return {};
+  }
+
+  console.error('WARNING: temp/mcp/local-snippets is deprecated; migrate local MCP entries into .mcp.local.json.');
+
   const mergedServers = {};
-  const snippetNames = fs.readdirSync(snippetsDir)
-    .filter((entry) => entry.endsWith('.json'))
-    .sort((left, right) => left.localeCompare(right));
 
   for (const snippetName of snippetNames) {
-    const snippetPath = path.join(snippetsDir, snippetName);
+    const snippetPath = path.join(legacySnippetsDir, snippetName);
     const snippetJson = readJsonFile(snippetPath);
     Object.assign(mergedServers, normalizeSnippet(snippetJson, snippetPath));
   }
@@ -163,12 +187,14 @@ function main() {
     throw new Error(`Invalid base MCP config: ${baseConfigPath}`);
   }
 
-  const localServers = loadLocalSnippets();
+  const legacyServers = loadLegacySnippets();
+  const preferredLocalServers = loadPreferredLocalOverrides();
   const mergedConfig = {
     ...baseConfig,
     mcpServers: {
       ...baseConfig.mcpServers,
-      ...localServers,
+      ...legacyServers,
+      ...preferredLocalServers,
     },
   };
 

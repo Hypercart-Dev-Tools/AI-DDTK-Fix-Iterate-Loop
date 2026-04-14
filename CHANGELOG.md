@@ -13,6 +13,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.1.2] - 2026-04-13
+
+### Changed
+- **MCP local override workflow** — standardized the preferred repo-local override path on `.mcp.local.json`, updated `bin/mcp-local-config` to apply `.mcp.local.json` after any legacy `temp/mcp/local-snippets/*.json` fragments, and changed the VS Code extension so `.mcp.local.json` now wins when both sources exist.
+- **Legacy `temp/mcp` cleanup** — removed the tracked `temp/mcp/` scaffold and the `.gitignore` carve-outs that kept it in the repo, while preserving compatibility reads for older local fragment files during migration.
+- **MCP setup docs** — updated the MCP docs to match the new steady state, including the minimal-breakage migration path and the corrected `mcp-local-config` interface.
+
 ## [2.1.1] - 2026-04-12
 
 ### Changed

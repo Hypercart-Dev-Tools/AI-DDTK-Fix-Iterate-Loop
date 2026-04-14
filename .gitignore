@@ -7,11 +7,6 @@ PROJECT/.scrub-log.jsonl
 !temp/.gitkeep
 !temp/*/.gitkeep
 !temp/*/*/.gitkeep
-!temp/mcp/
-!temp/mcp/local-snippets/
-!temp/mcp/notes/
-!temp/mcp/local-snippets/.gitkeep
-!temp/mcp/notes/.gitkeep
 
 # Credentials (never commit these)
 *.credentials

@@ -102,7 +102,7 @@ cp ~/bin/ai-ddtk/templates/.mcp.json /path/to/your-project/.mcp.local.json
 # Add .mcp.local.json to your .gitignore
 ```
 
-> **Note:** We use `.mcp.local.json` rather than `.mcp.json` so local paths don't get committed to git. If your project already has a checked-in `.mcp.json`, use `mcp-local-config merge` to combine them — see [CLI Reference](docs/CLI-REFERENCE.md).
+> **Note:** We use `.mcp.local.json` rather than `.mcp.json` so local paths don't get committed to git. If your project already has a checked-in `.mcp.json`, keep it generic and put machine-specific entries in `.mcp.local.json`. The older `temp/mcp/local-snippets/` fragment workflow is legacy compatibility only; if you still use it, run `mcp-local-config --write .mcp.local.json` to consolidate it.
 
 ### Step 3: Verify (optional)
 

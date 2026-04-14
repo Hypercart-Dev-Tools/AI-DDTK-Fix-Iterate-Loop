@@ -561,7 +561,7 @@ aiddtk-tmux stop
 
 ## mcp-local-config
 
-**Purpose:** Merge local-only MCP server snippets with the public `.mcp.json` without committing secrets.
+**Purpose:** Consolidate legacy local MCP fragment snippets into a gitignored local override without committing secrets.
 
 ```bash
 mcp-local-config                          # Print merged config to stdout
@@ -570,10 +570,12 @@ mcp-local-config --write .mcp.local.json  # Write merged config to file
 mcp-local-config --write-root             # Overwrite .mcp.json (requires confirmation)
 ```
 
+**Preferred workflow:** maintain one gitignored `/.mcp.local.json` directly. Use `mcp-local-config` when you still have older fragment files under `temp/mcp/local-snippets/` or want a one-time consolidation step. The repo no longer scaffolds that legacy path.
+
 ### How It Works
 
 1. Reads the repo-root `.mcp.json` (public, checked in)
-2. Scans `temp/mcp/local-snippets/` for JSON snippet files (gitignored)
+2. Scans legacy `temp/mcp/local-snippets/` for JSON snippet files (gitignored)
 3. Deep-merges snippet servers into the base config
 4. Outputs or writes the result
 
