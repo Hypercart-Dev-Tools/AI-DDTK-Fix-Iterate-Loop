@@ -1,0 +1,96 @@
+{
+  "repo_label": "WP Code Check",
+  "db_filename": "wp-code-check-self-ask.sqlite",
+  "system_instructions_path": "ask_self/ask_self_system_instructions.json",
+  "env_file_path": "temp/ask-self-rag.env",
+  "ingest_command": "python3 ask_self/ask_self_ingest.py --harness-config ask_self/ask_self_harness.json",
+  "tenancy_env_var": "WP_CODE_CHECK_SELF_ASK_TEAM_ID",
+  "github": {
+    "owner": "Hypercart-Dev-Tools",
+    "repo": "WP-Code-Check",
+    "default_fetch_limit": 200,
+    "token_env_vars": [
+      "SLEUTH_RAG_GITHUB_PAT",
+      "GITHUB_TOKEN"
+    ]
+  },
+  "docs": {
+    "extensions": [
+      ".md",
+      ".txt",
+      ".json"
+    ],
+    "include_patterns": [
+      "^[^/]+\\.md$",
+      "^PROJECT/.+\\.md$",
+      "^TEMPLATES/.+\\.txt$",
+      "^dist/PATTERN-LIBRARY\\.(?:md|json)$"
+    ],
+    "exclude_patterns": [
+      "^\\.git/",
+      "^node_modules/",
+      "^temp/",
+      "^scratch/",
+      "^\\.venv/"
+    ]
+  },
+  "source": {
+    "extensions": [
+      ".sh",
+      ".py",
+      ".js",
+      ".json"
+    ],
+    "include_patterns": [
+      "^dist/bin/.+\\.(?:sh|py|js)$",
+      "^dist/lib/.+\\.sh$",
+      "^dist/patterns/.+\\.json$",
+      "^validators/.+\\.sh$",
+      "^install\\.sh$"
+    ],
+    "exclude_patterns": [
+      "^\\.git/",
+      "^node_modules/",
+      "^temp/",
+      "^scratch/",
+      "^\\.venv/"
+    ]
+  },
+  "classification_rules": [
+    {
+      "pattern": "(?i)changelog\\.md$",
+      "source": "changelog",
+      "priority": 5,
+      "chunker": "changelog"
+    },
+    {
+      "pattern": "(?i)strategy|product.*brief|moat|pmf|positioning",
+      "source": "strategy",
+      "priority": 5,
+      "chunker": "text"
+    },
+    {
+      "pattern": "^dist/patterns/.+\\.json$",
+      "source": "pattern",
+      "priority": 6,
+      "chunker": "text"
+    },
+    {
+      "pattern": "^(?:dist/bin/.+|dist/lib/.+|validators/.+|install\\.sh)$",
+      "source": "script",
+      "priority": 3,
+      "chunker": "line"
+    },
+    {
+      "pattern": "^tests?/",
+      "source": "test",
+      "priority": 1,
+      "chunker": "line"
+    }
+  ],
+  "default_classification": {
+    "source": "doc",
+    "priority": 1,
+    "chunker": "text"
+  }
+}

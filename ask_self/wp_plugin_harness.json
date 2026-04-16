@@ -1,0 +1,135 @@
+{
+  "repo_label": "WordPress Plugin",
+  "repo_kind": "plugin",
+  "db_filename": "wp-plugin-self-ask.sqlite",
+  "system_instructions_path": "ask_self/ask_self_system_instructions.json",
+  "env_file_path": "temp/ask-self-rag.env",
+  "ingest_command": "python3 ask_self/ask_self_ingest.py --harness-config ask_self/wp_plugin_harness.json --mode all",
+  "tenancy_env_var": "WP_PLUGIN_SELF_ASK_TEAM_ID",
+  "github": {
+    "owner": "",
+    "repo": "",
+    "default_fetch_limit": 200,
+    "token_env_vars": [
+      "GITHUB_TOKEN"
+    ]
+  },
+  "docs": {
+    "extensions": [
+      ".md",
+      ".txt"
+    ],
+    "include_patterns": [
+      "^(?:README|CHANGELOG|CONTRIBUTING|LICENSE|COPYING)(?:\\.[^/]+)?$",
+      "^readme\\.txt$",
+      "^[^/]+\\.(?:md|txt)$",
+      "^docs/.+\\.(?:md|txt)$"
+    ],
+    "exclude_patterns": [
+      "^\\.git/",
+      "^node_modules/",
+      "^vendor/",
+      "^dist/",
+      "^build/",
+      "^coverage/",
+      "^temp/",
+      "^scratch/",
+      "^\\.venv/"
+    ]
+  },
+  "source": {
+    "extensions": [
+      ".php",
+      ".js",
+      ".mjs",
+      ".cjs",
+      ".ts",
+      ".tsx",
+      ".jsx",
+      ".json",
+      ".css",
+      ".scss",
+      ".html"
+    ],
+    "include_patterns": [
+      "^[^/]+\\.php$",
+      "^(?:composer|package|phpunit|tsconfig|webpack|vite)\\.json$",
+      "^(?:src|includes|inc|app|lib|classes|admin|public|templates|views|blocks|assets|bin|modules)/.+\\.(?:php|js|mjs|cjs|ts|tsx|jsx|json|css|scss|html)$"
+    ],
+    "exclude_patterns": [
+      "^\\.git/",
+      "^node_modules/",
+      "^vendor/",
+      "^dist/",
+      "^build/",
+      "^coverage/",
+      "^temp/",
+      "^scratch/",
+      "^\\.venv/",
+      "(?:^|/)vendor/",
+      "(?:^|/)node_modules/",
+      "\\.min\\.(?:js|css)$"
+    ]
+  },
+  "classification_rules": [
+    {
+      "pattern": "(?i)changelog\\.(?:md|txt)$",
+      "source": "changelog",
+      "priority": 5,
+      "chunker": "changelog"
+    },
+    {
+      "pattern": "^(?:README|readme|CHANGELOG|changelog)\\.(?:md|txt)$",
+      "source": "doc",
+      "priority": 4,
+      "chunker": "text"
+    },
+    {
+      "pattern": "^readme\\.txt$",
+      "source": "plugin-readme",
+      "priority": 5,
+      "chunker": "text"
+    },
+    {
+      "pattern": "^(?:composer|package|phpunit|tsconfig|webpack|vite)\\.json$|(?:^|/)(?:composer|package|phpunit|tsconfig|webpack|vite)\\.json$|(?:^|/)block\\.json$",
+      "source": "config",
+      "priority": 5,
+      "chunker": "text"
+    },
+    {
+      "pattern": "^(?:templates|views|blocks)/.+\\.(?:php|html)$",
+      "source": "template",
+      "priority": 4,
+      "chunker": "line"
+    },
+    {
+      "pattern": "(?:^|/)tests?/",
+      "source": "test",
+      "priority": 1,
+      "chunker": "line"
+    },
+    {
+      "pattern": "\\.php$",
+      "source": "php",
+      "priority": 4,
+      "chunker": "line"
+    },
+    {
+      "pattern": "\\.(?:js|mjs|cjs|ts|tsx|jsx)$",
+      "source": "script",
+      "priority": 3,
+      "chunker": "line"
+    },
+    {
+      "pattern": "\\.(?:css|scss)$",
+      "source": "style",
+      "priority": 2,
+      "chunker": "line"
+    }
+  ],
+  "default_classification": {
+    "source": "doc",
+    "priority": 1,
+    "chunker": "text"
+  }
+}

@@ -13,6 +13,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.1.4] - 2026-04-16
+
+### Changed
+- **`ask_self` harness portability** — added harness-root inference plus `--repo-root` resolution for ingest/query so copied harnesses now resolve env files, prompt files, and default sqlite paths against the target repo instead of being pinned to the AI-DDTK workspace root.
+- **WordPress RAG templates** — added `ask_self/wp_theme_harness.json` and `ask_self/wp_plugin_harness.json` as starter corpus policies for theme and plugin repos, including WordPress-specific include/exclude rules for PHP, JS, templates, config JSON, and readme/changelog files.
+- **`ask_self` registry + federated query** — added a shared local registry for ingested corpora plus slug-based query selection (`--target`, `--targets`, `--all-targets`). ask_self can now merge nearest-neighbor hits across multiple compatible per-repo sqlite-vec databases instead of only querying one DB at a time.
+- **`ask_self/README.md`** — documented portable harness resolution, target-repo prerequisites, and a VS Code agent quickstart for copied-folder WordPress theme/plugin workflows, including when `--repo-root` is required versus when it can be inferred from a copied `ask_self/` directory.
+
 ## [2.1.2] - 2026-04-13
 
 ### Changed
