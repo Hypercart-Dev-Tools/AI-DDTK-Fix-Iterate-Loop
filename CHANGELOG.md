@@ -13,6 +13,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.1.6] - 2026-04-23
+
+### Changed
+- **`PROJECT/cleanup.sh`** — absorbed the repo-catalog generator as a new `catalog` subcommand, so the project cleanup tool is now the single implementation for both project-doc hygiene and repo metadata catalog generation.
+- **`tools/cleanup.sh`** — reduced to a compatibility wrapper that forwards to `./PROJECT/cleanup.sh catalog`, preserving the old path for existing callers while eliminating duplicated catalog-generation logic.
+- **Cleanup docs + repo catalog metadata** — updated the cleanup guidance to point at the merged entrypoint, refreshed the portable `CLEANUP.md` appendix from the live script, and regenerated `tools/mcp-server/repo-catalog.json` so catalog notes now distinguish the real source of truth from the compatibility shim.
+
 ## [2.1.5] - 2026-04-23
 
 ### Changed

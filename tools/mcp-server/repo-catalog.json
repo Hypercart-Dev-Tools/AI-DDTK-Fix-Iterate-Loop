@@ -221,7 +221,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-16",
+    "last_modified": "2026-04-23",
     "status": "tracked",
     "tags": [
       "documentation",
@@ -671,7 +671,7 @@
       "project-doc",
       "project-tracking"
     ],
-    "notes": ""
+    "notes": "Source of truth for generating the repo metadata catalog."
   },
   {
     "path": "README-AI-DDTK.md",
@@ -2567,14 +2567,14 @@
     "owner_tool": "repo-cleanup",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-12",
+    "last_modified": "2026-04-23",
     "status": "tracked",
     "tags": [
       "canonical-source",
       "repo-cleanup",
       "tools"
     ],
-    "notes": "Source of truth for generating the repo metadata catalog."
+    "notes": "Compatibility wrapper for PROJECT/cleanup.sh catalog."
   },
   {
     "path": "tools/dev-context.sh",
@@ -2761,7 +2761,7 @@
     "owner_tool": "mcp-server",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-13",
+    "last_modified": "2026-04-23",
     "status": "tracked",
     "tags": [
       "canonical-source",
