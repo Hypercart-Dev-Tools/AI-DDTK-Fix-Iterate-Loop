@@ -142,6 +142,7 @@ def get_owner_tool(path):
         ("tools/local-nginx-shim", "servers"),
         ("PROJECT/cleanup.sh", "project-cleanup"),
         ("tools/cleanup.sh", "repo-cleanup"),
+        ("tools/repo-hygiene.sh", "repo-hygiene"),
         ("PROJECT/", "project-docs"),
     ]
 
@@ -229,7 +230,7 @@ def get_notes(path, lifecycle_class, owner_tool):
         notes.append("Experimental surface; promotion requires real workflow proof and doc updates.")
     if lifecycle_class == "archive-candidate":
         notes.append("Candidate for archival or review rather than active source-of-truth use.")
-    if owner_tool == "repo-cleanup":
+    if owner_tool in {"repo-cleanup", "repo-hygiene"}:
         notes.append("Source of truth for generating the repo metadata catalog.")
     return " ".join(notes)
 

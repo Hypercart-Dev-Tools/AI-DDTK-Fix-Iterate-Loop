@@ -73,7 +73,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-13",
+    "last_modified": "2026-04-14",
     "status": "tracked",
     "tags": [
       "canonical-source",
@@ -221,7 +221,7 @@
     "owner_tool": "repo",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-13",
+    "last_modified": "2026-04-16",
     "status": "tracked",
     "tags": [
       "documentation",
@@ -310,6 +310,24 @@
     "notes": ""
   },
   {
+    "path": "PROJECT/1-INBOX/P2-NEXUS-LOCAL.md",
+    "area": "PROJECT",
+    "file_type": "markdown",
+    "lifecycle_class": "project-tracking",
+    "owner_tool": "project-docs",
+    "canonical": false,
+    "generated": false,
+    "last_modified": "2026-04-14",
+    "status": "inbox",
+    "tags": [
+      "PROJECT",
+      "project-doc",
+      "project-docs",
+      "project-tracking"
+    ],
+    "notes": ""
+  },
+  {
     "path": "PROJECT/1-INBOX/P3-UX-REFACTOR.md",
     "area": "PROJECT",
     "file_type": "markdown",
@@ -337,6 +355,24 @@
     "generated": false,
     "last_modified": "2026-04-12",
     "status": "working",
+    "tags": [
+      "PROJECT",
+      "project-doc",
+      "project-docs",
+      "project-tracking"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "PROJECT/2-WORKING/P2-WP-SELF-ASK.md",
+    "area": "PROJECT",
+    "file_type": "markdown",
+    "lifecycle_class": "project-tracking",
+    "owner_tool": "project-docs",
+    "canonical": false,
+    "generated": false,
+    "last_modified": "2026-04-15",
+    "status": "tracked",
     "tags": [
       "PROJECT",
       "project-doc",
@@ -624,15 +660,15 @@
     "area": "PROJECT",
     "file_type": "shell",
     "lifecycle_class": "project-tracking",
-    "owner_tool": "project-docs",
+    "owner_tool": "project-cleanup",
     "canonical": false,
     "generated": false,
     "last_modified": "2026-04-11",
     "status": "tracked",
     "tags": [
       "PROJECT",
+      "project-cleanup",
       "project-doc",
-      "project-docs",
       "project-tracking"
     ],
     "notes": ""
@@ -666,6 +702,279 @@
     "tags": [
       "documentation",
       "root"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/README.md",
+    "area": "ask_self",
+    "file_type": "markdown",
+    "lifecycle_class": "documentation",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "documentation"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/ROADMAP.md",
+    "area": "ask_self",
+    "file_type": "markdown",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/WPCC-AI-DDTK-INTEGRATION.md",
+    "area": "ask_self",
+    "file_type": "markdown",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source",
+      "wpcc"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/__pycache__/ask_self_harness.cpython-314.pyc",
+    "area": "ask_self",
+    "file_type": "unknown",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/__pycache__/ask_self_helpers.cpython-314.pyc",
+    "area": "ask_self",
+    "file_type": "unknown",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/__pycache__/ask_self_ingest.cpython-314.pyc",
+    "area": "ask_self",
+    "file_type": "unknown",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/__pycache__/ask_self_query.cpython-314.pyc",
+    "area": "ask_self",
+    "file_type": "unknown",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/__pycache__/ask_self_registry.cpython-314.pyc",
+    "area": "ask_self",
+    "file_type": "unknown",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/ask_self_harness.json",
+    "area": "ask_self",
+    "file_type": "json",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/ask_self_harness.py",
+    "area": "ask_self",
+    "file_type": "python",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/ask_self_helpers.py",
+    "area": "ask_self",
+    "file_type": "python",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/ask_self_ingest.py",
+    "area": "ask_self",
+    "file_type": "python",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/ask_self_query.py",
+    "area": "ask_self",
+    "file_type": "python",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/ask_self_registry.py",
+    "area": "ask_self",
+    "file_type": "python",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/ask_self_system_instructions.json",
+    "area": "ask_self",
+    "file_type": "json",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/wp_plugin_harness.json",
+    "area": "ask_self",
+    "file_type": "json",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
+    ],
+    "notes": ""
+  },
+  {
+    "path": "ask_self/wp_theme_harness.json",
+    "area": "ask_self",
+    "file_type": "json",
+    "lifecycle_class": "canonical-source",
+    "owner_tool": "repo",
+    "canonical": true,
+    "generated": false,
+    "last_modified": "2026-04-16",
+    "status": "tracked",
+    "tags": [
+      "ask_self",
+      "canonical-source"
     ],
     "notes": ""
   },
@@ -1630,7 +1939,7 @@
     "owner_tool": "vscode-extension",
     "canonical": false,
     "generated": false,
-    "last_modified": "2026-04-05",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "experimental",
@@ -2255,16 +2564,17 @@
     "area": "tools",
     "file_type": "shell",
     "lifecycle_class": "canonical-source",
-    "owner_tool": "repo",
+    "owner_tool": "repo-cleanup",
     "canonical": true,
     "generated": false,
     "last_modified": "2026-04-12",
     "status": "tracked",
     "tags": [
       "canonical-source",
+      "repo-cleanup",
       "tools"
     ],
-    "notes": ""
+    "notes": "Source of truth for generating the repo metadata catalog."
   },
   {
     "path": "tools/dev-context.sh",
@@ -2451,7 +2761,7 @@
     "owner_tool": "mcp-server",
     "canonical": true,
     "generated": false,
-    "last_modified": "2026-04-12",
+    "last_modified": "2026-04-13",
     "status": "tracked",
     "tags": [
       "canonical-source",

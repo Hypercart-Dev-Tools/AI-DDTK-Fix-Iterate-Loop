@@ -13,6 +13,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.1.5] - 2026-04-23
+
+### Changed
+- **`tools/cleanup.sh`** — restored the legacy `repo-hygiene` owner mapping when building the repo catalog, so the older tracked generator keeps its specialized ownership and source-of-truth note instead of degrading to generic `repo` metadata.
+- **`tools/mcp-server/repo-catalog.json`** — regenerated the catalog with the revised cleanup rules, refreshing cleanup-script ownership metadata and adding tracked files that had been committed since the last catalog build.
+
 ## [2.1.4] - 2026-04-16
 
 ### Changed
