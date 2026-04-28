@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "description": "Client and project names to redact from repository documents. Sleuth is intentionally excluded and allowed to remain.",
+  "terms": [
+    {
+      "pattern": "Binoid",
+      "replacement": "[PROJECT]",
+      "boundary": true,
+      "case_insensitive": true
+    },
+    {
+      "pattern": "Bloomz",
+      "replacement": "[PROJECT]",
+      "boundary": true,
+      "case_insensitive": true
+    },
+    {
+      "pattern": "Bailiwik",
+      "replacement": "[PROJECT]",
+      "boundary": true,
+      "case_insensitive": true
+    },
+    {
+      "pattern": "Normans Nursery",
+      "replacement": "[CLIENT]",
+      "boundary": true,
+      "case_insensitive": true
+    },
+    {
+      "pattern": "Norman's Nursery",
+      "replacement": "[CLIENT]",
+      "boundary": true,
+      "case_insensitive": true
+    },
+    {
+      "pattern": "LTVera",
+      "replacement": "[PROJECT]",
+      "boundary": true,
+      "case_insensitive": true
+    },
+    {
+      "pattern": "ltv-era",
+      "replacement": "[PROJECT-SLUG]",
+      "boundary": true,
+      "case_insensitive": true
+    },
+    {
+      "pattern": "WP Canary",
+      "replacement": "[PROJECT]",
+      "boundary": true,
+      "case_insensitive": true
+    },
+    {
+      "pattern": "wp-canary",
+      "replacement": "[PROJECT-SLUG]",
+      "boundary": true,
+      "case_insensitive": true
+    }
+  ]
+}
