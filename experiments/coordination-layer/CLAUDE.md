@@ -9,6 +9,7 @@ cat ./PROJECT/2-WORKING/P1-TRINITY.md
 cat ./experiments/coordination-layer/README.md
 cat ./experiments/coordination-layer/RECAP.md
 cat ./experiments/coordination-layer/REAL-AGENT-OBSERVATIONS.md
+cat ./experiments/coordination-layer/BACKLOG.md
 ```
 
 These give you the full design rationale, the current state of the spike, and the template you'll be filling in at the end.

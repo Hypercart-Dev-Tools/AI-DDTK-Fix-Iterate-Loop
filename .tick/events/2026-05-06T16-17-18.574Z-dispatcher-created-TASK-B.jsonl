@@ -1,0 +1,1 @@
+{"schema_version":"0.1.0","ts":"2026-05-06T16:17:18.574Z","type":"task.created","task":"TASK-B","agent":"dispatcher","paths":["bin/wire-project"],"note":"Add --help/-h support to bin/wire-project. See BACKLOG.md TASK-B.","priority":10}

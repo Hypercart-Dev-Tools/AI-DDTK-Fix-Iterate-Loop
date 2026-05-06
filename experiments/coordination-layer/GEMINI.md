@@ -35,6 +35,9 @@ For every task:
    ```
    ./experiments/coordination-layer/bin/tick next --agent gemini
    ```
+   `tick next` returns a task ID like `TASK-A`. Look it up in
+   [`./experiments/coordination-layer/BACKLOG.md`](BACKLOG.md) for the
+   description, acceptance criteria, and any reference docs.
 
 2. Claim it BEFORE editing any files:
    ```

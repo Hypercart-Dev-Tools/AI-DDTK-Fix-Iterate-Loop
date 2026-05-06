@@ -1,0 +1,1 @@
+{"schema_version":"0.1.0","ts":"2026-05-06T16:17:18.661Z","type":"task.created","task":"TASK-C","agent":"dispatcher","paths":["tools/servers-audit.sh"],"note":"Fix grep -Eq regex injection on tools/servers-audit.sh:361 (use grep -Fxq). See tools/SERVERS-AUDIT-BUGS.md Bug 2 and BACKLOG.md TASK-C.","priority":5}
