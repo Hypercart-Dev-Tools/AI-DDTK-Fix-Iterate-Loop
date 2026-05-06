@@ -40,22 +40,22 @@ cat .tick/STATE.md
 
 `--paths` accepts comma-separated globs: `--paths "src/auth/**,tests/auth/**"`.
 
-## Multi-agent worktree setup
+## Multi-agent setup: separate clones
 
-Each agent runs in its own `git worktree` so filesystem-level edits never collide even if path-scoping is sloppy. All worktrees point at the same coordination branch — `.tick/` is branch-scoped.
+The architecture requires all coordinating agents to work on the same branch (`.tick/` is branch-scoped, and `tick`'s auto-push targets the current branch). `git worktree` cannot have the same branch checked out twice, so we use **separate clones** instead — one per agent, all tracking `experiment/coordination-layer`.
 
 ```bash
-# from the main checkout, on the coordination branch:
-git worktree add ../trinity-claude experiment/coordination-layer
-git worktree add ../trinity-codex  experiment/coordination-layer
-git worktree add ../trinity-gemini experiment/coordination-layer
-
-# each agent cd's into its own worktree and uses tick from there.
-cd ../trinity-claude
-../AI-DDTK/experiments/coordination-layer/bin/tick init
+REMOTE=https://github.com/Hypercart-Dev-Tools/AI-DDTK-Fix-Iterate-Loop.git
+for agent in claude codex gemini; do
+  git clone --branch experiment/coordination-layer "$REMOTE" "../trinity-$agent"
+  git -C "../trinity-$agent" config user.name  "$agent"
+  git -C "../trinity-$agent" config user.email "$agent@trinity.local"
+done
 ```
 
-Note: `git worktree add` will fail if the same branch is already checked out in another worktree. For the spike, point each worktree at a *child* branch off the coordination branch (e.g. `experiment/coordination-layer-claude`), have each agent rebase onto the coordination branch periodically, and use `git push origin HEAD:experiment/coordination-layer` for `tick`'s critical-event pushes. This is friction; addressing it cleanly is Phase 2 (separate ref / cross-branch coordination).
+Each clone has its own `.git/`, so plain `git config user.name` is correctly scoped (no `--worktree` needed). The git author name is what `tick analyze` uses to attribute work commits to agents — set it before agents start.
+
+**Why not worktrees?** A `git worktree` shares its branch space with the parent repo: same-branch checkouts are refused, and per-worktree git identity requires `extensions.worktreeConfig` plus `git config --worktree` (default `git config` writes to the shared repo config and silently overwrites). More importantly, if you put each agent on a child branch, `tick`'s auto-push lands on that child branch and peer agents on different child branches never see the events. Phase 2 may add a shared `.tick/`-only ref (or out-of-band sync daemon) to make worktrees viable; until then, clones.
 
 ## Agent integration prompt snippet
 
