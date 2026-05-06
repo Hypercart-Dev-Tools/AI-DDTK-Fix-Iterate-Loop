@@ -29,4 +29,35 @@ function setsOverlap(setA, setB) {
   return false;
 }
 
-module.exports = { patternsOverlap, setsOverlap, literalPrefix };
+// Glob-to-regex for matching a literal file path against a glob pattern.
+// Handles **, *, ?. No brace/char-class support — keep it small for the spike.
+function globToRegex(glob) {
+  let re = '';
+  for (let i = 0; i < glob.length; i++) {
+    const ch = glob[i];
+    if (ch === '*') {
+      if (glob[i + 1] === '*') {
+        re += '.*';
+        i++;
+        // consume optional trailing slash so foo/** matches foo (no trailing /)
+        if (glob[i + 1] === '/') i++;
+      } else {
+        re += '[^/]*';
+      }
+    } else if (ch === '?') {
+      re += '[^/]';
+    } else if ('.+^$()[]{}|\\'.includes(ch)) {
+      re += '\\' + ch;
+    } else {
+      re += ch;
+    }
+  }
+  return new RegExp('^' + re + '$');
+}
+
+function matchesAny(file, globs) {
+  if (!globs || !globs.length) return false;
+  return globs.some(g => globToRegex(g).test(file));
+}
+
+module.exports = { patternsOverlap, setsOverlap, literalPrefix, globToRegex, matchesAny };

@@ -10,6 +10,7 @@ const { project } = require('../src/project');
 const { claim } = require('../src/claim');
 const { scope, release, circuitBreak, done } = require('../src/scope');
 const { next } = require('../src/next');
+const { analyze, renderHuman, renderMd } = require('../src/analyze');
 
 function repoRoot() {
   if (process.env.TICK_REPO_ROOT) return path.resolve(process.env.TICK_REPO_ROOT);
@@ -59,6 +60,7 @@ Usage:
   tick release <task> --agent <id> [--to <agent>]
   tick break <task> --agent <id> --reason "..."
   tick done <task> --agent <id> [--note "..."]
+  tick analyze [--format human|md|json] [--since <ref>] [--write <file>]
 
 Event types: ${Array.from(EVENT_TYPES).join(', ')}
 `);
@@ -154,6 +156,38 @@ function main(argv) {
       if (!task || !flags.agent) { usage(); return 2; }
       done(root, { task, agent: flags.agent, note: typeof flags.note === 'string' ? flags.note : undefined });
       process.stdout.write(`done: ${task}\n`);
+      return 0;
+    }
+
+    case 'analyze': {
+      const format = (typeof flags.format === 'string' && flags.format) || 'human';
+      const since = typeof flags.since === 'string' ? flags.since : undefined;
+      const report = analyze(root, { since });
+      let body;
+      if (format === 'json') body = JSON.stringify(report, null, 2);
+      else if (format === 'md') body = renderMd(report);
+      else body = renderHuman(report);
+
+      if (typeof flags.write === 'string') {
+        // Append (or replace existing auto-analyzed section in) the target file.
+        const target = path.resolve(root, flags.write);
+        const md = format === 'md' ? body : renderMd(report);
+        let existing = '';
+        if (fs.existsSync(target)) existing = fs.readFileSync(target, 'utf8');
+        const marker = '## Auto-analyzed (tick analyze)';
+        const idx = existing.indexOf(marker);
+        let next;
+        if (idx >= 0) {
+          // Replace from marker to end of file, since auto-analyzed sits at the bottom.
+          next = existing.slice(0, idx).replace(/\s+$/, '') + '\n\n' + md;
+        } else {
+          next = (existing.replace(/\s+$/, '') + '\n\n' + md).replace(/^\n+/, '');
+        }
+        fs.writeFileSync(target, next.endsWith('\n') ? next : next + '\n');
+        process.stdout.write(`wrote analysis to ${path.relative(root, target)}\n`);
+      } else {
+        process.stdout.write(body + '\n');
+      }
       return 0;
     }
 

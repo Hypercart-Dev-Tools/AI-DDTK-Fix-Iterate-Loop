@@ -12,6 +12,7 @@ TESTS=(
   "handoff.sh"
   "circuit-break.sh"
   "auto-sync.sh"
+  "analyze.sh"
 )
 
 PASSED=()

@@ -2,6 +2,8 @@
 
 Template for the Day 5 deliverable. Fill in observations for each agent that participates in a hand-test.
 
+> **Tip:** the objective questions below (claimed before editing? declared paths matched edits? used scope/done/break?) can be answered automatically by `./bin/tick analyze --write REAL-AGENT-OBSERVATIONS.md`. Run it after the session and let the analyzer fill in the per-agent compliance numbers and drift examples; you only need to write the subjective sections (what the prompt needed, what felt like friction) and the synthesis.
+
 ## Run metadata
 
 - **Date:** _(YYYY-MM-DD)_

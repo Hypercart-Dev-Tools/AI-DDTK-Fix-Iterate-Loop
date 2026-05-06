@@ -36,6 +36,7 @@ cat .tick/STATE.md
 | `tick release <task> --agent <id> [--to <agent>]` | yes | Release claim, optionally hand off |
 | `tick break <task> --agent <id> --reason "..."` | yes | Mark task circuit-broken; excluded from `tick next` for everyone |
 | `tick done <task> --agent <id> [--note "..."]` | yes | Mark complete |
+| `tick analyze [--format human\|md\|json] [--since <ref>] [--write <file>]` | no | Audit a multi-agent run: walks `.tick/events/` + `git log` and reports per-agent compliance (claimed before editing? declared paths matched? scope/done/break used?) plus cross-cutting collisions. Reusable across testing phases. |
 
 `--paths` accepts comma-separated globs: `--paths "src/auth/**,tests/auth/**"`.
 
@@ -109,8 +110,29 @@ Then start each agent in its worktree with the integration prompt loaded.
 ## Tests
 
 ```bash
-./validate.sh        # run all 7 acceptance tests
+./validate.sh        # run all acceptance tests
 ./test/handoff.sh    # run one
 ```
 
 Each test sets up a bare remote + two clones in `$TMPDIR` and exercises the protocol end-to-end. Cleanup is automatic.
+
+## Auditing a real-agent run
+
+After any multi-agent session — Day 5 hand-test, future Phase 2 runs, anything — run:
+
+```bash
+./bin/tick analyze                                          # human-readable to stdout
+./bin/tick analyze --format json                            # for downstream tooling
+./bin/tick analyze --write REAL-AGENT-OBSERVATIONS.md       # append/replace the auto-analyzed section in-place
+```
+
+The analyzer walks `.tick/events/` and `git log`, attributes each work commit to whichever agent's claim window contains it (using git author name as the agent identifier — set `git config user.name` per worktree to your agent ID), and reports per-agent:
+
+- **Claimed before editing?** Counts work commits not covered by any active claim by that agent.
+- **Declared paths matched actual edits?** Per-commit comparison of touched files against the active claim's globs (claim paths ∪ scope_changed paths).
+- **Used `tick scope` / `tick done` / `tick break`?** Direct event counts.
+- **Drift examples + unclaimed work examples** for forensic inspection.
+
+Cross-cutting: file collisions (same file edited by 2+ agents) and wasted work (commits on circuit-broken tasks).
+
+Subjective questions in REAL-AGENT-OBSERVATIONS.md (what the prompt needed, what felt like friction) still require each agent to self-report.
