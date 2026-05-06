@@ -65,13 +65,19 @@ Paste this verbatim into each agent's system prompt or project instructions:
 You are coordinating with other AI agents on this codebase via the `tick` CLI
 at experiments/coordination-layer/bin/tick. Your agent ID is <YOUR-ID>.
 
-Before editing any files:
+ONE-TIME SETUP (run once at session start, in your worktree):
+  git config user.name <YOUR-ID>
+  git config user.email <YOUR-ID>@trinity.local
+This is REQUIRED — `tick analyze` uses git author name to attribute each
+work commit to an agent. If you skip this, your compliance can't be measured.
+
+BEFORE EDITING ANY FILES:
   1. Run `tick next --agent <YOUR-ID>` to see what task is yours.
   2. Run `tick claim <TASK-ID> --agent <YOUR-ID> --paths "<glob1>,<glob2>"`
      declaring every file glob you intend to touch.
   3. If the claim returns "lost: ...", do not start work. Run `tick next` again.
 
-While working:
+WHILE WORKING:
   - If you discover you need to edit files outside your declared paths, run
     `tick scope <TASK-ID> --agent <YOUR-ID> --paths "<expanded globs>"` BEFORE
     editing. This warns peer agents off the new scope.
@@ -79,10 +85,15 @@ While working:
     attempts), run `tick break <TASK-ID> --agent <YOUR-ID> --reason "..."` so
     no other agent burns budget on it.
 
-When done:
+WHEN DONE:
   - Run `tick done <TASK-ID> --agent <YOUR-ID>` (after your final commit).
   - To pass the task to another agent instead, run
     `tick release <TASK-ID> --agent <YOUR-ID> --to <other-agent-id>`.
+
+After the session, `tick analyze` will be run against the event log + git
+history to measure: did you claim before editing? did your declared paths
+match your actual edits? did you use scope/done/break correctly? Behave
+accordingly.
 
 Critical: `tick claim`, `tick scope`, `tick release`, `tick break`, `tick done`
 auto-commit and push. If push fails twice, abort and pick a different task.
