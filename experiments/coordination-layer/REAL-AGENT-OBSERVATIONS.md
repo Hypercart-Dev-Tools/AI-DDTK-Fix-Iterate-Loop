@@ -36,3 +36,49 @@ For each of Claude Code, Codex, Gemini that participated:
 ## Recommendation
 
 _(graduate to Phase 2 / iterate on substrate / abandon — with one-line reason)_
+
+## Auto-analyzed (tick analyze)
+
+- **Run window:** `2026-05-06T16:17:18.481Z` → `2026-05-06T16:20:27.912Z`
+- **Total events:** 10 (created: 3, claimed: 5, released: 2)
+
+### Per-agent
+
+#### codex
+
+- **Claimed before editing:** yes
+- **Declared paths matched actual edits:** no work commits attributed
+- **Used `tick scope` when expanding mid-task:** never observed
+- **Used `tick done` on completion:** no
+- **Used `tick break` when stuck:** never invoked
+- **Other coordination events:** 2 release(s) (0 as handoff), 0 comment(s)
+- **Claim outcomes:** 0 won, 2 lost (of 2 attempted)
+
+#### dispatcher
+
+- **Claimed before editing:** yes
+- **Declared paths matched actual edits:** no work commits attributed
+- **Used `tick scope` when expanding mid-task:** never observed
+- **Used `tick done` on completion:** no
+- **Used `tick break` when stuck:** never invoked
+- **Other coordination events:** 0 release(s) (0 as handoff), 0 comment(s)
+- **Claim outcomes:** 0 won, 0 lost (of 0 attempted)
+
+#### gemini
+
+- **Claimed before editing:** **no — 3 unclaimed work commit(s)**
+- **Declared paths matched actual edits:** no work commits attributed
+- **Used `tick scope` when expanding mid-task:** never observed
+- **Used `tick done` on completion:** no
+- **Used `tick break` when stuck:** never invoked
+- **Other coordination events:** 0 release(s) (0 as handoff), 0 comment(s)
+- **Claim outcomes:** 3 won, 0 lost (of 3 attempted)
+- **Unclaimed work commits:**
+  - `a5e6cd72` edited `experiments/coordination-layer/BACKLOG.md`, `experiments/coordination-layer/CLAUDE.md`, `experiments/coordination-layer/CODEX.md`, `experiments/coordination-layer/GEMINI.md` with no active claim
+  - `c140e6a0` edited `experiments/coordination-layer/CLAUDE.md`, `experiments/coordination-layer/CODEX.md`, `experiments/coordination-layer/GEMINI.md` with no active claim
+  - `c28d581e` edited `experiments/coordination-layer/README.md` with no active claim
+
+### Cross-cutting
+
+- **File collisions:** none
+- **Wasted work on broken tasks:** none

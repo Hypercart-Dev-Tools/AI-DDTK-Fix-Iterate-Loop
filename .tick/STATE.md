@@ -3,12 +3,12 @@
 # Coordination State
 
 ## Open
-- TASK-A (priority: 10) paths: ["tools/servers-audit.sh"]
-- TASK-B (priority: 10) paths: ["bin/wire-project"]
-- TASK-C (priority: 5) paths: ["tools/servers-audit.sh"]
+_(none)_
 
 ## Claimed
-_(none)_
+- TASK-A by gemini paths: ["tools/servers-audit.sh"]
+- TASK-B by gemini paths: ["bin/wire-project"]
+- TASK-C by gemini paths: ["tools/servers-audit.sh"]
 
 ## Done
 _(none)_
