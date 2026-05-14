@@ -161,4 +161,26 @@ function project(repoRoot) {
   return { tasks, stateFile };
 }
 
-module.exports = { project, fold, renderState };
+// --- Per-agent claim cap (Run 2, P1) ------------------------------------
+// An agent may hold at most this many simultaneously-active claims.
+// Hardcoded for the spike; a config knob is Phase 2.
+const MAX_ACTIVE_CLAIMS_PER_AGENT = 2;
+
+// Task IDs currently actively claimed by `agent` (status === 'claimed').
+function activeClaimsForAgent(tasks, agent) {
+  const held = [];
+  for (const t of tasks.values()) {
+    if (t.status === 'claimed' && t.claim && t.claim.agent === agent) {
+      held.push(t.id);
+    }
+  }
+  return held.sort();
+}
+
+module.exports = {
+  project,
+  fold,
+  renderState,
+  activeClaimsForAgent,
+  MAX_ACTIVE_CLAIMS_PER_AGENT,
+};

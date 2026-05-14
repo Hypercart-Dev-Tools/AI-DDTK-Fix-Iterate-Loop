@@ -35,6 +35,21 @@ function currentBranch(repoRoot) {
   }).trim();
 }
 
+// The clone's configured git identity. `tick analyze` attributes work commits
+// by author name, and the integration prompt requires `git config user.name`
+// to equal the agent ID — so this is the cross-check source for --agent.
+function gitUserName(repoRoot) {
+  try {
+    const out = execFileSync('git', ['config', 'user.name'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    }).trim();
+    return out || null;
+  } catch {
+    return null;
+  }
+}
+
 function fetch(repoRoot) {
   if (!hasRemote(repoRoot)) return;
   gitTry(repoRoot, ['fetch', 'origin']);
@@ -71,4 +86,4 @@ function commitAndPush(repoRoot, filePath, message) {
   throw new Error('push failed after one retry; aborting (caller should pick a different task or retry manually)');
 }
 
-module.exports = { git, gitTry, hasRemote, currentBranch, fetch, rebase, commitAndPush };
+module.exports = { git, gitTry, hasRemote, currentBranch, gitUserName, fetch, rebase, commitAndPush };

@@ -13,6 +13,8 @@ TESTS=(
   "circuit-break.sh"
   "auto-sync.sh"
   "analyze.sh"
+  "claim-cap.sh"
+  "reap.sh"
 )
 
 PASSED=()

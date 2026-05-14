@@ -118,6 +118,70 @@ function isWithin(ts, openedAt, closedAt) {
   return true;
 }
 
+function humanDuration(ms) {
+  if (!ms || ms < 0) return '0s';
+  const totalS = Math.round(ms / 1000);
+  const h = Math.floor(totalS / 3600);
+  const m = Math.floor((totalS % 3600) / 60);
+  const s = totalS % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
+
+// Concurrent-claim-time metric (Run 2, P4). How much of the run window had
+// >= 2 distinct agents each holding >= 1 active claim simultaneously. This is
+// the primary success metric for the sustained-parallelism test — per-agent
+// task counts can be fooled by a lopsided split, this can't.
+//
+// An agent may hold up to 2 claims at once (the cap), so we measure distinct
+// *agents* with an open window, not raw window overlap.
+function computeParallelism(windows, runStart, runEnd) {
+  const startMs = toMs(runStart);
+  const endMs = toMs(runEnd);
+  if (startMs === null || endMs === null || endMs <= startMs) {
+    return { concurrent_ms: 0, run_window_ms: 0, concurrent_pct: null };
+  }
+
+  // Clamp each claim window to the run bounds. A still-open window runs to runEnd.
+  const intervals = [];
+  for (const w of windows) {
+    const o = toMs(w.openedAt);
+    if (o === null) continue;
+    let c = w.closedAt ? toMs(w.closedAt) : endMs;
+    if (c === null) c = endMs;
+    const start = Math.max(o, startMs);
+    const end = Math.min(c, endMs);
+    if (end > start) intervals.push({ agent: w.agent, start, end });
+  }
+
+  // Sweep between consecutive breakpoints; every interval endpoint is a
+  // breakpoint, so each segment is either fully inside an interval or fully
+  // outside it.
+  const points = new Set([startMs, endMs]);
+  for (const iv of intervals) { points.add(iv.start); points.add(iv.end); }
+  const sorted = Array.from(points).sort((a, b) => a - b);
+
+  let concurrentMs = 0;
+  for (let i = 0; i < sorted.length - 1; i++) {
+    const segStart = sorted[i];
+    const segEnd = sorted[i + 1];
+    if (segEnd <= segStart) continue;
+    const agents = new Set();
+    for (const iv of intervals) {
+      if (iv.start <= segStart && iv.end >= segEnd) agents.add(iv.agent);
+    }
+    if (agents.size >= 2) concurrentMs += segEnd - segStart;
+  }
+
+  const runMs = endMs - startMs;
+  return {
+    concurrent_ms: concurrentMs,
+    run_window_ms: runMs,
+    concurrent_pct: runMs > 0 ? Math.round((concurrentMs / runMs) * 100) : null,
+  };
+}
+
 function analyze(repoRoot, opts = {}) {
   const events = readAllEvents(repoRoot);
   const commits = gitLogCommits(repoRoot, opts.since);
@@ -295,8 +359,12 @@ function analyze(repoRoot, opts = {}) {
     total_events: events.length,
   };
 
+  // Concurrent-claim-time (P4) — the primary sustained-parallelism metric.
+  const parallelism = computeParallelism(windows, window.earliest_event, window.latest_event);
+
   return {
     window,
+    parallelism,
     agents: Array.from(perAgent.values()).sort((a, b) => a.agent.localeCompare(b.agent)),
     cross_cutting: {
       file_collisions: collisions,
@@ -320,6 +388,14 @@ function renderHuman(report) {
   out.push(`window: ${report.window.earliest_event || '(none)'} → ${report.window.latest_event || '(none)'}`);
   out.push(`events: ${report.window.total_events} (` +
     Object.entries(report.event_counts).map(([k, v]) => `${k}:${v}`).join(', ') + ')');
+  if (report.parallelism) {
+    const p = report.parallelism;
+    if (p.concurrent_pct !== null) {
+      out.push(`concurrent-claim time: ${humanDuration(p.concurrent_ms)} of ${humanDuration(p.run_window_ms)} run window (${p.concurrent_pct}%)`);
+    } else {
+      out.push('concurrent-claim time: not computable (run window too short)');
+    }
+  }
   out.push('');
   out.push('--- per agent ---');
   for (const a of report.agents) {
@@ -368,6 +444,14 @@ function renderMd(report) {
   out.push('');
   out.push(`- **Run window:** \`${report.window.earliest_event || '(none)'}\` → \`${report.window.latest_event || '(none)'}\``);
   out.push(`- **Total events:** ${report.window.total_events} (${Object.entries(report.event_counts).filter(([_,v]) => v).map(([k,v]) => `${k}: ${v}`).join(', ') || 'none'})`);
+  if (report.parallelism) {
+    const p = report.parallelism;
+    if (p.concurrent_pct !== null) {
+      out.push(`- **Concurrent-claim time (primary metric):** both agents held an active claim simultaneously for ${humanDuration(p.concurrent_ms)} of the ${humanDuration(p.run_window_ms)} run window (**${p.concurrent_pct}%**)`);
+    } else {
+      out.push('- **Concurrent-claim time (primary metric):** not computable (run window too short)');
+    }
+  }
   out.push('');
   out.push('### Per-agent');
   out.push('');

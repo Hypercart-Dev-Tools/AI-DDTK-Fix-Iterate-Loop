@@ -8,9 +8,26 @@ const { execFileSync } = require('child_process');
 const { appendEvent, ensureEventsDir, EVENT_TYPES } = require('../src/events');
 const { project } = require('../src/project');
 const { claim } = require('../src/claim');
-const { scope, release, circuitBreak, done } = require('../src/scope');
+const { scope, release, circuitBreak, done, reap } = require('../src/scope');
 const { next } = require('../src/next');
 const { analyze, renderHuman, renderMd } = require('../src/analyze');
+const { gitUserName } = require('../src/sync');
+
+// Agent-identity cross-check (Run 2, P3). The claim cap is keyed on the
+// --agent flag, resolved fresh on every invocation (each `tick` call is its
+// own process — there is no startup-cached identity to stale out). It is not
+// spoof-proof — an agent can pass any --agent — but a mismatch against the
+// clone's `git config user.name` is surfaced loudly so the run logs catch it.
+// Cryptographic identity is an explicit non-goal for the spike.
+function checkAgentIdentity(root, agent) {
+  const gitName = gitUserName(root);
+  if (gitName && agent && gitName !== agent) {
+    process.stderr.write(
+      `tick: warning: --agent "${agent}" != git config user.name "${gitName}" — ` +
+      `the claim cap and analyze attribution key on these; make them match\n`
+    );
+  }
+}
 
 function repoRoot() {
   if (process.env.TICK_REPO_ROOT) return path.resolve(process.env.TICK_REPO_ROOT);
@@ -60,6 +77,7 @@ Usage:
   tick release <task> --agent <id> [--to <agent>]
   tick break <task> --agent <id> --reason "..."
   tick done <task> --agent <id> [--note "..."]
+  tick reap <agent> [--by <id>]
   tick analyze [--format human|md|json] [--since <ref>] [--write <file>]
 
 Event types: ${Array.from(EVENT_TYPES).join(', ')}
@@ -105,11 +123,16 @@ function main(argv) {
     case 'claim': {
       const [task] = positional;
       if (!task || !flags.agent || !flags.paths) { usage(); return 2; }
+      checkAgentIdentity(root, flags.agent);
       const result = claim(root, {
         task,
         agent: flags.agent,
         paths: parsePathsFlag(flags.paths),
       });
+      if (result.limitReached) {
+        process.stdout.write(`lost: claim limit reached (holding ${result.holding.join(', ')}) — finish or release first\n`);
+        return 0;
+      }
       if (result.won) {
         process.stdout.write(`won: ${task} claimed by ${flags.agent}\n`);
         return 0;
@@ -120,7 +143,12 @@ function main(argv) {
 
     case 'next': {
       if (!flags.agent) { usage(); return 2; }
+      checkAgentIdentity(root, flags.agent);
       const t = next(root, { agent: flags.agent });
+      if (t && t.limitReached) {
+        process.stdout.write(`(claim limit reached — holding ${t.holding.join(', ')} — finish or release a task first)\n`);
+        return 0;
+      }
       if (!t) { process.stdout.write('(no available task)\n'); return 0; }
       const handoff = t.handoff_to === flags.agent ? ' [handoff]' : '';
       process.stdout.write(`${t.id} (priority: ${t.priority})${handoff}\n`);
@@ -156,6 +184,19 @@ function main(argv) {
       if (!task || !flags.agent) { usage(); return 2; }
       done(root, { task, agent: flags.agent, note: typeof flags.note === 'string' ? flags.note : undefined });
       process.stdout.write(`done: ${task}\n`);
+      return 0;
+    }
+
+    case 'reap': {
+      const [agent] = positional;
+      if (!agent) { usage(); return 2; }
+      const by = typeof flags.by === 'string' ? flags.by : (gitUserName(root) || 'coordinator');
+      const result = reap(root, { agent, by });
+      if (!result.reaped.length) {
+        process.stdout.write(`(no active claims held by ${agent})\n`);
+      } else {
+        process.stdout.write(`reaped ${result.reaped.length} claim(s) from ${agent}: ${result.reaped.join(', ')}\n`);
+      }
       return 0;
     }
 

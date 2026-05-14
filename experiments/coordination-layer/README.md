@@ -30,12 +30,13 @@ cat .tick/STATE.md
 | `tick init` | no | `mkdir -p .tick/events` |
 | `tick log <type> <task> ...` | no (writes locally) | Append a raw event |
 | `tick project` | no | Rebuild `.tick/STATE.md` from events |
-| `tick claim <task> --agent <id> --paths <globs>` | yes | Optimistic claim with deterministic tie-breaker |
-| `tick next --agent <id>` | no (fetches first) | Return next compatible task |
+| `tick claim <task> --agent <id> --paths <globs>` | yes | Optimistic claim with deterministic tie-breaker. Refused if the agent already holds 2 active claims (the cap). |
+| `tick next --agent <id>` | no (fetches first) | Return next compatible task. Reports the claim limit instead of a task if the agent is at the cap. |
 | `tick scope <task> --agent <id> --paths <globs>` | yes | Replace claim's path scope |
 | `tick release <task> --agent <id> [--to <agent>]` | yes | Release claim, optionally hand off |
 | `tick break <task> --agent <id> --reason "..."` | yes | Mark task circuit-broken; excluded from `tick next` for everyone |
 | `tick done <task> --agent <id> [--note "..."]` | yes | Mark complete |
+| `tick reap <agent> [--by <id>]` | yes | Coordinator lever: release every active claim held by a presumed-crashed agent so peers can pick the work back up. Manual and logged — not auto-recovery. |
 | `tick analyze [--format human\|md\|json] [--since <ref>] [--write <file>]` | no | Audit a multi-agent run: walks `.tick/events/` + `git log` and reports per-agent compliance (claimed before editing? declared paths matched? scope/done/break used?) plus cross-cutting collisions. Reusable across testing phases. |
 
 `--paths` accepts comma-separated globs: `--paths "src/auth/**,tests/auth/**"`.
@@ -76,6 +77,15 @@ BEFORE EDITING ANY FILES:
   2. Run `tick claim <TASK-ID> --agent <YOUR-ID> --paths "<glob1>,<glob2>"`
      declaring every file glob you intend to touch.
   3. If the claim returns "lost: ...", do not start work. Run `tick next` again.
+
+CLAIM LIMIT: You may hold AT MOST 2 active claims at once. Finish (`tick done`)
+or release (`tick release`) a task before claiming a third. `tick next` and
+`tick claim` will refuse to give you a third — that is expected, not an error.
+
+DEPENDENCIES: Use only the Node standard library — `node:http`, `node:test`,
+`node:assert`. Do NOT install dependencies, do NOT edit `package.json`, do NOT
+create a lockfile. `package.json` is shared and outside every task's scope;
+touching it collides with the other agent and fails the run.
 
 WHILE WORKING:
   - If you discover you need to edit files outside your declared paths, run
