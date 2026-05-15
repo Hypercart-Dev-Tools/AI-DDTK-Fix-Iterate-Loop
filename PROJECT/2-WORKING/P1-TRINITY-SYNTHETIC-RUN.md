@@ -5,7 +5,7 @@
 **Owner:** Noel / Hypercart
 **Coordinator:** Claude Code (orchestrator — observes, does not claim or code)
 **Agents:** 2 of {Codex, Gemini} — the peers doing the work
-**Status:** Planned. Not started. Revised with Gemini + Claude Opus 4.7 feedback.
+**Status:** Complete. Run 2 executed 2026-05-14–15. See RECAP.md "Run 2" section for findings.
 
 ---
 

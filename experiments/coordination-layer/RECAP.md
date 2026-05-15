@@ -43,3 +43,46 @@ cd experiments/coordination-layer
 ./validate.sh
 # expected: passed: 7 / 7
 ```
+
+---
+
+## Run 2 — 2026-05-14–15
+
+### What happened
+
+Run 2 used a 6-task Todo REST API split into two halves (HTTP layer / store layer), with Gemini and Codex as peer agents on a shared local repo using the new local-transport model (no git push per event). All 6 tasks were completed with zero circuit breaks and zero file collisions. The claim cap held throughout — no agent exceeded 2 active claims.
+
+The run spanned two calendar days due to session interruptions, which made the primary metric (concurrent-claim-time) uninterpretable: the 21h wall-clock window dominated by idle time produced 0% overlap even though agents were genuinely doing work when active.
+
+### Compliance
+
+- **Gemini:** 4 claimed / 4 done — both halves, clean protocol compliance
+- **Codex:** 2 claimed / 2 done — store half, clean protocol compliance after initial git identity resolution
+
+### Agent feedback (post-run)
+
+Both agents independently surfaced the same two issues:
+
+1. **`tick next` → `tick claim` race** — Codex lost TASK-B3, Gemini lost TASK-B1 momentarily to this gap.
+2. **Git identity interference** — `git config user.name` flipped between agents in the shared repo, making `tick`'s identity warning noisy and unreliable.
+
+Codex additionally flagged: lock in `.git/` (sandbox-blocked), `tick next` dirtying the working tree, ownership not enforced on `done/release/break`.
+
+Gemini additionally flagged: no way to query task paths without copying from the prompt.
+
+### Post-run improvements shipped
+
+All 6 items from the agent feedback were implemented before closing the session:
+
+- Lock moved to `.tick/locks/` (unblocks sandboxed environments)
+- Ownership enforcement on `done/release/break/scope`
+- `tick take` — atomic next+claim under one lock
+- Git identity cross-check removed; `--agent` is authoritative
+- `tick next` made read-only (no STATE.md write)
+- `tick info <TASK-ID>` added
+
+`validate.sh`: **10/10** green.
+
+### Recommendation
+
+**Iterate — Run 3 with same-session agents.** The protocol is sound; the measurement gap is operational. All known friction points are resolved. Run 3 success criterion: ≥50% concurrent-claim-time in a single session using `tick take`.
