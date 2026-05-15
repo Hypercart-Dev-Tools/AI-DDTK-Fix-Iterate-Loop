@@ -13,6 +13,8 @@ if ! echo "$PRE" | grep -q "TASK-007"; then
   fail "expected TASK-007 pre-break, got: $PRE"
 fi
 
+# Alice must claim before breaking (ownership enforcement).
+TICK_TS=2026-05-04T10:00:04.000Z tick_a claim TASK-007 --agent alice --paths "src/auth/**" >/dev/null
 TICK_TS=2026-05-04T10:00:05.000Z tick_a break TASK-007 --agent alice --reason "infinite loop in auth tests" >/dev/null
 
 POST=$(tick_b next --agent bob)

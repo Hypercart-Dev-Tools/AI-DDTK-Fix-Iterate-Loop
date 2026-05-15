@@ -7,26 +7,20 @@ const path = require('path');
 //
 // `tick claim` does project(read) -> cap-check -> appendEvent(write). That is a
 // TOCTOU window: two concurrent `tick claim` processes for the SAME agent could
-// both pass the cap check before either writes, busting the cap. (Cross-agent
-// races don't exist — the cap is per-agent and each agent only writes its own
-// events; concurrent same-task claims by different agents are handled by the
-// projection tie-breaker, not the cap.)
+// both pass the cap check before either writes, busting the cap.
 //
 // Fix: a per-clone O_EXCL lock serialises one agent's own claim calls. The
-// lock lives under .git/ (never committed) so it leaves no trace in the tree.
+// lock lives under .tick/locks/ (never committed; directory is in .gitignore)
+// instead of .git/ so sandbox environments that restrict .git/ writes don't
+// block normal tick operation.
 //
 // Known limitation: a hard process kill mid-claim leaves a stale lock. Recovery
-// is `rm <repo>/.git/tick-claim.lock`. Stale-detection / `proper-lockfile` is a
-// Phase 2 hardening if this proves to bite.
+// is `rm <repo>/.tick/locks/claim.lock`. Stale-detection is Phase 2.
 
 function lockPath(repoRoot) {
-  const gitDir = path.join(repoRoot, '.git');
-  if (fs.existsSync(gitDir) && fs.statSync(gitDir).isDirectory()) {
-    return path.join(gitDir, 'tick-claim.lock');
-  }
-  // No .git dir (e.g. TICK_REPO_ROOT pointing at a plain dir) — fall back
-  // inside .tick/ but outside the committed events dir.
-  return path.join(repoRoot, '.tick', '.claim.lock');
+  const locksDir = path.join(repoRoot, '.tick', 'locks');
+  fs.mkdirSync(locksDir, { recursive: true });
+  return path.join(locksDir, 'claim.lock');
 }
 
 // Run `fn` while holding the per-clone claim lock. `fs.openSync(.., 'wx')` is an

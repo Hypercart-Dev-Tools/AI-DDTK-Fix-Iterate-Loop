@@ -1,6 +1,7 @@
 'use strict';
 
-const { project, activeClaimsForAgent, MAX_ACTIVE_CLAIMS_PER_AGENT } = require('./project');
+const { fold, activeClaimsForAgent, MAX_ACTIVE_CLAIMS_PER_AGENT } = require('./project');
+const { readAllEvents } = require('./events');
 const { setsOverlap } = require('./paths');
 
 // Returns the next available task for `agent`:
@@ -11,8 +12,9 @@ const { setsOverlap } = require('./paths');
 //      currently-claimed paths held by *other* agents.
 //
 // Run 2: no git transport — reads the shared local .tick/events/ directly.
+// Read-only: folds events in memory without writing STATE.md.
 function next(repoRoot, { agent }) {
-  const { tasks } = project(repoRoot);
+  const tasks = fold(readAllEvents(repoRoot));
 
   // Per-agent claim cap: an agent at the cap is not routed new work.
   const held = activeClaimsForAgent(tasks, agent);
