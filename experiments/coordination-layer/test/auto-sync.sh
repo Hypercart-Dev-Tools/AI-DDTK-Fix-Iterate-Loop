@@ -1,51 +1,50 @@
 #!/usr/bin/env bash
-# AC #7: each critical-event verb produces exactly one push to origin.
-# `tick log task.commented` produces zero pushes.
+# Run 2: git auto-sync (push-per-verb) was removed with the local transport.
+# This test verifies the O_EXCL claim lock: concurrent shell-level claim calls
+# serialise correctly — exactly one wins, exactly one event written.
 source "$(dirname "$0")/_setup.sh" auto-sync
 
 tick_a init >/dev/null
-TICK_TS=2026-05-04T10:00:00.000Z tick_a log task.created TASK-001 --agent dispatcher --priority 1 --paths "src/foo/**" >/dev/null
-TICK_TS=2026-05-04T10:00:01.000Z tick_a log task.created TASK-002 --agent dispatcher --priority 1 --paths "src/bar/**" >/dev/null
-git -C "$A" add .tick && git -C "$A" commit -q -m "seed" && git -C "$A" push -q origin main
+TICK_TS=2026-05-04T10:00:00.000Z tick_a log task.created TASK-L1 --agent dispatcher --priority 10 --paths "src/lock/**" >/dev/null
+TICK_TS=2026-05-04T10:00:01.000Z tick_a log task.created TASK-L2 --agent dispatcher --priority  8 --paths "src/other/**" >/dev/null
 
-count_remote_commits() {
-  git -C "$REMOTE" rev-list --count main 2>/dev/null || echo 0
-}
+# Fire two claim attempts in parallel; lock serialises them.
+# Capture stdout+stderr: the lock loser exits 1 with an error on stderr
+# ("another tick claim in progress"), not a "lost:" on stdout.
+tick_a claim TASK-L1 --agent alice --paths "src/lock/**" >"$WORK/a.out" 2>&1 &
+tick_b claim TASK-L1 --agent bob   --paths "src/lock/**" >"$WORK/b.out" 2>&1 &
+wait
 
-# Each critical verb increments remote commit count by exactly 1.
-for verb in claim scope release done_ break_; do
-  before=$(count_remote_commits)
-  case "$verb" in
-    claim)    TICK_TS=2026-05-04T11:00:00.000Z tick_a claim TASK-001 --agent alice --paths "src/foo/**" >/dev/null ;;
-    scope)    TICK_TS=2026-05-04T11:00:01.000Z tick_a scope TASK-001 --agent alice --paths "src/foo/**,src/foo2/**" >/dev/null ;;
-    release)  TICK_TS=2026-05-04T11:00:02.000Z tick_a release TASK-001 --agent alice >/dev/null ;;
-    done_)    TICK_TS=2026-05-04T11:00:03.000Z tick_a claim TASK-002 --agent alice --paths "src/bar/**" >/dev/null
-              before=$(count_remote_commits)
-              TICK_TS=2026-05-04T11:00:04.000Z tick_a done TASK-002 --agent alice >/dev/null ;;
-    break_)   TICK_TS=2026-05-04T11:00:05.000Z tick_a log task.created TASK-003 --agent dispatcher --priority 1 --paths "src/baz/**" >/dev/null
-              git -C "$A" add .tick && git -C "$A" commit -q -m "create T3" && git -C "$A" push -q origin main
-              before=$(count_remote_commits)
-              TICK_TS=2026-05-04T11:00:06.000Z tick_a break TASK-003 --agent alice --reason "test" >/dev/null ;;
-  esac
-  after=$(count_remote_commits)
-  delta=$((after - before))
-  if [ "$delta" -eq 1 ]; then
-    pass "$verb produced exactly 1 remote commit (delta=$delta)"
-  else
-    fail "$verb produced $delta remote commits (expected 1)"
-  fi
-done
+A_OUT=$(cat "$WORK/a.out")
+B_OUT=$(cat "$WORK/b.out")
+echo "  alice: $A_OUT"
+echo "  bob:   $B_OUT"
 
-# task.commented: zero pushes.
-before=$(count_remote_commits)
-TICK_TS=2026-05-04T12:00:00.000Z tick_a log task.commented TASK-001 --agent alice --note "FYI just a note" >/dev/null
-after=$(count_remote_commits)
-delta=$((after - before))
-if [ "$delta" -eq 0 ]; then
-  pass "task.commented produced 0 remote commits (event written locally only)"
-else
-  fail "task.commented produced $delta remote commits (expected 0)"
-fi
+is_winner() { echo "$1" | grep -q "^won:"; }
+is_loser()  { echo "$1" | grep -qE "^lost:|another tick claim is in progress"; }
+
+WINS=0
+is_winner "$A_OUT" && WINS=$((WINS+1)) || true
+is_winner "$B_OUT" && WINS=$((WINS+1)) || true
+LOSSES=0
+is_loser "$A_OUT" && LOSSES=$((LOSSES+1)) || true
+is_loser "$B_OUT" && LOSSES=$((LOSSES+1)) || true
+
+[ "$WINS" = "1" ]   && pass "exactly one agent won the concurrent claim" \
+                    || fail "expected 1 winner, got $WINS"
+[ "$LOSSES" = "1" ] && pass "exactly one agent lost the concurrent claim" \
+                    || fail "expected 1 loser, got $LOSSES"
+
+# Exactly one task.claimed event must exist for TASK-L1 (no double-write).
+CLAIMED_COUNT=$(grep -rl '"task":"TASK-L1"' "$A/.tick/events/" 2>/dev/null \
+  | xargs grep -l '"type":"task.claimed"' 2>/dev/null | wc -l | tr -d ' ')
+[ "$CLAIMED_COUNT" = "1" ] \
+  && pass "exactly one task.claimed event written (lock integrity)" \
+  || fail "expected 1 claimed event for TASK-L1, got $CLAIMED_COUNT"
+
+# Projection must succeed after the concurrent race.
+tick_a project >/dev/null
+pass "projection succeeded after concurrent claims (no corrupted state)"
 
 echo "  $TEST_NAME: $PASS pass, $FAIL fail"
 exit 0

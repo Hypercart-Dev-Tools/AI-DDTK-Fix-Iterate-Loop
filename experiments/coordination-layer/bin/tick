@@ -11,20 +11,18 @@ const { claim } = require('../src/claim');
 const { scope, release, circuitBreak, done, reap } = require('../src/scope');
 const { next } = require('../src/next');
 const { analyze, renderHuman, renderMd } = require('../src/analyze');
-const { gitUserName } = require('../src/sync');
+const { gitUserName } = require('../src/identity');
 
-// Agent-identity cross-check (Run 2, P3). The claim cap is keyed on the
-// --agent flag, resolved fresh on every invocation (each `tick` call is its
-// own process — there is no startup-cached identity to stale out). It is not
-// spoof-proof — an agent can pass any --agent — but a mismatch against the
-// clone's `git config user.name` is surfaced loudly so the run logs catch it.
-// Cryptographic identity is an explicit non-goal for the spike.
+// Agent-identity cross-check. The claim cap is keyed on the --agent flag,
+// resolved fresh on every invocation. It is not spoof-proof — an agent can
+// pass any --agent — but if the working tree happens to have a git identity
+// set, a mismatch is surfaced so the run logs catch it. With the git transport
+// removed, agents need no git identity at all; this is a best-effort nicety.
 function checkAgentIdentity(root, agent) {
   const gitName = gitUserName(root);
   if (gitName && agent && gitName !== agent) {
     process.stderr.write(
-      `tick: warning: --agent "${agent}" != git config user.name "${gitName}" — ` +
-      `the claim cap and analyze attribution key on these; make them match\n`
+      `tick: warning: --agent "${agent}" != git config user.name "${gitName}"\n`
     );
   }
 }
@@ -78,7 +76,7 @@ Usage:
   tick break <task> --agent <id> --reason "..."
   tick done <task> --agent <id> [--note "..."]
   tick reap <agent> [--by <id>]
-  tick analyze [--format human|md|json] [--since <ref>] [--write <file>]
+  tick analyze [--format human|md|json] [--write <file>]
 
 Event types: ${Array.from(EVENT_TYPES).join(', ')}
 `);
@@ -137,7 +135,11 @@ function main(argv) {
         process.stdout.write(`won: ${task} claimed by ${flags.agent}\n`);
         return 0;
       }
-      process.stdout.write(`lost: ${task} claimed by ${result.winner || 'unknown'}; auto-released\n`);
+      if (result.unavailable) {
+        process.stdout.write(`lost: ${task} is ${result.unavailable} — not claimable\n`);
+        return 0;
+      }
+      process.stdout.write(`lost: ${task} already claimed by ${result.winner || 'unknown'}\n`);
       return 0;
     }
 
@@ -202,8 +204,7 @@ function main(argv) {
 
     case 'analyze': {
       const format = (typeof flags.format === 'string' && flags.format) || 'human';
-      const since = typeof flags.since === 'string' ? flags.since : undefined;
-      const report = analyze(root, { since });
+      const report = analyze(root);
       let body;
       if (format === 'json') body = JSON.stringify(report, null, 2);
       else if (format === 'md') body = renderMd(report);

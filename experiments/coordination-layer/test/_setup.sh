@@ -1,15 +1,20 @@
 #!/usr/bin/env bash
 # Shared setup for tick test scripts. Source this from each test.
 #
+# Run 2: local transport — both agents share TICK_REPO_ROOT=$A. tick_b is an
+# alias for tick_a; git push/pull between clones is not needed for event
+# visibility. $B and $REMOTE are retained for tests that still use git
+# operations (e.g. git config user.name), but coordination state lives in $A.
+#
 # Provides:
 #   $TICK     — path to bin/tick
 #   $WORK     — temp working dir for this test
 #   $REMOTE   — bare remote repo path
-#   $A        — clone path for "agent A"
-#   $B        — clone path for "agent B"
-#   tick_a    — run tick in A's clone (with TICK_REPO_ROOT set)
-#   tick_b    — run tick in B's clone
-#   tick_in   — run tick in arbitrary clone: tick_in <dir> <args...>
+#   $A        — shared TICK_REPO_ROOT (both tick_a and tick_b read/write here)
+#   $B        — second git clone (kept for git ops; NOT used as TICK_REPO_ROOT)
+#   tick_a    — run tick with TICK_REPO_ROOT=$A
+#   tick_b    — run tick with TICK_REPO_ROOT=$A (same as tick_a)
+#   tick_in   — run tick in arbitrary root: tick_in <dir> <args...>
 #   pass / fail — assertion helpers; tests exit 1 on first fail
 #
 # Usage: source _setup.sh <test-name>
@@ -57,7 +62,7 @@ tick_in() {
 }
 
 tick_a() { tick_in "$A" "$@"; }
-tick_b() { tick_in "$B" "$@"; }
+tick_b() { tick_in "$A" "$@"; }  # local transport: shares TICK_REPO_ROOT with tick_a
 
 PASS=0
 FAIL=0

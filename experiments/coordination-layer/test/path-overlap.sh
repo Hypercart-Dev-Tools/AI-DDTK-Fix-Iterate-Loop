@@ -8,12 +8,9 @@ tick_a init >/dev/null
 TICK_TS=2026-05-04T10:00:00.000Z tick_a log task.created TASK-007 --agent dispatcher --priority 5  --paths "src/auth/**" >/dev/null
 TICK_TS=2026-05-04T10:00:01.000Z tick_a log task.created TASK-008 --agent dispatcher --priority 99 --paths "src/auth/login.js" >/dev/null
 TICK_TS=2026-05-04T10:00:02.000Z tick_a log task.created TASK-009 --agent dispatcher --priority 1  --paths "src/billing/**" >/dev/null
-git -C "$A" add .tick && git -C "$A" commit -q -m "seed" && git -C "$A" push -q origin main
-git -C "$B" pull -q --rebase origin main
-
 TICK_TS=2026-05-04T10:00:05.000Z tick_a claim TASK-007 --agent alice --paths "src/auth/**" >/dev/null
-git -C "$B" pull -q --rebase origin main
 
+# tick_b shares TICK_REPO_ROOT with tick_a — no git pull needed.
 NEXT_FOR_B=$(tick_b next --agent bob)
 echo "  bob's next: $NEXT_FOR_B"
 
