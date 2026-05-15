@@ -1,3 +1,5 @@
+const { validateTodo } = require('./validate');
+
 function cloneTodo(todo) {
   return { ...todo };
 }
@@ -7,10 +9,11 @@ function createStore() {
   let nextId = 1;
 
   function create(input) {
+    const validated = validateTodo(input);
     const todo = {
       id: String(nextId++),
-      title: input.title,
-      done: input.done === true,
+      title: validated.title,
+      done: validated.done === true,
       createdAt: new Date().toISOString(),
     };
 
@@ -36,9 +39,14 @@ function createStore() {
       return null;
     }
 
+    const validated = validateTodo({
+      title: Object.prototype.hasOwnProperty.call(patch, 'title') ? patch.title : current.title,
+      done: Object.prototype.hasOwnProperty.call(patch, 'done') ? patch.done : current.done,
+    });
+
     const updated = {
       ...current,
-      ...patch,
+      ...validated,
       id: current.id,
       createdAt: current.createdAt,
     };
