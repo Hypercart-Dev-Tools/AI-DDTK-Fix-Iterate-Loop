@@ -3,17 +3,18 @@
 # Coordination State
 
 ## Open
-- TASK-A2 (priority: 8) paths: ["experiments/coordination-layer/sandbox-app/src/http/**","experiments/coordination-layer/sandbox-app/test/http/**"]
-- TASK-A3 (priority: 5) paths: ["experiments/coordination-layer/sandbox-app/src/http/**","experiments/coordination-layer/sandbox-app/test/http/**"]
-- TASK-B1 (priority: 10) paths: ["experiments/coordination-layer/sandbox-app/src/store/**","experiments/coordination-layer/sandbox-app/test/store/**"]
-- TASK-B2 (priority: 8) paths: ["experiments/coordination-layer/sandbox-app/src/store/**","experiments/coordination-layer/sandbox-app/test/store/**"]
-- TASK-B3 (priority: 5) paths: ["experiments/coordination-layer/sandbox-app/src/store/**","experiments/coordination-layer/sandbox-app/test/store/**"]
+_(none)_
 
 ## Claimed
-- TASK-A1 by gemini paths: ["experiments/coordination-layer/sandbox-app/src/http/**","experiments/coordination-layer/sandbox-app/test/http/**"]
+_(none)_
 
 ## Done
-_(none)_
+- TASK-A1
+- TASK-A2
+- TASK-A3
+- TASK-B1
+- TASK-B2
+- TASK-B3
 
 ## Circuit-Broken
 _(none)_
