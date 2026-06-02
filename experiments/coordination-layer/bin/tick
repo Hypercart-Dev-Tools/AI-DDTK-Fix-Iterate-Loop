@@ -1,0 +1,275 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
+
+const { appendEvent, ensureEventsDir, EVENT_TYPES } = require('../src/events');
+const { project, fold } = require('../src/project');
+const { claim } = require('../src/claim');
+const { scope, release, circuitBreak, done, reap } = require('../src/scope');
+const { next } = require('../src/next');
+const { take } = require('../src/take');
+const { analyze, renderHuman, renderMd } = require('../src/analyze');
+const { gitUserName } = require('../src/identity');
+
+function repoRoot() {
+  if (process.env.TICK_REPO_ROOT) return path.resolve(process.env.TICK_REPO_ROOT);
+  try {
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trim();
+  } catch {
+    return process.cwd();
+  }
+}
+
+function parseArgs(argv) {
+  const positional = [];
+  const flags = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith('--')) {
+      const key = a.slice(2);
+      const next = argv[i + 1];
+      if (next === undefined || next.startsWith('--')) {
+        flags[key] = true;
+      } else {
+        flags[key] = next;
+        i++;
+      }
+    } else {
+      positional.push(a);
+    }
+  }
+  return { positional, flags };
+}
+
+function parsePathsFlag(v) {
+  if (!v || v === true) return [];
+  return String(v).split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function usage() {
+  process.stderr.write(`tick — coordination layer CLI
+
+Usage:
+  tick init
+  tick log <type> <task> [--agent <id>] [--note "..."] [--paths a,b] [--priority N]
+  tick project
+  tick claim <task> --agent <id> --paths <globs>
+  tick take --agent <id>                           (atomic next+claim)
+  tick next --agent <id>                           (read-only, no STATE.md write)
+  tick scope <task> --agent <id> --paths <globs>
+  tick release <task> --agent <id> [--to <agent>]
+  tick break <task> --agent <id> --reason "..."
+  tick done <task> --agent <id> [--note "..."]
+  tick reap <agent> [--by <id>]
+  tick info <task>
+  tick analyze [--format human|md|json] [--write <file>]
+
+Event types: ${Array.from(EVENT_TYPES).join(', ')}
+`);
+}
+
+function main(argv) {
+  const verb = argv[0];
+  const rest = argv.slice(1);
+  const { positional, flags } = parseArgs(rest);
+  const root = repoRoot();
+
+  switch (verb) {
+    case 'init': {
+      ensureEventsDir(root);
+      process.stdout.write(`initialized .tick/events at ${root}\n`);
+      return 0;
+    }
+
+    case 'log': {
+      const [type, task] = positional;
+      if (!type || !task) { usage(); return 2; }
+      const { path: p } = appendEvent(root, {
+        type,
+        task,
+        agent: flags.agent || process.env.TICK_AGENT || 'unknown',
+        note: typeof flags.note === 'string' ? flags.note : undefined,
+        paths: flags.paths ? parsePathsFlag(flags.paths) : undefined,
+        to_agent: typeof flags.to === 'string' ? flags.to : undefined,
+        reason: typeof flags.reason === 'string' ? flags.reason : undefined,
+        priority: flags.priority !== undefined ? Number(flags.priority) : undefined,
+      });
+      process.stdout.write(`${path.relative(root, p)}\n`);
+      return 0;
+    }
+
+    case 'project': {
+      const { stateFile } = project(root);
+      process.stdout.write(`${path.relative(root, stateFile)}\n`);
+      return 0;
+    }
+
+    case 'claim': {
+      const [task] = positional;
+      if (!task || !flags.agent || !flags.paths) { usage(); return 2; }
+      const result = claim(root, {
+        task,
+        agent: flags.agent,
+        paths: parsePathsFlag(flags.paths),
+      });
+      if (result.limitReached) {
+        process.stdout.write(`lost: claim limit reached (holding ${result.holding.join(', ')}) — finish or release first\n`);
+        return 0;
+      }
+      if (result.won) {
+        process.stdout.write(`won: ${task} claimed by ${flags.agent}\n`);
+        return 0;
+      }
+      if (result.unavailable) {
+        process.stdout.write(`lost: ${task} is ${result.unavailable} — not claimable\n`);
+        return 0;
+      }
+      process.stdout.write(`lost: ${task} already claimed by ${result.winner || 'unknown'}\n`);
+      return 0;
+    }
+
+    case 'take': {
+      if (!flags.agent) { usage(); return 2; }
+      const tr = take(root, { agent: flags.agent });
+      if (tr.limitReached) {
+        process.stdout.write(`(claim limit reached — holding ${tr.holding.join(', ')} — finish or release a task first)\n`);
+        return 0;
+      }
+      if (!tr.won) { process.stdout.write('(no available task)\n'); return 0; }
+      const handoffMark = tr.handoff ? ' [handoff]' : '';
+      process.stdout.write(`won: ${tr.task} (priority: ${tr.priority})${handoffMark}\n`);
+      return 0;
+    }
+
+    case 'next': {
+      if (!flags.agent) { usage(); return 2; }
+      const t = next(root, { agent: flags.agent });
+      if (t && t.limitReached) {
+        process.stdout.write(`(claim limit reached — holding ${t.holding.join(', ')} — finish or release a task first)\n`);
+        return 0;
+      }
+      if (!t) { process.stdout.write('(no available task)\n'); return 0; }
+      const handoff = t.handoff_to === flags.agent ? ' [handoff]' : '';
+      process.stdout.write(`${t.id} (priority: ${t.priority})${handoff}\n`);
+      return 0;
+    }
+
+    case 'scope': {
+      const [task] = positional;
+      if (!task || !flags.agent || !flags.paths) { usage(); return 2; }
+      scope(root, { task, agent: flags.agent, paths: parsePathsFlag(flags.paths) });
+      process.stdout.write(`scoped: ${task}\n`);
+      return 0;
+    }
+
+    case 'release': {
+      const [task] = positional;
+      if (!task || !flags.agent) { usage(); return 2; }
+      release(root, { task, agent: flags.agent, to_agent: typeof flags.to === 'string' ? flags.to : undefined });
+      process.stdout.write(`released: ${task}\n`);
+      return 0;
+    }
+
+    case 'break': {
+      const [task] = positional;
+      if (!task || !flags.agent) { usage(); return 2; }
+      circuitBreak(root, { task, agent: flags.agent, reason: typeof flags.reason === 'string' ? flags.reason : '' });
+      process.stdout.write(`broken: ${task}\n`);
+      return 0;
+    }
+
+    case 'done': {
+      const [task] = positional;
+      if (!task || !flags.agent) { usage(); return 2; }
+      done(root, { task, agent: flags.agent, note: typeof flags.note === 'string' ? flags.note : undefined });
+      process.stdout.write(`done: ${task}\n`);
+      return 0;
+    }
+
+    case 'reap': {
+      const [agent] = positional;
+      if (!agent) { usage(); return 2; }
+      const by = typeof flags.by === 'string' ? flags.by : (gitUserName(root) || 'coordinator');
+      const result = reap(root, { agent, by });
+      if (!result.reaped.length) {
+        process.stdout.write(`(no active claims held by ${agent})\n`);
+      } else {
+        process.stdout.write(`reaped ${result.reaped.length} claim(s) from ${agent}: ${result.reaped.join(', ')}\n`);
+      }
+      return 0;
+    }
+
+    case 'info': {
+      const [task] = positional;
+      if (!task) { usage(); return 2; }
+      const { tasks: infoTasks } = project(root);
+      const t = infoTasks.get(task);
+      if (!t) { process.stdout.write(`(task ${task} not found)\n`); return 1; }
+      const lines = [
+        `id:       ${t.id}`,
+        `status:   ${t.status}`,
+        `priority: ${t.priority}`,
+      ];
+      const paths = t.status === 'claimed' ? t.claim.paths : t.paths;
+      lines.push(`paths:    ${paths.join(', ') || '(none)'}`);
+      if (t.status === 'claimed') lines.push(`claimer:  ${t.claim.agent}`);
+      if (t.status === 'circuit_broken') lines.push(`broken-by: ${t.break.agent} — ${t.break.reason}`);
+      if (t.handoff_to) lines.push(`handoff-to: ${t.handoff_to}`);
+      process.stdout.write(lines.join('\n') + '\n');
+      return 0;
+    }
+
+    case 'analyze': {
+      const format = (typeof flags.format === 'string' && flags.format) || 'human';
+      const report = analyze(root);
+      let body;
+      if (format === 'json') body = JSON.stringify(report, null, 2);
+      else if (format === 'md') body = renderMd(report);
+      else body = renderHuman(report);
+
+      if (typeof flags.write === 'string') {
+        // Append (or replace existing auto-analyzed section in) the target file.
+        const target = path.resolve(root, flags.write);
+        const md = format === 'md' ? body : renderMd(report);
+        let existing = '';
+        if (fs.existsSync(target)) existing = fs.readFileSync(target, 'utf8');
+        const marker = '## Auto-analyzed (tick analyze)';
+        const idx = existing.indexOf(marker);
+        let next;
+        if (idx >= 0) {
+          // Replace from marker to end of file, since auto-analyzed sits at the bottom.
+          next = existing.slice(0, idx).replace(/\s+$/, '') + '\n\n' + md;
+        } else {
+          next = (existing.replace(/\s+$/, '') + '\n\n' + md).replace(/^\n+/, '');
+        }
+        fs.writeFileSync(target, next.endsWith('\n') ? next : next + '\n');
+        process.stdout.write(`wrote analysis to ${path.relative(root, target)}\n`);
+      } else {
+        process.stdout.write(body + '\n');
+      }
+      return 0;
+    }
+
+    case '-h':
+    case '--help':
+    case 'help':
+    case undefined:
+      usage();
+      return 0;
+
+    default:
+      process.stderr.write(`unknown verb: ${verb}\n`);
+      usage();
+      return 2;
+  }
+}
+
+try {
+  process.exit(main(process.argv.slice(2)) || 0);
+} catch (err) {
+  process.stderr.write(`tick: error: ${err.message}\n`);
+  process.exit(1);
+}

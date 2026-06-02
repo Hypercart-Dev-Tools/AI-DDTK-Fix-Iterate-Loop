@@ -1,16 +1,16 @@
-# AI-DDTK Coordination Layer — Experimental Spike
+# Trinity — AI-DDTK Coordination Layer Spike
 
+**Codename:** Trinity (Claude Code · Codex · Gemini — three agents, one shared substrate)
 **Branch:** `experiment/coordination-layer`
-**Codename:** Trinity (for Claude Code, Codex, Gemini)
 **Time-box:** 5 working days
 **Owner:** Noel / Hypercart
-**Status:** Spike. If acceptance criteria pass, write a 1-page recap and open a draft PR. If they don't, delete the branch and write a 1-page post-mortem.
+**Status:** **Days 1-4 mechanical work compressed into one Claude Code session on 2026-05-04. All 7 mechanical acceptance criteria pass.** Day 5 real-agent hand-test still required. See [`experiments/coordination-layer/RECAP.md`](../../experiments/coordination-layer/RECAP.md).
 
 ---
 
 ## Prompt for Claude Code Cloud
 
-> You are building an experimental coordination layer for AI-DDTK on a new branch `experiment/coordination-layer`. Read this entire document before writing any code.
+> You are building **Trinity**, an experimental coordination layer for AI-DDTK that lets Claude Code, Codex, and Gemini work the same codebase concurrently without colliding. Branch: `experiment/coordination-layer`. Read this entire document before writing any code.
 >
 > **Build only what is specified in the roadmap below.** The Non-goals section is a hard fence — if you find yourself wanting to build something not listed in scope, do not build it. Add a one-line entry to `experiments/coordination-layer/TODO_DEFER.md` and move on.
 >
@@ -39,8 +39,9 @@ This spike validates whether an event-sourced coordination layer — append-only
 - **Optimistic claim:** to claim, an agent appends a `task.claimed` event with declared file globs (`paths: ["src/auth/**", "tests/auth/**"]`) and pushes. After push, it re-projects and checks whether its claim won (deterministic tie-breaker: earliest event timestamp, then lexicographic agent ID). Loser auto-emits a `task.released` event.
 - **Path-scoped routing:** `tick next` filters out tasks whose declared paths overlap with currently-claimed paths. Two agents are routed to non-overlapping work automatically.
 - **Worktree convention (recommended, not enforced):** each agent runs in its own `git worktree`. Filesystem-level isolation backstops path-scoping if an agent strays outside its declared paths.
-- **Hash chain (cheap, include it):** every event includes `parent_hash` = sha256 of the immediately prior event file. Tamper-evident. ~10 lines of code. No signing.
-- **Event types (initial set):** `task.created`, `task.claimed` (with `paths`), `task.released` (with optional `to_agent` for handoff), `task.scope_changed` (with new `paths`), `task.commented`, `task.done`, `task.circuit_break`. Seven types. The computed *states* (open, claimed, broken, done) are still ≤4, so no FSM library needed.
+- **Sync primitive — auto-push on critical events.** Critical events (`task.claimed`, `task.scope_changed`, `task.released`, `task.circuit_break`, `task.done`) auto-fetch + auto-push. Non-critical events (`task.commented`, `task.created` when seeded from a backlog file) are written locally and ride along with the next normal commit. Read verbs (`tick next`, `tick claim`'s pre-flight) `git fetch` before acting so agents see latest peer state. Cost: 2 commits per typical task lifecycle, 3-5 with pivots. Phase 2 mitigations (squash, separate ref, replace git with a daemon) deferred. **Constraint:** all coordinating agents must work on the same branch — `.tick/` is branch-scoped. Cross-branch coordination is Phase 2.
+- **Claim implementation contract:** `tick claim` is `git fetch → git rebase → write event → git add → git commit → git push (retry once on rejection with re-fetch) → tick project → verify claim won deterministic tie-breaker → if lost, auto-emit task.released (which itself auto-pushes)`. This sequence is load-bearing; do not shortcut it.
+- **Event types:** `task.created`, `task.claimed` (with `paths`), `task.released` (with optional `to_agent` for handoff), `task.scope_changed` (with new `paths`), `task.commented`, `task.done`, `task.circuit_break`. Seven types. The computed *states* (open, claimed, broken, done) are still ≤4, so no FSM library needed.
 
 ---
 
@@ -89,26 +90,28 @@ If you think a non-goal is required, you're wrong. Stop and document why in `TOD
 
 ```
 experiments/coordination-layer/
-├── README.md                    # short, points back to this doc + worktree setup notes
+├── README.md                    # short, points back to this doc + worktree setup notes + agent integration prompt snippet
 ├── TODO_DEFER.md                # things you wanted to build but didn't
 ├── package.json                 # only if a new dep is unavoidable
 ├── bin/
 │   └── tick                     # CLI entry point
 ├── src/
-│   ├── events.js                # append, hash-chain, validate
+│   ├── events.js                # append + JSONL validate
+│   ├── sync.js                  # fetch/rebase/commit/push wrapper for critical events
 │   ├── project.js               # event log → STATE.md
-│   ├── claim.js                 # optimistic claim + reconciliation
+│   ├── claim.js                 # optimistic claim + reconciliation (uses sync.js)
 │   ├── paths.js                 # glob overlap detection for path-scoped routing
 │   └── scope.js                 # scope_changed + release-with-handoff
 ├── test/
-│   ├── concurrent-claim.sh      # two agents, simultaneous claim, deterministic winner
+│   ├── concurrent-claim.sh      # two simulated agents, simultaneous claim, deterministic winner
 │   ├── path-overlap.sh          # two agents, overlapping paths, second is routed elsewhere
 │   ├── scope-change.sh          # mid-task scope expansion is honored by other agents
 │   ├── handoff.sh               # release --to <agent> prioritizes targeted handoffs
 │   ├── circuit-break.sh         # break event makes other agents skip
 │   ├── projection-idempotent.sh # tick project twice = identical STATE.md
-│   └── hash-chain.sh            # tampered event is detected
+│   └── auto-sync.sh             # critical events push automatically; non-critical do not
 ├── validate.sh                  # runs all of the above, exits 0/1
+├── REAL-AGENT-OBSERVATIONS.md   # written during Day 5 hand-test
 └── RECAP.md                     # written at the end: what worked, what didn't
 ```
 
@@ -121,21 +124,22 @@ A bare-repo `.tick/` directory is created by `tick init` (sixth verb, fine to ad
 ### Day 1 — Event log + CLI scaffold
 
 - [ ] Create branch, scaffold directory layout above
-- [ ] Implement `events.js`: `appendEvent({type, task, agent, note, parentHash})` writes one JSONL file with computed hash chain
+- [ ] Implement `events.js`: `appendEvent({type, task, agent, note, paths})` writes one JSONL file
 - [ ] Implement `bin/tick` with `tick init` and `tick log` only
-- [ ] Hand-test: append 5 events, verify hash chain by reading file order
+- [ ] Hand-test: append 5 events, verify they sort lexicographically by filename
 
-**Done when:** `tick log task.created TASK-001 --agent gianni` creates a valid JSONL file with a parent_hash referencing the previous event (or `null` for the first).
+**Done when:** `tick log task.created TASK-001 --agent gianni` creates a valid JSONL file in `.tick/events/` with a parseable timestamp-based filename.
 
-### Day 2 — Projection + claim reconciliation
+### Day 2 — Projection + claim reconciliation + auto-sync
 
 - [ ] Implement `project.js`: read all `.tick/events/*.jsonl` in timestamp order, fold into in-memory state, write `STATE.md` with a generated-banner header
 - [ ] Implement `tick project`
-- [ ] Implement `claim.js` with the deterministic tie-breaker (earliest ts, then lex agent ID)
-- [ ] Implement `tick claim` (append + project + verify)
-- [ ] Write `concurrent-claim.sh` and `projection-idempotent.sh` tests
+- [ ] Implement `sync.js`: a wrapper that handles `git fetch → rebase → add → commit → push (one retry on rejection)`. Critical event verbs use it; non-critical verbs don't.
+- [ ] Implement `claim.js` following the load-bearing contract: `fetch → rebase → write event → add → commit → push (retry on conflict) → project → verify deterministic tie-breaker → if lost, auto-emit task.released`
+- [ ] Implement `tick claim` using `claim.js`
+- [ ] Write `concurrent-claim.sh`, `projection-idempotent.sh`, and `auto-sync.sh` tests. The auto-sync test verifies critical events trigger a push and non-critical events don't.
 
-**Done when:** running `concurrent-claim.sh` shows two simulated agents claiming the same task simultaneously, projection picks one winner deterministically, loser has an auto-emitted `task.released` event.
+**Done when:** running `concurrent-claim.sh` (which simulates network ordering by manipulating two local clones of a bare remote) shows two agents claiming the same task, exactly one wins deterministically, the loser auto-releases. `auto-sync.sh` confirms the push pattern.
 
 ### Day 3 — Path-scoped routing
 
@@ -157,15 +161,26 @@ A bare-repo `.tick/` directory is created by `tick init` (sixth verb, fine to ad
 
 **Done when:** all three pivot tests pass. `STATE.md` clearly shows broken tasks, handoffs, and current scope per claim.
 
-### Day 5 — Worktree wiring + validation
+### Day 5 — Real-agent hand-test + validation
 
-- [ ] Write `README.md` with a "Multi-agent worktree setup" section: how to create one worktree per agent, how to point each agent at the same `.tick/` directory (it's at the repo root, shared across worktrees by virtue of being in the main checkout), how Claude Code / Codex / Gemini each invoke the CLI.
-- [ ] Hand-test the full multi-agent flow: spin up two terminal sessions in two worktrees pointing at the same repo, manually simulate two agents claiming non-overlapping scopes, verify they don't collide on push.
-- [ ] Run `validate.sh`, confirm all tests pass
-- [ ] Write `RECAP.md`: what worked, what didn't, recommendation (graduate to Phase 2 / iterate on substrate / abandon)
+This is the day that answers the actual question: **will Claude Code, Codex, or Gemini reliably call the CLI when prompted to?** The mechanical tests on Days 1–4 prove the protocol works; this day proves whether agents will use it.
+
+- [ ] Write `README.md` with three sections:
+  - **Worktree setup** — concrete commands for one `git worktree` per agent, all pointing at the same coordination branch.
+  - **Agent integration prompt snippet** — paste-ready text to add to an agent's system prompt or project instructions: "Before editing files, run `tick next --agent <your-id>`. Claim with `tick claim <task> --paths <globs>` declaring every file glob you'll touch. Emit `tick scope` if scope expands. Run `tick done` on completion."
+  - **Multi-agent flow** — how to seed the event log with 4–5 non-overlapping tasks before starting agents.
+- [ ] Run the hand-test: spin up two real agents (any two of Claude Code / Codex / Gemini) in separate worktrees with the integration prompt loaded. Seed `.tick/events/` with tasks. Let them run for 30–60 minutes on a small fixture codebase.
+- [ ] Observe and write `REAL-AGENT-OBSERVATIONS.md` answering, for each agent:
+  - Did it call `tick next` before editing? (yes / no / inconsistent)
+  - Did its declared paths match its actual edits? (yes / no / partial)
+  - Did it emit `tick scope` when expanding? `tick done` on completion? `tick break` when stuck?
+  - What did the integration prompt need to say to make compliance reliable?
+  - What enforcement, if any, did the agent need beyond prompting? (file watcher, pre-commit hook, etc.)
+- [ ] Run `validate.sh`, confirm all mechanical tests still pass
+- [ ] Write `RECAP.md` synthesizing observations into a graduate / iterate / abandon recommendation
 - [ ] Open draft PR
 
-**Done when:** `validate.sh` exits 0, RECAP.md is written, draft PR is open, README documents the worktree pattern with concrete commands.
+**Done when:** `validate.sh` exits 0, `REAL-AGENT-OBSERVATIONS.md` documents at least one real-agent run, `RECAP.md` is written, draft PR is open.
 
 ---
 
@@ -183,7 +198,9 @@ A bare-repo `.tick/` directory is created by `tick init` (sixth verb, fine to ad
 
 6. **Projection idempotency:** running `tick project` twice in a row produces byte-identical `STATE.md` files. (No timestamps in the body, only in events.)
 
-7. **Hash chain integrity:** a script walks all events in order, verifies every `parent_hash` matches the sha256 of the actual previous file. A tampered event is detected.
+7. **Auto-sync pattern:** running each critical-event verb (`claim`, `scope`, `release`, `break`, `done`) against a local clone with a configured remote results in exactly one `git push` per verb. Running `tick log task.commented` results in zero pushes (event is committed locally only).
+
+**Plus a Day 5 qualitative deliverable** (not part of validate.sh, but required for a passing spike): `REAL-AGENT-OBSERVATIONS.md` documenting at least one real-agent end-to-end run with answers to the four observation questions in Day 5.
 
 ---
 
@@ -192,12 +209,14 @@ A bare-repo `.tick/` directory is created by `tick init` (sixth verb, fine to ad
 - **Node.js version:** match whatever AI-DDTK currently pins. Don't bump it.
 - **JSONL format:** one event per file, not one event per line in a shared file. The whole point is disjoint files.
 - **Timestamps:** ISO 8601 with millisecond precision and explicit timezone offset. UTC preferred but not required if the rest of AI-DDTK uses local time — be consistent with existing convention.
-- **Git interaction:** the spike does not need to do its own commits. Assume the user/agent commits and pushes as part of their normal flow. Document this in `README.md`.
-- **Worktree isolation:** README must explain how to create one `git worktree` per agent so that filesystem-level edits don't collide even if path-scoping is sloppy. Show concrete commands for adding a worktree, pointing it at a feature branch, and how the shared `.tick/` directory is reachable from each.
+- **Git interaction is the sync primitive.** Critical-event verbs auto-fetch+rebase+commit+push. Non-critical verbs write locally only. The agent's normal commit cadence picks up batched comments. Document this in `README.md` so users know what hits the remote and when.
+- **Push retry policy:** on push rejection (someone else pushed first), one re-fetch + rebase + retry. If second attempt also fails, abort with a clear error and let the agent decide whether to retry or pick a different task. Do not loop indefinitely.
+- **Single branch only.** All coordinating agents must work on the same branch. Cross-branch coordination is Phase 2.
+- **Worktree isolation:** README must explain how to create one `git worktree` per agent so that filesystem-level edits don't collide even if path-scoping is sloppy. Show concrete commands.
 - **Glob library:** `micromatch` is the one allowed dependency if needed for path-overlap detection. If you can do it correctly with plain string-prefix logic, do that and skip the dep.
 - **Filenames must sort lexicographically by time.** ISO timestamps already do this; just don't get clever.
 - **No log levels, no structured logging library.** `console.log` is fine for the spike.
-- **Tests are bash scripts, not a test framework.** Each test sets up a temp directory, runs CLI commands, asserts on file contents with `grep` / `jq` / `diff`. Exit 0 = pass, exit 1 = fail. `validate.sh` runs them in order and aggregates.
+- **Tests are bash scripts.** Each test sets up a temp directory (often a bare remote + two clones to simulate distributed agents), runs CLI commands, asserts on file contents and `git log` with `grep` / `jq` / `diff`. Exit 0 = pass, exit 1 = fail. `validate.sh` runs them in order and aggregates.
 
 ---
 
@@ -205,20 +224,62 @@ A bare-repo `.tick/` directory is created by `tick init` (sixth verb, fine to ad
 
 The spike is done when **either**:
 
-- All seven acceptance criteria pass and `RECAP.md` is written → open draft PR, end.
-- Day 5 ends with criteria still failing → write `RECAP.md` honestly explaining why, recommend abandon or revise scope, end.
+- All seven mechanical acceptance criteria pass, `REAL-AGENT-OBSERVATIONS.md` documents at least one real-agent run, and `RECAP.md` is written → open draft PR, end.
+- Day 5 ends with criteria still failing or no real-agent run completed → write `RECAP.md` honestly explaining why, recommend abandon or revise scope, end.
 
-Do not extend the time-box. Do not skip writing the recap. The recap is the deliverable; the code is just evidence.
+Do not extend the time-box. Do not skip the real-agent run — it is the load-bearing deliverable. Mechanical tests prove the protocol; the real-agent run proves whether agents will use it. Without that, you've built a tool nobody will adopt.
 
 ---
 
 ## Open questions (capture in RECAP.md, do not solve in spike)
 
+- **Projection-after-push race (observe, do not design around):** between `git push` succeeding and `tick project` reading the projected state, another agent's claim event can land. The deterministic tie-breaker handles correctness (earliest timestamp wins regardless of push order), but it means the "winner" of a `tick claim` call can flip on subsequent re-projects until events settle. The `concurrent-claim.sh` test should explicitly exercise this — push agent-A's claim, then push agent-B's earlier-timestamped claim, then re-project and verify agent-B wins, agent-A auto-releases. Document the observed behavior in RECAP.md. Not a bug; the protocol is honest about it.
 - Does the optimistic-claim approach hold up with 5+ concurrent agents, not just 2?
 - Is path-overlap detection by glob sufficient, or do we need AST-aware scoping (e.g., function-level claims within the same file)?
-- What happens when an agent declares paths it doesn't end up touching, or touches paths it didn't declare? Is post-hoc reconciliation needed, or is honest declaration good enough?
+- What enforcement, if any, is needed beyond prompting? File watcher? Pre-commit hook that rejects commits touching files outside the active claim's paths?
+- How do we handle agents that declare paths they don't end up touching, or touch paths they didn't declare? Post-hoc reconciliation or trust-and-verify?
 - Should `tick break` require a confidence threshold or human ASK before firing, given AI-DDTK's existing ASK_HUMAN convention?
-- What's the deletion policy for completed events? Compaction? Archival? (Spike does nothing.)
+- How do we squash or compact the coordination commit history once a task lifecycle completes?
+- Cross-branch coordination — how would it work?
 - Phase 2 priority order: WPCC adapter, Git Pulse upgrade, ask-self ingest, MCP tools — which earns its keep first?
 
 These are graduation-time decisions, not spike-time decisions.
+
+---
+
+## Spike findings (2026-05-04)
+
+Days 1-4 mechanical scope completed in one Claude Code session. All 7 acceptance criteria pass:
+
+```
+$ ./experiments/coordination-layer/validate.sh
+passed: 7 / 7
+  + projection-idempotent.sh
+  + concurrent-claim.sh
+  + path-overlap.sh
+  + scope-change.sh
+  + handoff.sh
+  + circuit-break.sh
+  + auto-sync.sh
+```
+
+**Code:** ~600 lines of JS in `experiments/coordination-layer/src/` + `bin/tick`. ~400 lines of bash tests. No new runtime dependencies (skipped `micromatch` — conservative literal-prefix overlap detection in [src/paths.js](../../experiments/coordination-layer/src/paths.js) was sufficient).
+
+### What landed
+
+- `tick` CLI with all 8 verbs from the scope (init, log, project, claim, next, scope, release, break, done).
+- Single-pass projection with deterministic tie-breaker (earliest ts → lex agent ID).
+- Auto-push contract for critical events (claim/scope/release/break/done = 1 push each; commented = 0 pushes).
+- Bare-remote + two-clone test harness simulating distributed agents.
+- README with worktree setup, agent integration prompt snippet, and multi-agent flow.
+
+### What surprised us
+
+- **Projection sequencing bug (caught + fixed in-session):** initial two-pass projection processed `scope_changed` before claim winners were resolved, silently dropping scope expansions. Fix: bucket events per task, resolve winning claim first, then walk the timeline applying scope/handoff/terminal events. Caught immediately by `scope-change.sh`.
+- **One-shot `tick claim` is not a reliable mutex.** It is a best-effort soft claim that resolves correctly given enough time and re-projections. In `concurrent-claim.sh`, agent A's first `tick claim` returned `won=true` even though agent B's earlier-timestamped (but later-arriving) claim would eventually beat it — A only learned it lost on its *next* claim/project. The protocol is honest about this, but if Phase 2 wants strong-mutex semantics it'll need a `tick claim --confirm` second-phase verb.
+- **Worktree friction is worse than expected.** `git worktree add` refuses to check out the same branch twice; the README documents a per-agent-child-branch workaround that is friction enough it could kill adoption. Phase 2 should consider a separate ref for `.tick/` or an out-of-band sync daemon.
+
+### What still needs to happen (Day 5)
+
+- **Real-agent hand-test.** Spin up two of {Claude Code, Codex, Gemini} in worktrees with the integration prompt loaded; let them run on a fixture for 30-60 min; fill in [REAL-AGENT-OBSERVATIONS.md](../../experiments/coordination-layer/REAL-AGENT-OBSERVATIONS.md). This is the load-bearing deliverable. Mechanical correctness ≠ adoption.
+- **Decide:** if compliance is high, pick which Phase 2 integration earns its keep first. If low, iterate the integration prompt before declaring the protocol broken.

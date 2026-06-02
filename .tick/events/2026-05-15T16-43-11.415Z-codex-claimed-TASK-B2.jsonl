@@ -1,0 +1,1 @@
+{"schema_version":"0.1.0","ts":"2026-05-15T16:43:11.415Z","type":"task.claimed","task":"TASK-B2","agent":"codex","paths":["experiments/coordination-layer/sandbox-app/src/store/**","experiments/coordination-layer/sandbox-app/test/store/**"]}

@@ -1,0 +1,1 @@
+{"schema_version":"0.1.0","ts":"2026-05-14T20:06:30.888Z","type":"task.claimed","task":"TASK-A1","agent":"gemini","paths":["experiments/coordination-layer/sandbox-app/src/http/**","experiments/coordination-layer/sandbox-app/test/http/**"]}
