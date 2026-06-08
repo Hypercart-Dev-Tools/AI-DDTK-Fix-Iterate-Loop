@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "tick": {
+      "command": "node",
+      "args": ["experiments/coordination-layer/mcp/tick-mcp.js"],
+      "env": {
+        "TICK_REPO_ROOT": "/abs/path/to/the/coordination/workspace"
+      }
+    }
+  }
+}

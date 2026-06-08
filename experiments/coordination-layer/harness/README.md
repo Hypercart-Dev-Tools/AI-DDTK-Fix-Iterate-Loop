@@ -101,6 +101,32 @@ vars so you can tune them without editing code (CLIs move fast):
 `--agents gemini:gemini,codex:codex` for a real run, or
 `--agents a:mock,b:mock` to validate the harness anywhere.
 
+## CLI vs MCP transport
+
+Agents can coordinate two ways, selectable with `--transport`:
+
+- `--transport cli` (default) — agents call the `./tick` shim. Simplest for any
+  agent that can run shell commands.
+- `--transport mcp` — agents call the **`tick` MCP server**
+  ([`../mcp/`](../mcp/README.md)) tools (`tick_take`, `tick_done`, …). The run
+  drops a ready `.mcp.json` into the workspace bound to that run's isolated
+  state, and agents get the MCP-flavored prompt (`prompts/agent-loop-mcp.md`).
+
+Both fronts drive the same engine on the same `.tick/` state, so they're
+interchangeable and can even be mixed across agents.
+
+## Confirming Claude Code can execute + monitor the real CLIs
+
+`test/confirm-cli-orchestration.sh` proves the execute-and-monitor path without
+the real binaries: it points the `gemini`/`codex` drivers at stand-in binaries
+(`test/fake-cli/`) that honor the exact headless contract (prompt on stdin,
+identity from the prompt, coordinate via `./tick`), then runs a real trial with
+the `gemini`/`codex` driver names. It asserts the harness spawned the real
+command shapes (`gemini --yolo`, `codex exec --full-auto -`), delivered the
+prompt on stdin, monitored both processes to a clean exit, and that path-routing
+split the work (HTTP half vs store half) with no collisions. Swap the stand-ins
+for the real binaries (with keys) and nothing else changes.
+
 ## Running for real (gemini + codex)
 
 1. Install both CLIs and set their API keys:

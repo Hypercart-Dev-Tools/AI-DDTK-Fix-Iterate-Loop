@@ -86,11 +86,22 @@ function prepareWorkspace({ rec, spec, specDir }) {
   return workspace;
 }
 
-async function runTrial({ rec, spec, specPath, agents, workspace, timeoutMs, maxAttempts }) {
+async function runTrial({ rec, spec, specPath, agents, workspace, timeoutMs, maxAttempts, transport }) {
   rec.event('trial.start', {
-    project: spec.project.name, kind: spec.project.kind,
+    project: spec.project.name, kind: spec.project.kind, transport: transport || 'cli',
     tasks: spec.tasks.length, agents: agents.map(a => `${a.id}:${a.driver}`).join(','),
   });
+
+  // In MCP mode, drop a ready-to-use .mcp.json in the workspace so an MCP-client
+  // agent (Claude Code / Gemini / Codex with MCP enabled) auto-discovers the
+  // tick server bound to this run's isolated state.
+  if (transport === 'mcp') {
+    const serverPath = path.join(__dirname, '..', '..', 'mcp', 'tick-mcp.js');
+    fs.writeFileSync(path.join(workspace, '.mcp.json'), JSON.stringify({
+      mcpServers: { tick: { command: process.execPath, args: [serverPath], env: { TICK_REPO_ROOT: workspace } } },
+    }, null, 2) + '\n');
+    rec.event('workspace.mcp_config', { server: path.relative(process.cwd(), serverPath) });
+  }
 
   // Spawn every agent concurrently. Each runs the integration prompt in its
   // driver's headless mode; the mock driver ignores the prose and reads the
@@ -104,6 +115,7 @@ async function runTrial({ rec, spec, specPath, agents, workspace, timeoutMs, max
       tickCmd: './tick',
       workdir: workspace,
       maxAttempts,
+      transport,
     });
     fs.writeFileSync(path.join(rec.runDir, `prompt-${agentSpec.id}.md`), prompt);
 

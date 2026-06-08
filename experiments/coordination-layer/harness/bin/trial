@@ -14,6 +14,7 @@
 //
 // Options:
 //   --agents id:driver,id:driver     override participants (driver ∈ gemini|codex|claude|mock)
+//   --transport cli|mcp              how agents call tick (cli = ./tick, mcp = tick MCP tools; default cli)
 //   --skip-preflight                 skip the question round
 //   --auto                           don't stop at the human gate even if there are questions
 //   --timeout <ms>                   per-agent wall-clock cap (default 600000)
@@ -202,6 +203,7 @@ async function cmdRun(specArg, flags) {
     rec, spec, specPath: resolvedSpecPath, agents, workspace,
     timeoutMs: Number(flags.timeout) || 600000,
     maxAttempts: Number(flags['max-attempts']) || 3,
+    transport: flags.transport === 'mcp' ? 'mcp' : 'cli',
   });
 
   console.log('\n' + result.summary);

@@ -41,8 +41,9 @@ function taskDetails(tasks) {
   }).join('\n\n');
 }
 
-function buildAgentPrompt({ agent, project, tasks, tickCmd, workdir, maxAttempts }) {
-  const template = fs.readFileSync(path.join(PROMPT_DIR, 'agent-loop.md'), 'utf8');
+function buildAgentPrompt({ agent, project, tasks, tickCmd, workdir, maxAttempts, transport }) {
+  const file = transport === 'mcp' ? 'agent-loop-mcp.md' : 'agent-loop.md';
+  const template = fs.readFileSync(path.join(PROMPT_DIR, file), 'utf8');
   return render(template, {
     AGENT: agent,
     PROJECT_NAME: project.name,

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stand-in for the real gemini CLI (see agent-sim.js).
+exec node "$(dirname "$0")/agent-sim.js" "$@"

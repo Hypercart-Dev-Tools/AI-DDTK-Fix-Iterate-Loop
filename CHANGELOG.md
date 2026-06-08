@@ -13,6 +13,13 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.3.0] - 2026-06-08
+
+### Added
+- **tick MCP server** (`experiments/coordination-layer/mcp/tick-mcp.js`) — exposes all 13 coordination verbs as typed MCP tools (`tick_take`, `tick_done`, `tick_break`, …) as a drop-in alternative to the `tick` CLI. Zero-dependency JSON-RPC-over-stdio; every tool calls the same `src/` modules as the CLI, so CLI and MCP are interchangeable fronts on one `.tick/` state. Includes wiring docs, an example `.mcp.json`, and a self-contained `test/mcp-smoke.js` that drives the server over real JSON-RPC (8/8 green).
+- **`--transport cli|mcp`** for the trial harness — selects whether agents coordinate via the `./tick` shim or the tick MCP tools (with an MCP-flavored agent prompt and an auto-generated workspace `.mcp.json` bound to the run's isolated state).
+- **CLI-orchestration confirmation** (`harness/test/confirm-cli-orchestration.sh` + `test/fake-cli/`) — proves the harness can execute and monitor the real `gemini`/`codex` CLI invocations (`gemini --yolo`, `codex exec --full-auto -`) end-to-end via stand-in binaries that honor the headless contract: prompt on stdin, identity from the prompt, coordinate through `tick`. Asserts real command shapes, stdin delivery, clean monitored exits, and collision-free path-routing (7/7 green).
+
 ## [2.2.0] - 2026-06-08
 
 ### Added
