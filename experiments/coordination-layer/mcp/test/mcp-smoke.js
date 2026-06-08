@@ -6,37 +6,13 @@
 // root, asserting the coordination protocol works through the MCP surface.
 // Zero dependencies, runnable anywhere.
 
-const { spawn } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const readline = require('readline');
 const assert = require('assert');
+const { makeClient } = require('../client');
 
 const SERVER = path.join(__dirname, '..', 'tick-mcp.js');
-
-function makeClient(env) {
-  const child = spawn(process.execPath, [SERVER], { env, stdio: ['pipe', 'pipe', 'inherit'] });
-  const rl = readline.createInterface({ input: child.stdout });
-  const pending = new Map();
-  rl.on('line', (line) => {
-    if (!line.trim()) return;
-    const msg = JSON.parse(line);
-    if (msg.id != null && pending.has(msg.id)) { pending.get(msg.id)(msg); pending.delete(msg.id); }
-  });
-  let nextId = 1;
-  function call(method, params) {
-    const id = nextId++;
-    return new Promise((resolve) => {
-      pending.set(id, resolve);
-      child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
-    });
-  }
-  function notify(method, params) {
-    child.stdin.write(JSON.stringify({ jsonrpc: '2.0', method, params }) + '\n');
-  }
-  return { call, notify, close: () => child.kill() };
-}
 
 function textOf(res) {
   assert(res.result, `expected result, got ${JSON.stringify(res)}`);
@@ -46,7 +22,7 @@ function textOf(res) {
 async function main() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tick-mcp-'));
   const env = { ...process.env, TICK_REPO_ROOT: root };
-  const c = makeClient(env);
+  const c = makeClient({ command: process.execPath, args: [SERVER], env });
   let pass = 0; const ok = (m) => { console.log(`  ✓ ${m}`); pass++; };
 
   // Handshake

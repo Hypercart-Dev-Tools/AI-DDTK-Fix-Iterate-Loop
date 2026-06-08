@@ -8,6 +8,7 @@
 //
 //   trial list                       list the battery of trial specs
 //   trial doctor                     show which agent CLIs are installed
+//   trial mcp-doctor [--repo-root D] ping the tick MCP server (handshake + tools/list + a tool call)
 //   trial validate <spec>            parse + validate a spec (ingestion stage 1)
 //   trial preflight <spec> [opts]    let agents ask clarifying questions, then gate
 //   trial run <spec> [opts]          preflight → human gate → run → analyze → report
@@ -21,6 +22,7 @@
 //   --max-attempts <n>               fix-iterate attempts before an agent circuit-breaks (default 3)
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { parseSpecFile } = require('../src/spec');
 const { DRIVERS, getDriver } = require('../src/drivers');
@@ -31,6 +33,7 @@ const { runTrial, prepareWorkspace } = require('../src/run');
 const HARNESS_ROOT = path.join(__dirname, '..');
 const TRIALS_DIR = path.join(HARNESS_ROOT, 'trials');
 const RUNS_DIR = path.join(HARNESS_ROOT, 'runs');
+const MCP_DIR = path.join(HARNESS_ROOT, '..', 'mcp');
 
 function parseArgs(argv) {
   const positional = [];
@@ -109,6 +112,55 @@ function cmdDoctor() {
   console.log('\nIf a real CLI is ❌: install it and ensure its API key is set, or run with');
   console.log('`--agents <id>:mock,...` to exercise the harness with the deterministic mock.');
   return 0;
+}
+
+// Preflight health check for the tick MCP server: spawn it, complete the MCP
+// handshake, list its tools, and round-trip a real (non-mutating) tool call.
+// `--repo-root` targets a specific .tick/ state (defaults to a throwaway dir so
+// the check never touches real coordination state).
+async function cmdMcpDoctor(flags) {
+  const { makeClient } = require(path.join(MCP_DIR, 'client.js'));
+  const server = path.join(MCP_DIR, 'tick-mcp.js');
+  const root = typeof flags['repo-root'] === 'string'
+    ? path.resolve(flags['repo-root'])
+    : fs.mkdtempSync(path.join(os.tmpdir(), 'tick-mcp-doctor-'));
+  const ephemeral = typeof flags['repo-root'] !== 'string';
+
+  console.log(`tick MCP doctor — server: ${path.relative(process.cwd(), server)}`);
+  console.log(`  TICK_REPO_ROOT: ${root}${ephemeral ? ' (throwaway)' : ''}\n`);
+
+  const c = makeClient({ command: process.execPath, args: [server], env: { ...process.env, TICK_REPO_ROOT: root } });
+  let healthy = true;
+  const check = (ok, label, detail) => { console.log(`  ${ok ? '✅' : '❌'} ${label}${detail ? ` — ${detail}` : ''}`); if (!ok) healthy = false; };
+
+  try {
+    const init = await c.call('initialize', { protocolVersion: '2024-11-05', capabilities: {} });
+    const info = init.result && init.result.serverInfo;
+    check(!!info, 'initialize', info ? `${info.name} v${info.version} (protocol ${init.result.protocolVersion})` : 'no serverInfo');
+    c.notify('notifications/initialized');
+
+    const list = await c.call('tools/list', {});
+    const tools = (list.result && list.result.tools) || [];
+    check(tools.length > 0, 'tools/list', `${tools.length} tools`);
+    if (tools.length) console.log('     ' + tools.map(t => t.name).join(', '));
+
+    const ping = await c.call('ping', {});
+    check(ping.result && Object.keys(ping.result).length === 0, 'ping');
+
+    // Round-trip a harmless tool call (empty-state analyze) to prove dispatch.
+    const call = await c.call('tools/call', { name: 'tick_analyze', arguments: { format: 'json' } });
+    const text = call.result && call.result.content && call.result.content[0] && call.result.content[0].text;
+    let parsed = null; try { parsed = JSON.parse(text); } catch { /* ignore */ }
+    check(parsed && !call.result.isError, 'tools/call tick_analyze', parsed ? `${parsed.window.total_events} events in target state` : 'no parseable report');
+  } catch (err) {
+    check(false, 'mcp handshake', err.message);
+  } finally {
+    c.close();
+    if (ephemeral) fs.rmSync(root, { recursive: true, force: true });
+  }
+
+  console.log(`\n${healthy ? '✅ tick MCP server healthy.' : '❌ tick MCP server has problems (see above).'}`);
+  return healthy ? 0 : 1;
 }
 
 function cmdValidate(specArg) {
@@ -217,6 +269,7 @@ async function main(argv) {
   switch (verb) {
     case 'list': return cmdList();
     case 'doctor': return cmdDoctor();
+    case 'mcp-doctor': return await cmdMcpDoctor(flags);
     case 'validate': return cmdValidate(positional[1]);
     case 'preflight': return await cmdPreflight(positional[1], flags);
     case 'run': return await cmdRun(positional[1], flags);

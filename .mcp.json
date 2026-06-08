@@ -3,6 +3,10 @@
     "ai-ddtk": {
       "command": "bash",
       "args": ["tools/mcp-server/start.sh"]
+    },
+    "tick": {
+      "command": "node",
+      "args": ["experiments/coordination-layer/mcp/tick-mcp.js"]
     }
   }
 }

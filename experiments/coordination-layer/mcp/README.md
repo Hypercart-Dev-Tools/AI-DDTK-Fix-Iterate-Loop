@@ -61,8 +61,20 @@ the Codex MCP config) so peer agents coordinate over MCP too.
   coordination verbs to appear alongside the agent's other tools. Use the
   MCP-flavored prompt at `harness/prompts/agent-loop-mcp.md`.
 
-## Test
+## Test / health check
 
 ```bash
-node test/mcp-smoke.js     # spawns the server, drives it over JSON-RPC, asserts
+node test/mcp-smoke.js     # spawns the server, drives it over JSON-RPC, asserts (8/8)
+
+# Quick preflight ping (handshake + tools/list + a non-mutating tool call):
+node ../harness/bin/trial mcp-doctor               # against a throwaway .tick/
+node ../harness/bin/trial mcp-doctor --repo-root . # against the repo's real .tick/ (read-only)
 ```
+
+## Already wired at the repo root
+
+This server is registered in the repo's `.mcp.json` as `tick` (no `TICK_REPO_ROOT`
+override → it resolves to the repo's git toplevel `.tick/`). MCP clients that read
+`.mcp.json` (Claude Code in this repo) pick it up automatically on next load, so
+Claude Code can coordinate via the `tick_*` tools directly. Set `TICK_REPO_ROOT`
+in the block to bind it to a specific workspace instead.

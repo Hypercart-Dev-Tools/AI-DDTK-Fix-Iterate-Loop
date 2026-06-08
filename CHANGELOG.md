@@ -13,6 +13,15 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.3.1] - 2026-06-08
+
+### Added
+- **`trial mcp-doctor`** — preflight health check for the tick MCP server: spawns it, completes the MCP handshake, lists its tools, and round-trips a non-mutating `tick_analyze` call. Defaults to a throwaway `.tick/` state; `--repo-root .` checks the repo's real state read-only.
+- **tick MCP wired into `.mcp.json`** — the `tick` server is now registered at the repo root (resolving to the repo's `.tick/`), so MCP clients (Claude Code) can coordinate via the `tick_*` tools directly without extra setup.
+
+### Changed
+- **`mcp/client.js`** — extracted the tiny MCP stdio JSON-RPC client shared by `mcp-doctor` and `mcp-smoke.js` (removes the duplicated client in the smoke test).
+
 ## [2.3.0] - 2026-06-08
 
 ### Added

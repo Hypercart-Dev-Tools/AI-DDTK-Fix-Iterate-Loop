@@ -25,6 +25,7 @@ cd experiments/coordination-layer/harness
 
 node bin/trial list                       # the battery of trial specs
 node bin/trial doctor                     # which agent CLIs are installed
+node bin/trial mcp-doctor                 # health-check the tick MCP server
 node bin/trial validate debug-calc-bugs   # parse + validate a spec
 
 # Real run (needs gemini + codex installed with API keys):
