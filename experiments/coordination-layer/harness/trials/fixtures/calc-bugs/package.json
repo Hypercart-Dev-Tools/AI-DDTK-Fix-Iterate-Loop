@@ -1,0 +1,9 @@
+{
+  "name": "calc-bugs-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Seeded-bug fixture for the debug-calc-bugs trial. src/ contains deliberately wrong implementations; test/ encodes the correct behavior; .solutions/ holds the fix the mock driver applies.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

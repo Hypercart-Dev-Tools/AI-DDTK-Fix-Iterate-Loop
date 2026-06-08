@@ -1,0 +1,229 @@
+#!/usr/bin/env node
+'use strict';
+
+// trial — drive a multi-agent coordination trial from the system CLI.
+//
+// Replaces the manual "paste prompts into VS Code chat panels and babysit"
+// workflow with a repeatable, observable, scriptable run:
+//
+//   trial list                       list the battery of trial specs
+//   trial doctor                     show which agent CLIs are installed
+//   trial validate <spec>            parse + validate a spec (ingestion stage 1)
+//   trial preflight <spec> [opts]    let agents ask clarifying questions, then gate
+//   trial run <spec> [opts]          preflight → human gate → run → analyze → report
+//
+// Options:
+//   --agents id:driver,id:driver     override participants (driver ∈ gemini|codex|claude|mock)
+//   --skip-preflight                 skip the question round
+//   --auto                           don't stop at the human gate even if there are questions
+//   --timeout <ms>                   per-agent wall-clock cap (default 600000)
+//   --max-attempts <n>               fix-iterate attempts before an agent circuit-breaks (default 3)
+
+const fs = require('fs');
+const path = require('path');
+const { parseSpecFile } = require('../src/spec');
+const { DRIVERS, getDriver } = require('../src/drivers');
+const { Recorder } = require('../src/observe');
+const { runPreflight } = require('../src/preflight');
+const { runTrial, prepareWorkspace } = require('../src/run');
+
+const HARNESS_ROOT = path.join(__dirname, '..');
+const TRIALS_DIR = path.join(HARNESS_ROOT, 'trials');
+const RUNS_DIR = path.join(HARNESS_ROOT, 'runs');
+
+function parseArgs(argv) {
+  const positional = [];
+  const flags = {};
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith('--')) {
+      const key = a.slice(2);
+      const nx = argv[i + 1];
+      if (nx === undefined || nx.startsWith('--')) flags[key] = true;
+      else { flags[key] = nx; i++; }
+    } else positional.push(a);
+  }
+  return { positional, flags };
+}
+
+function resolveSpecPath(arg) {
+  if (fs.existsSync(arg)) return path.resolve(arg);
+  const inTrials = path.join(TRIALS_DIR, arg.endsWith('.md') ? arg : `${arg}.project.md`);
+  if (fs.existsSync(inTrials)) return inTrials;
+  throw new Error(`spec not found: ${arg} (looked in cwd and ${path.relative(process.cwd(), TRIALS_DIR)}/)`);
+}
+
+// Resolve the agent roster. Default: the spec's `Agents:` list, each mapped to
+// a driver of the same name. `--agents` overrides with explicit id:driver pairs.
+function resolveAgents(spec, flags) {
+  if (typeof flags.agents === 'string') {
+    return flags.agents.split(',').map(s => {
+      const [id, driver] = s.split(':');
+      return { id: id.trim(), driver: (driver || id).trim() };
+    });
+  }
+  const names = spec.project.agents.length ? spec.project.agents : ['gemini', 'codex'];
+  return names.map(n => ({ id: n, driver: n }));
+}
+
+function checkDriversAvailable(agents) {
+  const missing = [];
+  for (const a of agents) {
+    const d = getDriver(a.driver);
+    if (!d.available()) missing.push(`${a.id} (driver: ${a.driver})`);
+  }
+  return missing;
+}
+
+function newRunDir(specPath) {
+  const base = path.basename(specPath).replace(/\.project\.md$|\.md$/, '');
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  return path.join(RUNS_DIR, `${base}-${ts}`);
+}
+
+function cmdList() {
+  if (!fs.existsSync(TRIALS_DIR)) { console.log('(no trials dir)'); return 0; }
+  const specs = fs.readdirSync(TRIALS_DIR).filter(f => f.endsWith('.project.md'));
+  console.log('Available trial specs:\n');
+  for (const s of specs) {
+    try {
+      const { project, tasks } = parseSpecFile(path.join(TRIALS_DIR, s));
+      console.log(`  ${s.replace('.project.md', '')}`);
+      console.log(`     ${project.kind} · ${tasks.length} tasks · agents: ${project.agents.join(', ') || 'gemini, codex'}`);
+      console.log(`     ${project.goal.slice(0, 90)}`);
+    } catch (e) {
+      console.log(`  ${s}  — INVALID: ${e.message.split('\n')[0]}`);
+    }
+    console.log('');
+  }
+  return 0;
+}
+
+function cmdDoctor() {
+  console.log('Agent CLI availability:\n');
+  for (const [name, d] of Object.entries(DRIVERS)) {
+    const ok = d.available();
+    console.log(`  ${ok ? '✅' : '❌'} ${name}${name === 'mock' ? '  (always available)' : ''}`);
+  }
+  console.log('\nIf a real CLI is ❌: install it and ensure its API key is set, or run with');
+  console.log('`--agents <id>:mock,...` to exercise the harness with the deterministic mock.');
+  return 0;
+}
+
+function cmdValidate(specArg) {
+  const specPath = resolveSpecPath(specArg);
+  const { project, tasks } = parseSpecFile(specPath);
+  console.log(`✅ valid: ${project.name} (${project.kind})`);
+  console.log(`   agents: ${project.agents.join(', ') || '(default gemini, codex)'}`);
+  console.log(`   max claims/agent: ${project.max_active_claims_per_agent}`);
+  if (project.fixture) console.log(`   fixture: ${project.fixture}`);
+  if (project.verify) console.log(`   verify: ${project.verify}`);
+  console.log(`   tasks (${tasks.length}):`);
+  for (const t of tasks) {
+    console.log(`     - ${t.id} [p${t.priority}] ${t.paths.join(', ')}${t.depends_on.length ? ` (deps: ${t.depends_on.join(',')})` : ''}`);
+  }
+  return 0;
+}
+
+async function cmdPreflight(specArg, flags) {
+  const specPath = resolveSpecPath(specArg);
+  const spec = parseSpecFile(specPath);
+  const specDir = path.dirname(specPath);
+  const agents = resolveAgents(spec, flags);
+
+  const missing = checkDriversAvailable(agents);
+  if (missing.length) {
+    console.error(`✗ missing agent CLIs: ${missing.join('; ')}`);
+    console.error('  install them, or pass --agents <id>:mock to use the mock driver.');
+    return 1;
+  }
+
+  const runDir = newRunDir(specPath);
+  const rec = new Recorder(runDir);
+  const resolvedSpecPath = path.join(runDir, 'spec.json');
+  fs.writeFileSync(resolvedSpecPath, JSON.stringify(spec, null, 2));
+
+  const workspace = prepareWorkspace({ rec, spec, specDir });
+  const result = await runPreflight({
+    rec, spec, agents, workdir: workspace, tickBin: require('../src/run').TICK_BIN,
+    specPath: resolvedSpecPath, timeoutMs: Number(flags.timeout) || 300000,
+  });
+
+  console.log(`\nPreflight complete: ${result.totalQuestions} question(s) across ${agents.length} agent(s).`);
+  console.log(`Questions: ${path.relative(process.cwd(), result.questionsPath)}`);
+  console.log(`Run dir:   ${path.relative(process.cwd(), runDir)}`);
+  return 0;
+}
+
+async function cmdRun(specArg, flags) {
+  const specPath = resolveSpecPath(specArg);
+  const spec = parseSpecFile(specPath);
+  const specDir = path.dirname(specPath);
+  const agents = resolveAgents(spec, flags);
+
+  const missing = checkDriversAvailable(agents);
+  if (missing.length) {
+    console.error(`✗ missing agent CLIs: ${missing.join('; ')}`);
+    console.error('  install them, or pass --agents <id>:mock to use the mock driver.');
+    return 1;
+  }
+
+  const runDir = newRunDir(specPath);
+  const rec = new Recorder(runDir);
+  const resolvedSpecPath = path.join(runDir, 'spec.json');
+  fs.writeFileSync(resolvedSpecPath, JSON.stringify(spec, null, 2));
+
+  console.log(`\n▶ trial: ${spec.project.name}  [${agents.map(a => `${a.id}:${a.driver}`).join(', ')}]`);
+  console.log(`  run dir: ${path.relative(process.cwd(), runDir)}\n`);
+
+  const workspace = prepareWorkspace({ rec, spec, specDir });
+  const TICK_BIN = require('../src/run').TICK_BIN;
+
+  // --- Preflight + human gate ---
+  if (!flags['skip-preflight']) {
+    const pf = await runPreflight({
+      rec, spec, agents, workdir: workspace, tickBin: TICK_BIN,
+      specPath: resolvedSpecPath, timeoutMs: Number(flags.timeout) || 300000,
+    });
+    if (pf.totalQuestions > 0 && !flags.auto) {
+      console.log(`\n⏸  Preflight raised ${pf.totalQuestions} question(s). Run paused at the human gate.`);
+      console.log(`   Review:  ${path.relative(process.cwd(), pf.questionsPath)}`);
+      console.log('   Edit the spec to answer anything material, then re-run with');
+      console.log('   --skip-preflight (or --auto to proceed past the gate immediately).');
+      return 0;
+    }
+    if (pf.totalQuestions > 0) {
+      console.log(`\n(--auto) proceeding past ${pf.totalQuestions} preflight question(s).`);
+    }
+  }
+
+  // --- Run ---
+  const result = await runTrial({
+    rec, spec, specPath: resolvedSpecPath, agents, workspace,
+    timeoutMs: Number(flags.timeout) || 600000,
+    maxAttempts: Number(flags['max-attempts']) || 3,
+  });
+
+  console.log('\n' + result.summary);
+  console.log(`Full report: ${path.relative(process.cwd(), path.join(runDir, 'report'))}/`);
+  return result.verify && !result.verify.ok ? 1 : 0;
+}
+
+async function main(argv) {
+  const { positional, flags } = parseArgs(argv);
+  const verb = positional[0];
+  switch (verb) {
+    case 'list': return cmdList();
+    case 'doctor': return cmdDoctor();
+    case 'validate': return cmdValidate(positional[1]);
+    case 'preflight': return await cmdPreflight(positional[1], flags);
+    case 'run': return await cmdRun(positional[1], flags);
+    default:
+      console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 24).map(l => l.replace(/^\/\/ ?/, '')).join('\n'));
+      return verb ? 2 : 0;
+  }
+}
+
+main(process.argv.slice(2))
+  .then(code => process.exit(code || 0))
+  .catch(err => { console.error(`trial: error: ${err.message}`); process.exit(1); });

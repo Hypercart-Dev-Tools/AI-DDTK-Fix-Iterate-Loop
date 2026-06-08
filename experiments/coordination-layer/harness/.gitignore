@@ -1,0 +1,3 @@
+# Per-run trial artifacts (workspaces, transcripts, reports). Regenerated on
+# every `trial run`; never commit them.
+runs/

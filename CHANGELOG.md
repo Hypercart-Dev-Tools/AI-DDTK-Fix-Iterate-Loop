@@ -13,6 +13,14 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.2.0] - 2026-06-08
+
+### Added
+- **Trinity trial harness** (`experiments/coordination-layer/harness/`) — drives automated, headless multi-agent coordination trials from the system CLI, replacing the manual "paste prompts into VS Code chat panels and babysit" workflow used in Trinity Runs 1–3. `trial run <spec>` parses a structured project spec, runs a preflight question round with a human gate, seeds an isolated `.tick/` backlog, spawns each agent CLI (Gemini/Codex/Claude) concurrently and headlessly, then scores the run with `tick analyze`. Full observability per run: structured `run.jsonl` spine, per-agent transcripts, and a `report/SUMMARY.md`.
+- **Driver abstraction + mock driver** (`harness/src/drivers.js`, `mock-agent.js`) — headless invocation specs for `gemini --yolo`, `codex exec --full-auto`, and `claude -p`, each env-overridable; a deterministic mock driver speaks the full `tick take → done|break` protocol so the entire battery runs (and the harness is validated) with no API keys.
+- **Deterministic spec parser** (`harness/src/spec.js`) — implements stage 1 of the previously-scaffolded ingestion pipeline: parses `PROJECT-SPEC` markdown into validated task events, hard-failing on duplicate IDs, empty scopes, non-numeric priority, and dependency cycles.
+- **Trial battery** (`harness/trials/`) — two build scenarios (Todo API, URL shortener) and two debug scenarios (seeded-bug fix-iterate, poisoned-task circuit-breaker) with fixtures, plus a `test/smoke.sh` that runs all four on the mock driver (11/11 green).
+
 ## [2.1.6] - 2026-04-23
 
 ### Changed

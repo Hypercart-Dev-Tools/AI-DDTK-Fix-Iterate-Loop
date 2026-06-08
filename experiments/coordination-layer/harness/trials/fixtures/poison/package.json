@@ -1,0 +1,7 @@
+{
+  "name": "poison-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Fixture for the debug-poisoned-task trial: one genuinely fixable bug plus one contradictory/unsatisfiable task that should trigger a circuit-break rather than infinite retries.",
+  "scripts": { "test": "node --test test/" }
+}

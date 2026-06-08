@@ -150,6 +150,27 @@ and remove the `tick claim` instruction.
 3. Coordinator integrates the two halves and boots the app.
 4. Append a Run 3 section to `RECAP.md` and update this doc's status.
 
+### Run 3 automation — CLI trial harness (2026-06-08)
+
+Run 3 no longer requires manual chat-panel coordination. The
+[`experiments/coordination-layer/harness/`](../../experiments/coordination-layer/harness/README.md)
+harness drives the whole trial from the system CLI: it parses a structured spec,
+runs a preflight question round with a human gate, seeds the backlog, spawns
+**Gemini CLI and Codex CLI headlessly and concurrently** (`gemini --yolo`,
+`codex exec --full-auto`), captures full transcripts, and runs `tick analyze` —
+producing the concurrent-claim-time metric automatically. To run Run 3:
+
+```bash
+cd experiments/coordination-layer/harness
+node bin/trial doctor                    # confirm gemini + codex are installed with keys
+node bin/trial run build-todo-api        # the Run 2/3 6-task split, now automated
+```
+
+The mock driver (`--agents gemini:mock,codex:mock`) validates the harness with no
+keys; `bash test/smoke.sh` runs the full build+debug battery. The
+load-bearing open question is unchanged — only a **real-CLI** run answers whether
+Gemini/Codex actually comply with the integration prompt.
+
 ---
 
 ## Open questions for Run 3+
