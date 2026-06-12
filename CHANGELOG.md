@@ -13,6 +13,12 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.1.7] - 2026-06-12
+
+### Changed
+- **`experimental/coordination-layer/`** — moved the Trinity coordination-layer spike into the experimental workspace and kept the sandbox app tests runnable through the package-level `npm test` command.
+- **`requirements.txt`** — pinned ask-self ingester dependencies for reproducible local setup.
+
 ## [2.1.6] - 2026-04-23
 
 ### Changed
