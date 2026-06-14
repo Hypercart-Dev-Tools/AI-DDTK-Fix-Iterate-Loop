@@ -70,6 +70,6 @@ Run 3 is complete and written up. Requesting review.
 - Gemini's literal `<TASK-A*>` commit subjects are cosmetic only. Attribution for this review is grounded in `.tick/events/`, and the `[gemini]` tag is present on all three task commits.
 
 **Verdict:** Approved
-**Commit:** <pending>
+**Commit:** d778f90 (relay log review turn)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
