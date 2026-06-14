@@ -1,5 +1,5 @@
 ---
-name: swarm
+name: xyz
 description: >-
   Coordinate two (or more) AI coding agents working CONCURRENTLY on
   non-overlapping, path-scoped lanes of ONE shared repo, via the `tick` CLI —
@@ -11,9 +11,9 @@ description: >-
   constant cross-agent handoff, or runs across separate clones / async sessions.
 ---
 
-# swarm — multi-agent coordination via `tick`
+# xyz — multi-agent coordination via `tick`
 
-> **Working name `swarm`** — rename freely; nothing depends on the name.
+> **Working name `xyz`** — rename freely; nothing depends on the name.
 > Distilled from the "Trinity" experiment (Runs 1–3). This skill packages the
 > `tick` event-log coordination CLI plus two operating modes and the
 > anti-assumption discipline that keeps parallel agents from corrupting each
@@ -35,7 +35,7 @@ parked-claim detection), `project` / `info` (read state).
 
 ## 2. Scope — what this IS for
 
-Use `swarm` only when ALL of these hold:
+Use `xyz` only when ALL of these hold:
 
 - **Partitionable into non-overlapping path globs.** Each task owns a lane
   (e.g. `src/http/**` vs `src/store/**`). Agents never touch each other's lane.
@@ -59,7 +59,7 @@ Use `swarm` only when ALL of these hold:
 
 If the work doesn't partition into clean lanes, stop — this is the wrong tool.
 
-## 3. Anti-assumption discipline (the swarm mantra)
+## 3. Anti-assumption discipline (the xyz mantra)
 
 Parallel agents fail in two ways: they **collide** (edit outside their lane) or
 they **hallucinate** (assert things about code they didn't verify). Both are
@@ -67,7 +67,7 @@ assumption failures. Adapted from the `debug-mantra` skill, every agent prompt
 opens with this block, recited verbatim before acting:
 
 ```
-SWARM MANTRA — recite before every action
+XYZ MANTRA — recite before every action
 1. VERIFY, DON'T ASSUME.  Run `tick info <TASK-ID>` to confirm your lane's
    exact paths. Never infer paths, file locations, or task scope from memory.
 2. TRACE THE REAL PATH.  Every claim about the code cites file:line you have
@@ -85,7 +85,7 @@ edit outside a claimed lane, is rejected in the wrap-up.
 ## 4. Install (self-extracting)
 
 Copy the block below into `install.sh` and run `bash install.sh [DIR]`
-(default `DIR=swarm-tick`). It materializes the `tick` runtime. Then point
+(default `DIR=xyz-tick`). It materializes the `tick` runtime. Then point
 `tick` at the repo you're coordinating via `TICK_REPO_ROOT` (or run it from
 inside that repo — it uses `git rev-parse --show-toplevel`).
 
@@ -95,12 +95,12 @@ inside that repo — it uses `git rev-parse --show-toplevel`).
 
 ```bash
 #!/usr/bin/env bash
-# swarm / tick — self-extracting runtime installer
+# xyz / tick — self-extracting runtime installer
 set -euo pipefail
-DIR="${1:-swarm-tick}"
+DIR="${1:-xyz-tick}"
 mkdir -p "$DIR/bin" "$DIR/src"
 
-cat > "$DIR/bin/tick" <<'===SWARM_FILE==='
+cat > "$DIR/bin/tick" <<'===XYZ_FILE==='
 #!/usr/bin/env node
 'use strict';
 
@@ -383,10 +383,10 @@ try {
   process.stderr.write(`tick: error: ${err.message}\n`);
   process.exit(1);
 }
-===SWARM_FILE===
+===XYZ_FILE===
 chmod +x "$DIR/bin/tick"
 
-cat > "$DIR/src/events.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/events.js" <<'===XYZ_FILE==='
 'use strict';
 
 const fs = require('fs');
@@ -487,9 +487,9 @@ module.exports = {
   ensureEventsDir,
   isoNow,
 };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/project.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/project.js" <<'===XYZ_FILE==='
 'use strict';
 
 const fs = require('fs');
@@ -658,9 +658,9 @@ module.exports = {
   activeClaimsForAgent,
   MAX_ACTIVE_CLAIMS_PER_AGENT,
 };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/lock.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/lock.js" <<'===XYZ_FILE==='
 'use strict';
 
 const fs = require('fs');
@@ -701,9 +701,9 @@ function withClaimLock(repoRoot, fn) {
 }
 
 module.exports = { withClaimLock, lockPath };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/paths.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/paths.js" <<'===XYZ_FILE==='
 'use strict';
 
 // Conservative path-overlap detection. Two globs "overlap" if some path matches
@@ -761,9 +761,9 @@ function matchesAny(file, globs) {
 }
 
 module.exports = { patternsOverlap, setsOverlap, literalPrefix, globToRegex, matchesAny };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/identity.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/identity.js" <<'===XYZ_FILE==='
 'use strict';
 
 const { execFileSync } = require('child_process');
@@ -784,9 +784,9 @@ function gitUserName(repoRoot) {
 }
 
 module.exports = { gitUserName };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/claim.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/claim.js" <<'===XYZ_FILE==='
 'use strict';
 
 const { appendEvent, readAllEvents } = require('./events');
@@ -828,9 +828,9 @@ function claim(repoRoot, { task, agent, paths }) {
 }
 
 module.exports = { claim };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/next.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/next.js" <<'===XYZ_FILE==='
 'use strict';
 
 const { fold, activeClaimsForAgent, MAX_ACTIVE_CLAIMS_PER_AGENT } = require('./project');
@@ -873,9 +873,9 @@ function next(repoRoot, { agent }) {
 }
 
 module.exports = { next };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/take.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/take.js" <<'===XYZ_FILE==='
 'use strict';
 
 const { appendEvent, readAllEvents } = require('./events');
@@ -932,9 +932,9 @@ function take(repoRoot, { agent }) {
 }
 
 module.exports = { take };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/scope.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/scope.js" <<'===XYZ_FILE==='
 'use strict';
 
 const { appendEvent, readAllEvents } = require('./events');
@@ -1020,9 +1020,9 @@ function reap(repoRoot, { agent, by }) {
 }
 
 module.exports = { scope, release, circuitBreak, done, reap, heartbeat };
-===SWARM_FILE===
+===XYZ_FILE===
 
-cat > "$DIR/src/analyze.js" <<'===SWARM_FILE==='
+cat > "$DIR/src/analyze.js" <<'===XYZ_FILE==='
 'use strict';
 
 const { readAllEvents } = require('./events');
@@ -1298,9 +1298,9 @@ function renderMd(report) {
 }
 
 module.exports = { analyze, renderHuman, renderMd, buildClaimWindows, computeParallelism, findParkedClaims, PARKED_THRESHOLD_MS };
-===SWARM_FILE===
+===XYZ_FILE===
 
-echo "swarm/tick runtime installed in $DIR/ — run: TICK_REPO_ROOT=<repo> $DIR/bin/tick --help"
+echo "xyz/tick runtime installed in $DIR/ — run: TICK_REPO_ROOT=<repo> $DIR/bin/tick --help"
 ```
 
 ## 5. Use-case A — Parallel build
@@ -1342,7 +1342,7 @@ tick log task.created RECON-API  --agent dispatcher --priority 5 \
 **Recon agent prompt (after the mantra):**
 ```
 You are <you>, profiling one area of this codebase concurrently with another
-agent. Recite the SWARM MANTRA. Then loop:
+agent. Recite the XYZ MANTRA. Then loop:
 1. tick take --agent <you>
 2. tick info <TASK-ID> --agent <you>   # confirm your exact area + output path
 3. READ-ONLY profile your area. Do NOT modify source. Write findings to your
