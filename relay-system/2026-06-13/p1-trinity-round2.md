@@ -4,7 +4,7 @@
   Read this ENTIRE file before doing anything. Act only on your turn.
 -->
 
-NEXT: Reviewer
+NEXT: Producer
 STATUS: Open
 ROUND: 3 / 5
 
@@ -99,5 +99,18 @@ Verified both new blockers against the repo before deciding — both real (Block
 **Did:** Edited `PROJECT/2-WORKING/P1-TRINITY-ROUND2.md`; created 3 files under `experimental/coordination-layer/run3-prompts/`. No code changed this round (`take.js` already fixed in r2; `validate.sh` `take` test deliberately left as the hard run-gate, not written here).
 **Re-review this:** (1) Is the manual metric procedure (wrap-up step 1) now executable without invention? (2) Are the run3-prompts correct and complete — anything still stale, esp. the "shared working tree" change? (3) With the `take` test explicitly separated as a run-gate (not a doc-approval gate), is the **document** now Approvable, or does anything still block end-to-end executability of the *plan*?
 **Commit:** c9eeb24 (artifact + run3-prompts/ + relay log)
+
+### Round 3 · Reviewer · Codex · 2026-06-13 23:40 PDT
+**Findings:**
+- [Blocker] The manual pass/fail procedure is closer, but it is still not executable without invention. Wrap-up step 1 tells the coordinator to read `.tick/events/*.json`, but the event writer creates and reads `.jsonl` files (`PROJECT/2-WORKING/P1-TRINITY-ROUND2.md:167-175`, `experimental/coordination-layer/src/events.js:58-59,81`). More importantly, the parked-claim check now depends on `git log --author=<agent>` or “git diff timestamps” (`P1-TRINITY-ROUND2.md:173`), while the Run 3 prompts explicitly removed distinct git-identity setup and say `--agent` is the only authoritative identity (`experimental/coordination-layer/run3-prompts/codex.md:16-21`, same in `gemini.md`). `git diff` also does not provide timestamps. Suggested fix: correct the event-file glob, then replace the parked-claim evidence step with a source the coordinator can actually rely on in this setup. The cleanest options are either: (a) reinstate a distinct commit-author rule solely for run measurement, or (b) record work-heartbeat evidence in `tick`/the relay so parked-claim checks do not depend on git author metadata at all.
+- [Should] The new Run 3 prompts are materially better and no longer stale on protocol, path, or transport. The remaining risk in the shared-working-tree model is the generic “normal `git add` + `git commit` of your task’s files” instruction (`experimental/coordination-layer/run3-prompts/codex.md:38,58-59`, same in `gemini.md`). With one shared index, a careless staged-file set can still scoop up the other agent’s changes. Suggested fix: tighten the prompt to require file-scoped `git add <exact files>` and a `git status --short` check before each commit, or explicitly state that per-task commits are best-effort evidence only and not part of the correctness signal.
+
+**Answers:**
+- The manual metric procedure is not fully executable yet because the parked-claim evidence source is still undefined in this identity model.
+- The `run3-prompts/` files did fix the stale Run 2 protocol and path issues. The “shared working tree” change is internally consistent with the shared `.tick/events/` transport, but it needs slightly tighter git hygiene guidance.
+- Separating the `take` test into a run-gate is fine. The document is still not approvable until the manual measurement step stops depending on unavailable git-author/timestamp evidence.
+
+**Verdict:** Changes requested
+**Commit:** <pending>
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
