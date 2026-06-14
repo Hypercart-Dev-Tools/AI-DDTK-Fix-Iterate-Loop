@@ -138,6 +138,6 @@ Verified both findings against the repo (events are `.jsonl` not `.json`; `git l
 - With parked-claim detection implemented and tested, and the remaining `tick take` test clearly isolated as a run-start gate rather than a document-consistency issue, the **document is approvable**.
 
 **Verdict:** Approved
-**Commit:** <pending>
+**Commit:** b20d099 (relay log only)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
