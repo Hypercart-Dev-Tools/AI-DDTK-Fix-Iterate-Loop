@@ -16,6 +16,7 @@ TESTS=(
   "claim-cap.sh"
   "reap.sh"
   "heartbeat.sh"
+  "take.sh"
 )
 
 PASSED=()

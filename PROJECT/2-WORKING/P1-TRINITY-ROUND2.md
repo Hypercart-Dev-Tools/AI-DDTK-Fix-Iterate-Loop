@@ -74,7 +74,7 @@ Path globs had to be copied verbatim from the integration prompt. If the task li
 
 ## What was fixed before closing the session
 
-All 6 items were implemented and committed on 2026-05-15. `validate.sh` is 10/10 green, but that suite covers `claim`/`scope`/`reap`/etc. — **it does not yet test `tick take`**, the new critical-path verb for Run 3. Adding a `take` test is a Run 3 prerequisite (see "Run 3 prerequisites" below).
+All 6 items were implemented and committed on 2026-05-15. The Run 2 `validate.sh` covered `claim`/`scope`/`reap`/etc. but not the new critical-path verb `tick take`; that gap has since been closed during Run 3 prep (`test/take.sh`), and `tick ping` is covered too — `validate.sh` is now **12/12** (see "Run 3 prerequisites").
 
 | Item | Files changed | What it does |
 |---|---|---|
@@ -117,7 +117,7 @@ Run 3 passes only if **all** of these hold:
 - [x] Document the manual metric-computation procedure the coordinator runs (done — see Wrap-up step 1). The concurrent-claim pass/fail is executable by hand; the parked-claim disqualifier is now automated.
 - [x] Parked-claim detection implemented: `tick ping` emits `task.heartbeat` events and `tick analyze` reports `parked-claim suspects` from them, with no git-identity dependency (covered by `test/heartbeat.sh`).
 - [ ] *(optional, convenience)* Update [`analyze.js`](../../experimental/coordination-layer/src/analyze.js) to also compute the **work-bounded** concurrent-claim window (first `claimed` → last `done`) so steps 2–4 of the manual procedure can be skipped. Not required to run Run 3.
-- [ ] **(hard gate)** Add a `tick take` test to `validate.sh` (atomicity + the new same-half double-claim refusal). That verb is still untested — **agents do not start until this is green.** (`tick ping` is already tested; `validate.sh` is 11/11.)
+- [x] **(hard gate — now green)** `tick take` test added (`test/take.sh`): atomic next+claim, same-half double-claim refusal, claim cap, cross-agent lane separation. `validate.sh` is **12/12**. The run-start gate is satisfied.
 
 ---
 
