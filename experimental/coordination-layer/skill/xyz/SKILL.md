@@ -1306,14 +1306,14 @@ echo "xyz/tick runtime installed in $DIR/ — run: TICK_REPO_ROOT=<repo> $DIR/bi
 ## 5. Use-case A — Parallel build
 
 **Coordinator setup (before agents start):**
-1. `tick init` in the target repo (creates `.tick/events/`). Add `.tick/locks/` to `.gitignore`.
+1. `tick init` in the target repo (creates `.tick/events/`). Add **`.tick/`** to `.gitignore` — locks are ephemeral, and events/`STATE.md` coordinate via the shared working tree on disk (not git), so agents never need to commit them. (If you specifically want the coordination log preserved in history — as the Trinity experiment did — track `.tick/events/` instead, but never the lock dir.)
 2. Seed one task per lane with `tick log task.created <ID> --agent dispatcher --priority N --paths "<glob>,<glob>"`. Keep lanes **non-overlapping and balanced**.
 3. Clear/prepare the fixture as needed.
 4. Confirm prerequisites green, then paste the agent prompt (below) into each agent's window — same session, shared tree.
 
 **Agent loop (in each agent's prompt, after the mantra):**
 ```
-1. tick take --agent <you>        # atomic claim of your next lane
+1. tick take --agent <you>        # atomic claim; note the TASK-ID it prints ("won: <TASK-ID> ...")
 2. work ONLY inside the claimed paths; write code + its test
 3. tick ping <TASK-ID> --agent <you>   # heartbeat every few min / after each edit
 4. run the task's acceptance check — must pass
@@ -1343,8 +1343,8 @@ tick log task.created RECON-API  --agent dispatcher --priority 5 \
 ```
 You are <you>, profiling one area of this codebase concurrently with another
 agent. Recite the XYZ MANTRA. Then loop:
-1. tick take --agent <you>
-2. tick info <TASK-ID> --agent <you>   # confirm your exact area + output path
+1. tick take --agent <you>             # note the TASK-ID it prints ("won: <TASK-ID> ...")
+2. tick info <TASK-ID>                  # confirm your exact area + output path (no --agent flag)
 3. READ-ONLY profile your area. Do NOT modify source. Write findings to your
    lane's output file (e.g. recon/<area>.md) using the PROFILE TEMPLATE below.
    EVERY claim cites file:line you actually read. Mark anything you could not

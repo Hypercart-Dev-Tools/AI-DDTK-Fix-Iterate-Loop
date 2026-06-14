@@ -2,7 +2,7 @@
 
 NEXT: Reviewer
 STATUS: Open
-ROUND: 1 / 5
+ROUND: 2 / 5
 
 ## Setup
 - Artifact under review: `experimental/coordination-layer/skill/xyz/SKILL.md`
@@ -41,5 +41,32 @@ ROUND: 1 / 5
 5. **Anything inaccurate** in the prose vs the embedded code's real behavior.
 **Open questions:** Name is `xyz` (placeholder, trivially renamed). Tests-embed pending. Both out of scope for this review unless they affect the above.
 **Commit:** 1bc6805 (relay log; skill in 98c377b)
+
+### Round 2 · Reviewer · 2026-06-14
+**Verdict:** Changes requested
+
+**Findings:**
+1. `[Should]` **Usability / Inaccuracy:** In the Use-case B agent prompt (Section 6), step 2 reads `tick info <TASK-ID> --agent <you>`. However, the `tick info` command does not accept an `--agent` flag (its usage is `tick info <task>`). The extra flag is silently ignored by the CLI, but it is inaccurate and may confuse an agent if they attempt to debug it.
+   *Fix:* Remove `--agent <you>` from step 2 in the Use-case B prompt.
+2. `[Should]` **Usability (Coordinator Setup):** In Use-case A (Section 5), the coordinator setup step 1 advises to "Add `.tick/locks/` to `.gitignore`." If multiple agents are committing code, they might accidentally commit files in `.tick/events/` or `.tick/STATE.md`, leading to git conflicts and tree bloat.
+   *Fix:* Recommend adding the entire `.tick/` directory to `.gitignore`, not just `.tick/locks/`.
+3. `[Nit]` **Usability in Agent Prompts:** Both agent prompts assume the agent knows to extract the `<TASK-ID>` from the stdout of the `tick take` command (which prints `won: <TASK-ID> ...`). While LLMs usually infer this properly, it could be made perfectly robust.
+   *Fix:* Consider adding a tiny note, e.g., `(extract TASK-ID from output)` next to step 1.
+4. `[Pass]` **Honesty & Scope:** The claims around the 40% load-imbalance, the heartbeat operational contract, and the shared-tree atomicity limits are stated honestly and accurately reflect the bounds of the codebase snapshot. The Mantra addresses hallucination/collision directly via the `tick info` enforcement.
+
+**Commit:** none (comments only)
+
+### Round 2 · Producer · 2026-06-14 10:53 PDT
+Verified all three findings against `bin/tick` before acting. Dispositions:
+
+**Decisions on proposals:**
+- [Should] `tick info <TASK-ID> --agent <you>` — `info` ignores `--agent` (handler reads only positional `[task]`) — **Implemented** → recon prompt step 2 now `tick info <TASK-ID>` with a "(no --agent flag)" note. Confirmed against `bin/tick` `case 'info'`.
+- [Should] `.gitignore` only `.tick/locks/` — agents could commit `.tick/events/`/`STATE.md` churn — **Implemented (broadened, as suggested)** → setup step 1 now says gitignore **`.tick/`** (locks ephemeral; events/STATE coordinate via the shared tree on disk, not git). **Added one nuance** the bare suggestion didn't carry: if you *want* the coordination log in history (as the Trinity experiment did), you may track `.tick/events/` — but never the lock dir. Net effect matches Gemini's fix for the default case.
+- [Nit] Agents must infer `<TASK-ID>` from `tick take` stdout — **Implemented** → both prompts' step 1 now annotate `# note the TASK-ID it prints ("won: <TASK-ID> ...")`.
+- [Pass] Honesty/scope/mantra — acknowledged, no change.
+
+**Did:** Edited `skill/xyz/SKILL.md` (3 spots). No code changed (these were doc fixes; the embedded runtime is unaffected — prior extract+smoke still valid).
+**Re-review this:** the three fixed spots (§5 setup step 1, §5 loop step 1, §6 prompt steps 1–2). Is the `.gitignore` nuance acceptable, or do you want a flat "gitignore `.tick/`" with no tracking caveat?
+**Commit:** 2193730 (SKILL.md + relay log)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
