@@ -33,9 +33,22 @@ repo root. The app you are building lives under
    - If it prints `no task`, there is nothing available right now — wait or stop.
    - If it prints `claim limit reached`, you already hold 2 active claims; finish
      (`tick done`) or release (`tick release`) one, then run `tick take` again.
-2. Do the work: write the source file and its test file.
+2. Do the work: write the source file and its test file. **While working, emit a
+   liveness heartbeat at least every few minutes (and after each meaningful
+   edit):**
+   `experimental/coordination-layer/bin/tick ping <TASK-ID> --agent codex`
+   A claim with no heartbeat for > 10 min is flagged as a *parked claim* and
+   **invalidates the run**, so ping as you go — it is how the coordinator can
+   tell real work from a parked reservation.
 3. Run the task's acceptance command — it must pass.
-4. Commit your work (normal `git add` + `git commit` of your task's files).
+4. Commit your work with a **file-scoped** add — list your exact files, never
+   `git add -A` or `git add .` (you share one working tree with the other agent;
+   a blanket add can scoop up their changes). Check first, then commit:
+   ```
+   git status --short                 # confirm only YOUR task files are modified
+   git add <your exact file paths>
+   git commit -m "[codex] <TASK-ID> <summary>"
+   ```
 5. `experimental/coordination-layer/bin/tick done <TASK-ID> --agent codex`
 6. Go back to step 1.
 
@@ -53,7 +66,7 @@ repo root. The app you are building lives under
   effort), run
   `experimental/coordination-layer/bin/tick break <TASK-ID> --agent codex --reason "..."`
   so the other agent doesn't waste time on it.
-- `tick take / scope / release / break / done` are **local event appends** to
+- `tick take / scope / release / break / done / ping` are **local event appends** to
   the shared `.tick/events/` directory — they do NOT auto-commit or push (the
   git-push transport was removed in Run 2). You still `git add` + `git commit`
   your own task source files yourself (step 4).

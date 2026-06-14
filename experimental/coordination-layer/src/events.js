@@ -11,6 +11,7 @@ const EVENT_TYPES = new Set([
   'task.released',
   'task.scope_changed',
   'task.commented',
+  'task.heartbeat',
   'task.done',
   'task.circuit_break',
 ]);

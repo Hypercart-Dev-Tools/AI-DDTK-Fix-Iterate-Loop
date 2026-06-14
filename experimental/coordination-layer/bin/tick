@@ -8,7 +8,7 @@ const { execFileSync } = require('child_process');
 const { appendEvent, ensureEventsDir, EVENT_TYPES } = require('../src/events');
 const { project, fold } = require('../src/project');
 const { claim } = require('../src/claim');
-const { scope, release, circuitBreak, done, reap } = require('../src/scope');
+const { scope, release, circuitBreak, done, reap, heartbeat } = require('../src/scope');
 const { next } = require('../src/next');
 const { take } = require('../src/take');
 const { analyze, renderHuman, renderMd } = require('../src/analyze');
@@ -63,6 +63,7 @@ Usage:
   tick release <task> --agent <id> [--to <agent>]
   tick break <task> --agent <id> --reason "..."
   tick done <task> --agent <id> [--note "..."]
+  tick ping <task> --agent <id> [--note "..."]      (liveness heartbeat)
   tick reap <agent> [--by <id>]
   tick info <task>
   tick analyze [--format human|md|json] [--write <file>]
@@ -186,6 +187,14 @@ function main(argv) {
       if (!task || !flags.agent) { usage(); return 2; }
       done(root, { task, agent: flags.agent, note: typeof flags.note === 'string' ? flags.note : undefined });
       process.stdout.write(`done: ${task}\n`);
+      return 0;
+    }
+
+    case 'ping': {
+      const [task] = positional;
+      if (!task || !flags.agent) { usage(); return 2; }
+      heartbeat(root, { task, agent: flags.agent, note: typeof flags.note === 'string' ? flags.note : undefined });
+      process.stdout.write(`heartbeat: ${task} by ${flags.agent}\n`);
       return 0;
     }
 

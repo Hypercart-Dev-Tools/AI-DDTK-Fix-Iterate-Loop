@@ -111,6 +111,49 @@ function computeParallelism(windows, runStart, runEnd) {
   };
 }
 
+// Parked-claim detection (Run 3). A claim window is a "parked-claim suspect" if
+// the holding agent showed no work-activity heartbeat for longer than the
+// threshold at any point in the window. Activity points are: the claim itself
+// (openedAt), every task.heartbeat the agent emitted for that task inside the
+// window, and the window close. The largest gap between consecutive activity
+// points is the parked gap. This reads only .tick/events/ — no git author /
+// timestamp dependency (Run 2 removed distinct git identity). The redefined Run
+// 3 criterion disqualifies a run with any parked-claim suspect.
+const PARKED_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes
+
+function findParkedClaims(windows, events, runEnd, thresholdMs = PARKED_THRESHOLD_MS) {
+  const endMs = toMs(runEnd);
+  const suspects = [];
+  for (const w of windows) {
+    const openMs = toMs(w.openedAt);
+    if (openMs === null) continue;
+    const closeMs = w.closedAt ? toMs(w.closedAt) : endMs;
+    if (closeMs === null || closeMs <= openMs) continue;
+
+    const beats = events
+      .filter(e => e.type === 'task.heartbeat' && e.task === w.task && e.agent === w.agent)
+      .map(e => toMs(e.ts))
+      .filter(t => t !== null && t >= openMs && t <= closeMs);
+
+    const points = [openMs, ...beats, closeMs].sort((a, b) => a - b);
+    let maxGap = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      maxGap = Math.max(maxGap, points[i + 1] - points[i]);
+    }
+    if (maxGap > thresholdMs) {
+      suspects.push({
+        task: w.task,
+        agent: w.agent,
+        max_gap_ms: maxGap,
+        heartbeats: beats.length,
+        opened_at: w.openedAt,
+        closed_at: w.closedAt || null,
+      });
+    }
+  }
+  return suspects;
+}
+
 function analyze(repoRoot) {
   const events = readAllEvents(repoRoot);
   const windows = buildClaimWindows(events);
@@ -127,6 +170,7 @@ function analyze(repoRoot) {
         handoffs: 0,
         breaks: 0,
         comments: 0,
+        heartbeats: 0,
       });
     }
     return perAgent.get(name);
@@ -141,6 +185,7 @@ function analyze(repoRoot) {
       case 'task.released': a.releases++; if (ev.to_agent) a.handoffs++; break;
       case 'task.circuit_break': a.breaks++; break;
       case 'task.commented': a.comments++; break;
+      case 'task.heartbeat': a.heartbeats++; break;
     }
   }
   // The dispatcher only seeds task.created events — drop it from per-agent.
@@ -154,16 +199,19 @@ function analyze(repoRoot) {
   };
 
   const parallelism = computeParallelism(windows, window.earliest_event, window.latest_event);
+  const parked_suspects = findParkedClaims(windows, events, window.latest_event);
 
   return {
     window,
     parallelism,
+    parked_suspects,
     agents: Array.from(perAgent.values()).sort((a, b) => a.agent.localeCompare(b.agent)),
     event_counts: {
       created: events.filter(e => e.type === 'task.created').length,
       claimed: events.filter(e => e.type === 'task.claimed').length,
       released: events.filter(e => e.type === 'task.released').length,
       scope_changed: events.filter(e => e.type === 'task.scope_changed').length,
+      heartbeat: events.filter(e => e.type === 'task.heartbeat').length,
       done: events.filter(e => e.type === 'task.done').length,
       circuit_break: events.filter(e => e.type === 'task.circuit_break').length,
       commented: events.filter(e => e.type === 'task.commented').length,
@@ -182,6 +230,15 @@ function renderHuman(report) {
     out.push(`concurrent-claim time: ${humanDuration(p.concurrent_ms)} of ${humanDuration(p.run_window_ms)} run window (${p.concurrent_pct}%)`);
   } else {
     out.push('concurrent-claim time: not computable (run window too short)');
+  }
+  const ps = report.parked_suspects || [];
+  if (ps.length) {
+    out.push(`parked-claim suspects: ${ps.length} (DISQUALIFIES run)`);
+    for (const s of ps) {
+      out.push(`  ${s.task} (${s.agent}): max ${humanDuration(s.max_gap_ms)} with no heartbeat, ${s.heartbeats} beat(s)`);
+    }
+  } else {
+    out.push('parked-claim suspects: none');
   }
   out.push('');
   out.push('--- per agent ---');
@@ -206,6 +263,13 @@ function renderMd(report) {
   } else {
     out.push('- **Concurrent-claim time (primary metric):** not computable (run window too short)');
   }
+  const ps = report.parked_suspects || [];
+  if (ps.length) {
+    out.push(`- **Parked-claim suspects (DISQUALIFIES run):** ${ps.length} — ` +
+      ps.map(s => `${s.task}/${s.agent} (${humanDuration(s.max_gap_ms)} gap, ${s.heartbeats} beat(s))`).join('; '));
+  } else {
+    out.push('- **Parked-claim suspects:** none');
+  }
   out.push('');
   out.push('### Per-agent');
   out.push('');
@@ -217,6 +281,7 @@ function renderMd(report) {
     out.push(`- **Used \`tick scope\`:** ${a.scope_changes > 0 ? `yes (${a.scope_changes})` : 'no'}`);
     out.push(`- **Used \`tick break\`:** ${a.breaks > 0 ? `yes (${a.breaks})` : 'no'}`);
     out.push(`- **Releases:** ${a.releases} (${a.handoffs} as handoff), comments: ${a.comments}`);
+    out.push(`- **Heartbeats (\`tick ping\`):** ${a.heartbeats}`);
     out.push('');
   }
   out.push('> Drift / file-collision detection is deferred — the git transport was');
@@ -226,4 +291,4 @@ function renderMd(report) {
   return out.join('\n');
 }
 
-module.exports = { analyze, renderHuman, renderMd, buildClaimWindows, computeParallelism };
+module.exports = { analyze, renderHuman, renderMd, buildClaimWindows, computeParallelism, findParkedClaims, PARKED_THRESHOLD_MS };

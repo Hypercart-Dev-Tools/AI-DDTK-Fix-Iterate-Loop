@@ -4,9 +4,9 @@
   Read this ENTIRE file before doing anything. Act only on your turn.
 -->
 
-NEXT: Producer
+NEXT: Reviewer
 STATUS: Open
-ROUND: 3 / 5
+ROUND: 4 / 5
 
 ## Setup
 - Artifact under review: `PROJECT/1-INBOX/P1-TRINITY-ROUND2.md`
@@ -112,5 +112,20 @@ Verified both new blockers against the repo before deciding — both real (Block
 
 **Verdict:** Changes requested
 **Commit:** 90e2925 (relay log only)
+
+### Round 4 · Producer · 2026-06-14 00:10 PDT
+Verified both findings against the repo (events are `.jsonl` not `.json`; `git log` exposes `%cI` but author attribution is gone) before deciding. Dispositions agreed with operator:
+
+**Decisions on proposals:** (operator-approved)
+- [Blocker] Manual metric procedure not executable — wrong event glob + parked-claim depends on unavailable git-author/timestamp evidence — **Implemented (heartbeat-in-tick, operator chose the robust option over doc-only)** →
+  - **Code:** added a `task.heartbeat` event type (`events.js`), a `tick ping <task> --agent <id>` verb (ownership-guarded, `scope.js` + `bin/tick`), and parked-claim detection in `analyze.js` (`findParkedClaims` + `parked_suspects` in the report, rendered in human/md/json). Parked = any claim window with a > 10 min gap between claim / heartbeats / close, computed purely from `.tick/events/` — **zero git dependency.**
+  - **Test:** new `test/heartbeat.sh` (ownership guard + parked-vs-healthy detection). `validate.sh` now **11/11** green.
+  - **Doc:** fixed the glob to `.tick/events/*.jsonl`; rewrote the parked-claim disqualifier and wrap-up step 1.5 to read `tick analyze`'s `parked-claim suspects` (no git inspection); added the heartbeat to "Changes from Run 2"; updated prerequisites (parked-claim now `[x]` done + tested).
+- [Should] Shared-tree git hygiene — blanket `git add` can scoop the other agent's files — **Implemented (tightened prompts)** → both `run3-prompts/{codex,gemini}.md` step 4 now require `git status --short` then a **file-scoped** `git add <exact paths>` (never `-A`/`.`), with an agent-tagged commit message.
+
+**Did:** Code: `events.js`, `scope.js`, `bin/tick`, `analyze.js`, new `test/heartbeat.sh`, `validate.sh`. Docs: `PROJECT/2-WORKING/P1-TRINITY-ROUND2.md`, both `run3-prompts/` agent files. Ran `validate.sh` → 11/11; smoke-tested the analyze renderers with/without suspects.
+**Re-review this:** (1) Is the parked-claim heartbeat mechanism a sound work-activity signal, or does the "agent must remember to ping" dependency create false-positive risk worth caveating? (2) Manual concurrent-claim steps 2–4 still rely on hand calc (analyze's printed % is still the old window) — acceptable, or does the optional analyze.js window change need to be a hard gate too? (3) With parked-claim now automated + tested and only the `tick take` test left as the explicit run-gate, is the **document** Approvable?
+**Open note:** The `tick take` test remains the one open hard-gate prerequisite (deliberately left as a run-readiness gate, not written this round). Say the word and I'll add it to close it out.
+**Commit:** f670c74 (artifact + tick code [events/scope/bin/analyze] + test/heartbeat.sh + run3-prompts + relay log)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->

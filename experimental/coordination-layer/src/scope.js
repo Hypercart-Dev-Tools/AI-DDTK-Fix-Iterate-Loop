@@ -49,6 +49,19 @@ function done(repoRoot, { task, agent, note }) {
   return { ok: true };
 }
 
+// Liveness heartbeat (Run 3). The claiming agent emits one of these while
+// actively working a task so the post-run parked-claim check has a work-activity
+// signal that does NOT depend on git author identity (which Run 2 removed). A
+// claim window with no heartbeat for longer than the threshold is flagged as a
+// suspected parked claim by `tick analyze`. Heartbeats never change projected
+// state — they are pure liveness evidence. Ownership-guarded so an agent can
+// only heartbeat a task it currently holds.
+function heartbeat(repoRoot, { task, agent, note }) {
+  assertOwnership(repoRoot, task, agent);
+  emitEvent(repoRoot, 'task.heartbeat', { task, agent, note });
+  return { ok: true };
+}
+
 // Manual liveness lever (P5). Release every active claim held by a (presumed
 // crashed) agent so peers can pick the work back up. Each emitted
 // task.released carries `agent = <crashed agent>` — that is what the
@@ -79,4 +92,4 @@ function reap(repoRoot, { agent, by }) {
   return { reaped: held };
 }
 
-module.exports = { scope, release, circuitBreak, done, reap };
+module.exports = { scope, release, circuitBreak, done, reap, heartbeat };

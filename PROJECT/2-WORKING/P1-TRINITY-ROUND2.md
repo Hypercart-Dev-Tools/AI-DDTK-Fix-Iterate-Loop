@@ -106,7 +106,7 @@ Run 3 passes only if **all** of these hold:
 
 - **Work-bounded window.** Measure concurrent-claim time over **first `task.claimed` → last `task.done`**, not earliest-event → latest-event. Seeding is excluded from the denominator.
 - **≥ 50% concurrent-claim time** within that work-bounded window, with **both agents completing ≥ 2 tasks each**.
-- **Disqualifier — parked claims.** Any claim held with no corresponding work activity for > 10 min while the holder is otherwise idle invalidates the run (it indicates manufactured overlap, not parallel work). With drift/collision detection deferred, this is a **manual coordinator check** against `git diff` timing, not an automated analyzer output — see prerequisites.
+- **Disqualifier — parked claims.** Any claim held with no work-activity **heartbeat** for > 10 min invalidates the run (it indicates manufactured overlap, not parallel work). Agents emit heartbeats with `tick ping --agent <name> <TASK-ID>` while working (see the agent prompts); `tick analyze` reports `parked-claim suspects` directly from those `task.heartbeat` events — **no git-author or timestamp dependency** (Run 2 removed distinct git identity, so git-author attribution is unavailable). This replaces the earlier git-diff-timing idea, which could not attribute commits under the single-identity model.
 - **Disqualifier — serial double-claim.** No agent may hold two overlapping claims (now enforced in `take.js`); if the event log shows it anyway, the run is invalid.
 - **Cross-check.** Coordinator confirms by `git diff` that overlapping claim windows correspond to overlapping *real edits* on both halves — the overlap metric is necessary but not sufficient.
 
@@ -114,9 +114,10 @@ Run 3 passes only if **all** of these hold:
 
 ### Run 3 prerequisites (before agents start)
 
-- [x] Document the manual metric-computation procedure the coordinator runs (done — see Wrap-up step 1). The redefined metric is now executable by hand without an analyzer change.
-- [ ] *(optional, convenience)* Update [`analyze.js`](../../experimental/coordination-layer/src/analyze.js) to compute the **work-bounded** window (first `claimed` → last `done`) and surface parked-claim / serial-double-claim flags, so the coordinator doesn't compute by hand. Not required to run Run 3 — the manual procedure covers it.
-- [ ] **(hard gate)** Add a `tick take` test to `validate.sh` (atomicity + the new same-half double-claim refusal). The critical-path verb is currently untested — **agents do not start until this is green.**
+- [x] Document the manual metric-computation procedure the coordinator runs (done — see Wrap-up step 1). The concurrent-claim pass/fail is executable by hand; the parked-claim disqualifier is now automated.
+- [x] Parked-claim detection implemented: `tick ping` emits `task.heartbeat` events and `tick analyze` reports `parked-claim suspects` from them, with no git-identity dependency (covered by `test/heartbeat.sh`).
+- [ ] *(optional, convenience)* Update [`analyze.js`](../../experimental/coordination-layer/src/analyze.js) to also compute the **work-bounded** concurrent-claim window (first `claimed` → last `done`) so steps 2–4 of the manual procedure can be skipped. Not required to run Run 3.
+- [ ] **(hard gate)** Add a `tick take` test to `validate.sh` (atomicity + the new same-half double-claim refusal). That verb is still untested — **agents do not start until this is green.** (`tick ping` is already tested; `validate.sh` is 11/11.)
 
 ---
 
@@ -124,7 +125,8 @@ Run 3 passes only if **all** of these hold:
 
 ### Changes from Run 2
 
-- Agents call **`tick take --agent <name>`** instead of `tick next` + `tick claim`. This is the only protocol change visible to agents.
+- Agents call **`tick take --agent <name>`** instead of `tick next` + `tick claim` (atomic claim, no TOCTOU).
+- Agents emit a liveness **`tick ping --agent <name> <TASK-ID>`** heartbeat while working a task, so the parked-claim disqualifier has a work-activity signal independent of git identity. These two verbs are the only protocol changes visible to agents.
 - Same 6 tasks, same split. The sandbox-app files from Run 2 can be cleared or the run can use a fresh fixture.
 - Both agents must be in the same session window — no overnight gaps.
 
@@ -164,16 +166,16 @@ Paste everything below the `===` in `experimental/coordination-layer/run3-prompt
 
 ### Wrap-up
 
-1. **Compute the redefined metric manually** (the current `tick analyze` reports the *old* earliest-event→latest-event overlap and cannot produce the redefined metric — treat its `concurrent-claim time` line as informational only, not the pass/fail number). Procedure:
+1. **Run `tick analyze`** for the parked-claim check, then **compute the concurrent-claim pass/fail manually** (the `concurrent-claim time` line `tick analyze` prints still uses the *old* earliest-event→latest-event window — treat it as informational only, not the pass/fail number; the `parked-claim suspects` line, however, is authoritative). Procedure:
    1. Dump the event log in time order:
-      `cat .tick/events/*.json` (or `ls -1 .tick/events/` — each event is a file; read `type`, `task`, `agent`, `ts`).
+      `cat .tick/events/*.jsonl` (one JSON object per file; read `type`, `task`, `agent`, `ts`).
    2. **Work-bounded window** = `[ earliest ts where type == task.claimed , latest ts where type == task.done ]`. Ignore `task.created` (seeding) timestamps entirely.
    3. **Per-agent claim intervals:** for each agent, each interval runs from a `task.claimed` to that task's next terminal event (`task.done` / `task.released` / `task.circuit_break`). Clip every interval to the work-bounded window.
    4. **Concurrent-claim time** = total wall-clock inside the window during which **both** agents have ≥ 1 open (clipped) interval. **Pass requires ≥ 50%** of the window, **and** each agent has ≥ 2 `task.done`.
-   5. **Disqualifier — parked claims:** for each claim interval, confirm via `git log --author=<agent> --since/--until` (or `git diff` timestamps on that agent's files) that real edits occurred during it. Any interval > 10 min with no corresponding edit invalidates the run.
+   5. **Disqualifier — parked claims:** read the `parked-claim suspects` line from `tick analyze` (it flags any claim window with a > 10 min gap between heartbeats / claim / close, computed from `task.heartbeat` events). **Any suspect invalidates the run.** No git inspection needed.
    6. **Disqualifier — serial double-claim:** scan for any agent holding two overlapping-path claims simultaneously. (`take.js` now refuses this; if the log shows it, the run is invalid.)
-   > Optional: if the `analyze.js` prerequisite was implemented instead of relying on this manual pass, read its work-bounded fields directly and skip steps 1–4.
-2. Walk the per-agent compliance numbers, then run the manual `git diff` cross-check (overlapping claim windows correspond to overlapping *real edits* on both halves).
+   > Optional: if the `analyze.js` work-bounded-window prerequisite is also implemented, read its fields directly and skip steps 2–4. (The parked-claim flag in step 5 is already implemented.)
+2. Walk the per-agent compliance numbers (including heartbeat counts), then run the manual `git diff` cross-check (overlapping claim windows correspond to overlapping *real edits* on both halves).
 3. Coordinator integrates the two halves and boots the app.
 4. Append a Run 3 section to `RECAP.md` and update this doc's status.
 
