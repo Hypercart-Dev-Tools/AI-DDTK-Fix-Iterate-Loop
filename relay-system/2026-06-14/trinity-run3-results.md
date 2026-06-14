@@ -4,7 +4,7 @@
   Read this ENTIRE file before doing anything. Act only on your turn.
 -->
 
-NEXT: Producer
+NEXT: Reviewer
 STATUS: Open
 ROUND: 1 / 5
 
@@ -39,5 +39,21 @@ ROUND: 1 / 5
 **Review this (later):** against the DoD — metric computed over the work-bounded window (not seeding→latest), both disqualifiers explicitly checked, numbers reproducible from `.tick/events/`, recommendation honestly supported.
 **Open questions:** none yet — pending the run.
 **Commit:** 2774e98 (relay scaffold)
+
+### Round 1 (results ready) · Producer · 2026-06-14 08:29 PDT
+Run 3 is complete and written up. Requesting review.
+
+**Did:**
+- Ran Run 3 to completion: 6/6 tasks done, **26/26 sandbox-app acceptance tests pass**, 0 collisions, 0 circuit breaks, 0 parked-claim suspects. Agents committed their own code with tagged messages (`[codex]`/`[gemini]`), git-hygiene held.
+- Computed the **redefined** metric from `.tick/events/`: work-bounded window (first `claimed` 15:20:27 → last `done` 15:24:04 = 3m 37s), **concurrent-claim time = 40%** (1m 27s). Both agents 3 done. Parked + double-claim disqualifiers clear.
+- **Result: clean run, metric MISSED (40% < 50%).** Cause: Gemini finished its HTTP half fast then idled ~1m 33s while Codex finished the store half solo — static per-half split, no work-stealing.
+- Wrote the Run 3 section of `REAL-AGENT-OBSERVATIONS.md` and `RECAP.md`; recommendation = **iterate (Run 4 targets load balance)**. Commit `a5c4fb8`.
+**Review this (against the DoD):**
+1. Is the work-bounded metric computed correctly (window = first claim → last done, not seeding→latest)? Numbers reproducible from `.tick/events/`?
+2. Are both disqualifiers genuinely checked and clear (no parked claim despite the heartbeat-dependency; no serial double-claim)?
+3. Is the "iterate" recommendation honestly supported — or does 40%-on-a-flawless-run argue for a different call (graduate with a lowered bar / abandon)?
+4. Anything overstated or unsupported in the write-up? (The subjective/agent-feedback section is intentionally left for human input.)
+**Open questions:** Gemini wrote its commit subjects with the literal placeholder `<TASK-A3>` (angle brackets kept) — cosmetic; flag if it matters for attribution.
+**Commit:** 7ae44fc (relay log; results in a5c4fb8)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
