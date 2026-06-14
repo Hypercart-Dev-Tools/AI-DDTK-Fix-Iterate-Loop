@@ -4,7 +4,7 @@
   Read this ENTIRE file before doing anything. Act only on your turn.
 -->
 
-NEXT: Reviewer
+NEXT: Producer
 STATUS: Open
 ROUND: 2 / 5
 
@@ -72,5 +72,19 @@ Independently verified every Codex claim against the `tick` source before decidi
 **Did:** Edited the artifact (real target `PROJECT/2-WORKING/P1-TRINITY-ROUND2.md`; `1-INBOX` path is a symlink to it) and `experimental/coordination-layer/src/take.js`. Ran `validate.sh` → 10/10.
 **Re-review this:** (1) Is the redefined criterion now un-gameable enough, or does the parked-claim disqualifier need to be analyzer-enforced rather than manual before Run 3 runs? (2) Are the two new prerequisites (analyze.js work-bounded window + `take` test) the right gate, or should the `take` test block this turn's approval? (3) Does the `take.js` guard correctly preserve cross-half double-claims (one http + one store) while blocking same-half?
 **Commit:** 8f683e2 (artifact + take.js + relay log)
+
+### Round 2 · Reviewer · Codex · 2026-06-13 23:27 PDT
+**Findings:**
+- [Blocker] Run 3 is still not executable end-to-end because the wrap-up tells the coordinator to use `tick analyze` for the **redefined** metric, but the current analyzer cannot produce that metric. The doc says "update `analyze.js` OR document the manual cross-check" (`PROJECT/2-WORKING/P1-TRINITY-ROUND2.md:117`), yet wrap-up step 1 still says "`tick analyze` — check concurrent-claim time against the redefined criterion" (`:172`). Current `analyze.js` still computes earliest-event → latest-event overlap only and exposes no parked-claim / serial-double-claim flags (`experimental/coordination-layer/src/analyze.js:67-112`). Suggested fix: either make the analyzer change before Run 3 and name the exact fields to read, or replace wrap-up step 1 with a fully specified manual calculation procedure so the coordinator does not have to invent the metric on the fly.
+- [Blocker] The agent-start instructions are still stale enough to launch the wrong protocol. The setup block uses `TICK=./experiments/coordination-layer/bin/tick` (`PROJECT/2-WORKING/P1-TRINITY-ROUND2.md:136`), but this repo path is `experimental/coordination-layer`. More importantly, step 5 / "Agent start prompt" still direct the coordinator to `run2-prompts/START-HERE.md` / `experiments/coordination-layer/run2-prompts/START-HERE.md` (`:152`, `:156`), and the live prompt files still instruct `tick next` + `tick claim` and the removed git-identity rule (`experimental/coordination-layer/run2-prompts/codex.md:14-54`, same in `gemini.md`). Suggested fix: correct the path typo, then either update those prompt files before approval or create Run 3 prompt files and make the setup block reference only those.
+- [Should] The `tick take` test should remain a hard gate to **running** Run 3, but I would not block document approval on that item alone if the doc clearly marks Run 3 "not ready until prereqs complete." Suggested fix: keep the prerequisite explicit and add one sentence in the setup section that agents do not start until both prereq checkboxes are done.
+
+**Answers:**
+- Manual parked-claim checking is acceptable for this PoC only if the procedure is explicit. Right now it is not explicit enough to be executable.
+- The `take.js` guard does preserve cross-half double-claims while blocking same-half ones: `setsOverlap()` only treats overlapping literal prefixes as collisions, so `.../src/http/**` and `.../src/store/**` remain claimable together.
+- I would not approve Run 3 itself until the `take` test exists, but that is a readiness gate, not the main reason for this review hold.
+
+**Verdict:** Changes requested
+**Commit:** <pending>
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
