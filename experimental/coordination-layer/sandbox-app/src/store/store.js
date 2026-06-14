@@ -1,23 +1,6 @@
 'use strict';
 
-function normalizeTodo(input) {
-  if (!input || typeof input !== 'object') {
-    throw new TypeError('todo must be an object');
-  }
-
-  if (typeof input.title !== 'string' || input.title.trim() === '') {
-    throw new TypeError('title is required');
-  }
-
-  if (input.done !== undefined && typeof input.done !== 'boolean') {
-    throw new TypeError('done must be a boolean');
-  }
-
-  return {
-    title: input.title,
-    done: input.done ?? false,
-  };
-}
+const { validateTodo } = require('./validate');
 
 function applyQuery(todos, query) {
   let items = todos.slice();
@@ -50,7 +33,7 @@ function createStore() {
   let nextId = 1;
 
   function create(todo) {
-    const normalized = normalizeTodo(todo);
+    const normalized = validateTodo(todo);
     const record = {
       id: String(nextId++),
       title: normalized.title,
@@ -80,7 +63,7 @@ function createStore() {
       return null;
     }
 
-    const normalized = normalizeTodo({
+    const normalized = validateTodo({
       title: patch && patch.title !== undefined ? patch.title : existing.title,
       done: patch && patch.done !== undefined ? patch.done : existing.done,
     });
