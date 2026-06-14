@@ -85,6 +85,6 @@ Independently verified every Codex claim against the `tick` source before decidi
 - I would not approve Run 3 itself until the `take` test exists, but that is a readiness gate, not the main reason for this review hold.
 
 **Verdict:** Changes requested
-**Commit:** <pending>
+**Commit:** c4d2d7e (relay log only)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
