@@ -244,7 +244,7 @@ function renderHuman(report) {
   out.push('--- per agent ---');
   for (const a of report.agents) {
     out.push(`[${a.agent}]`);
-    out.push(`  claims: ${a.claims}, done: ${a.dones}`);
+    out.push(`  claims: ${a.claims}, done: ${a.dones}, heartbeats: ${a.heartbeats}`);
     out.push(`  released: ${a.releases} (${a.handoffs} as handoff), broken: ${a.breaks}, scope_changes: ${a.scope_changes}, commented: ${a.comments}`);
     out.push('');
   }
