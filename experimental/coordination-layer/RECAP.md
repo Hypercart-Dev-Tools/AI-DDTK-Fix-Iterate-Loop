@@ -86,3 +86,24 @@ All 6 items from the agent feedback were implemented before closing the session:
 ### Recommendation
 
 **Iterate — Run 3 with same-session agents.** The protocol is sound; the measurement gap is operational. All known friction points are resolved. Run 3 success criterion: ≥50% concurrent-claim-time in a single session using `tick take`.
+
+## Run 3 — 2026-06-14
+
+### What happened
+
+Run 3 re-ran the same 6-task split (HTTP / store) in a single session with the redefined success criterion (work-bounded window + parked-claim and serial-double-claim disqualifiers + heartbeats). All 6 tasks completed, **26/26 sandbox-app acceptance tests pass**, 0 collisions, 0 circuit breaks, 0 parked-claim suspects. The agent-facing changes worked: `tick take` (atomic claim, no observed race) and `tick ping` (heartbeats honored throughout).
+
+The headline: the run was **mechanically flawless but missed the metric**. Work-bounded concurrent-claim time was **40%, below the ≥50% bar**.
+
+### Compliance
+
+- **Gemini:** 3 claimed / 3 done (HTTP half) / 3 heartbeats — clean
+- **Codex:** 3 claimed / 3 done (store half) / 6 heartbeats — clean
+
+### Why the metric missed
+
+Gemini finished its HTTP half fast and went idle for the final ~1m 33s while Codex finished the store half alone. Genuine overlap happened early (~1m 27s of a 3m 37s work-bounded window), but a static per-half split gives the faster agent nothing to do once its lane is drained — no work-stealing across halves. So sustained overlap capped at 40%.
+
+### Recommendation
+
+**Iterate — Run 4 targets load balance, not mechanics.** The coordination layer is proven (atomic claims, lane separation, heartbeats, clean completion); the gap is that static partitioning lets the faster agent idle. Run 4 options: work-stealing across halves, finer/interleaved task split, or a balance-matched fixture — then retest the ≥50% bar. Not "graduate" (bar not cleared) and not "abandon" (flawless run, near-miss). `validate.sh`: **12/12** green (`tick take` + `tick ping` now tested).
