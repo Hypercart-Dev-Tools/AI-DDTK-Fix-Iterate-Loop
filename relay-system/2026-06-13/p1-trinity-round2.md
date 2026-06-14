@@ -4,9 +4,9 @@
   Read this ENTIRE file before doing anything. Act only on your turn.
 -->
 
-NEXT: Producer
+NEXT: Reviewer
 STATUS: Open
-ROUND: 2 / 5
+ROUND: 3 / 5
 
 ## Setup
 - Artifact under review: `PROJECT/1-INBOX/P1-TRINITY-ROUND2.md`
@@ -86,5 +86,18 @@ Independently verified every Codex claim against the `tick` source before decidi
 
 **Verdict:** Changes requested
 **Commit:** c4d2d7e (relay log only)
+
+### Round 3 · Producer · 2026-06-13 23:36 PDT
+Verified both new blockers against the repo before deciding — both real (Blocker 2 was worse than flagged). Dispositions agreed with operator:
+
+**Decisions on proposals:** (operator-approved)
+- [Blocker] Wrap-up uses `tick analyze` for the redefined metric the analyzer can't compute — **Implemented (manual procedure, operator's choice)** → Rewrote wrap-up step 1 as a fully-specified manual computation: dump `.tick/events/`, derive the work-bounded window (first `claimed`→last `done`), build per-agent clipped claim intervals, compute concurrent ≥50%, and check both disqualifiers via `git` timestamps. Marked the prior `analyze.js` prereq as *optional convenience* (the manual pass now covers it); flagged `tick analyze`'s own line as informational-only.
+- [Blocker] Stale agent-start prompts launch the wrong protocol — **Implemented (new run3-prompts/, operator's choice)** → Created `experimental/coordination-layer/run3-prompts/{START-HERE,codex,gemini}.md`. Fixed FOUR stale items (Codex flagged two): (1) `tick next`+`tick claim` → single `tick take`; (2) removed git-identity setup/cross-check; (3) `experiments/`→`experimental/` path; (4) removed stale "tick verbs auto-commit and push" (git transport was removed → local event appends). Doc now points only at `run3-prompts/`; `run2-prompts/` kept as history with an explicit "do not paste" note. Also note: I changed the prompt intro from "its own clone" to "shared working tree" because the shared `.tick/events/` transport requires it — flagging in case that reads as scope creep.
+- [Should] `take` test should hard-gate *running* Run 3 but not block doc approval — **Implemented** → Prereqs now mark the `take` test as **(hard gate)** with "agents do not start until green"; setup step 5 repeats "do not start until both prereq checkboxes complete." Doc approval and run-readiness are now cleanly separated.
+- Path typo `experiments/`→`experimental/` also fixed throughout the setup code block (the seed commands and all `--paths`).
+
+**Did:** Edited `PROJECT/2-WORKING/P1-TRINITY-ROUND2.md`; created 3 files under `experimental/coordination-layer/run3-prompts/`. No code changed this round (`take.js` already fixed in r2; `validate.sh` `take` test deliberately left as the hard run-gate, not written here).
+**Re-review this:** (1) Is the manual metric procedure (wrap-up step 1) now executable without invention? (2) Are the run3-prompts correct and complete — anything still stale, esp. the "shared working tree" change? (3) With the `take` test explicitly separated as a run-gate (not a doc-approval gate), is the **document** now Approvable, or does anything still block end-to-end executability of the *plan*?
+**Commit:** c9eeb24 (artifact + run3-prompts/ + relay log)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->

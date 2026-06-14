@@ -114,8 +114,9 @@ Run 3 passes only if **all** of these hold:
 
 ### Run 3 prerequisites (before agents start)
 
-- [ ] Update [`analyze.js`](../../experimental/coordination-layer/src/analyze.js) to compute the **work-bounded** window (first `claimed` → last `done`) and to surface parked-claim / serial-double-claim flags, OR document the manual cross-check the coordinator runs instead.
-- [ ] Add a `tick take` test to `validate.sh` (atomicity + the new same-half double-claim refusal). The critical-path verb is currently untested.
+- [x] Document the manual metric-computation procedure the coordinator runs (done — see Wrap-up step 1). The redefined metric is now executable by hand without an analyzer change.
+- [ ] *(optional, convenience)* Update [`analyze.js`](../../experimental/coordination-layer/src/analyze.js) to compute the **work-bounded** window (first `claimed` → last `done`) and surface parked-claim / serial-double-claim flags, so the coordinator doesn't compute by hand. Not required to run Run 3 — the manual procedure covers it.
+- [ ] **(hard gate)** Add a `tick take` test to `validate.sh` (atomicity + the new same-half double-claim refusal). The critical-path verb is currently untested — **agents do not start until this is green.**
 
 ---
 
@@ -133,33 +134,27 @@ Run 3 passes only if **all** of these hold:
 2. Archive Run 2's `.tick/events/` to `.tick/archive/run-2-events/`, re-init with `tick init`.
 3. Re-seed the 6 tasks:
    ```bash
-   TICK=./experiments/coordination-layer/bin/tick
+   TICK=./experimental/coordination-layer/bin/tick
    ROOT=.
    $TICK log task.created TASK-A1 --agent dispatcher --priority 10 \
-     --paths "experiments/coordination-layer/sandbox-app/src/http/**,experiments/coordination-layer/sandbox-app/test/http/**"
+     --paths "experimental/coordination-layer/sandbox-app/src/http/**,experimental/coordination-layer/sandbox-app/test/http/**"
    $TICK log task.created TASK-A2 --agent dispatcher --priority 8  \
-     --paths "experiments/coordination-layer/sandbox-app/src/http/**,experiments/coordination-layer/sandbox-app/test/http/**"
+     --paths "experimental/coordination-layer/sandbox-app/src/http/**,experimental/coordination-layer/sandbox-app/test/http/**"
    $TICK log task.created TASK-A3 --agent dispatcher --priority 5  \
-     --paths "experiments/coordination-layer/sandbox-app/src/http/**,experiments/coordination-layer/sandbox-app/test/http/**"
+     --paths "experimental/coordination-layer/sandbox-app/src/http/**,experimental/coordination-layer/sandbox-app/test/http/**"
    $TICK log task.created TASK-B1 --agent dispatcher --priority 10 \
-     --paths "experiments/coordination-layer/sandbox-app/src/store/**,experiments/coordination-layer/sandbox-app/test/store/**"
+     --paths "experimental/coordination-layer/sandbox-app/src/store/**,experimental/coordination-layer/sandbox-app/test/store/**"
    $TICK log task.created TASK-B2 --agent dispatcher --priority 8  \
-     --paths "experiments/coordination-layer/sandbox-app/src/store/**,experiments/coordination-layer/sandbox-app/test/store/**"
+     --paths "experimental/coordination-layer/sandbox-app/src/store/**,experimental/coordination-layer/sandbox-app/test/store/**"
    $TICK log task.created TASK-B3 --agent dispatcher --priority 5  \
-     --paths "experiments/coordination-layer/sandbox-app/src/store/**,experiments/coordination-layer/sandbox-app/test/store/**"
+     --paths "experimental/coordination-layer/sandbox-app/src/store/**,experimental/coordination-layer/sandbox-app/test/store/**"
    ```
 4. Clear sandbox-app source files (keep directory structure and `package.json`).
-5. Paste the contents of `run2-prompts/START-HERE.md` into both agent sessions simultaneously.
+5. **Do not start the agents until both Run 3 prerequisite checkboxes (above) are complete.** Then paste the contents of `experimental/coordination-layer/run3-prompts/START-HERE.md` into both agent sessions simultaneously.
 
 ### Agent start prompt
 
-Same as Run 2 — paste everything below the `===` in `experiments/coordination-layer/run2-prompts/START-HERE.md`. The agent-specific files (`codex.md`, `gemini.md`) should be updated to replace `tick next` + `tick claim` with `tick take`.
-
-**Update needed in `codex.md` and `gemini.md` before Run 3:** replace the two-step claim loop with:
-```
-tick take --agent <your-name>
-```
-and remove the `tick claim` instruction.
+Paste everything below the `===` in `experimental/coordination-layer/run3-prompts/START-HERE.md`. The Run 3 prompt files (`run3-prompts/codex.md`, `run3-prompts/gemini.md`) are already corrected for the Run 2 changes: they use the single `tick take` verb (no `tick next` + `tick claim`), drop the removed git-identity check, use the `experimental/` path, and note that `tick` verbs are local event appends (no auto-commit/push). The Run 2 prompt files under `run2-prompts/` are kept only as a historical record — **do not paste them.**
 
 ### Stop conditions (same as Run 2)
 
@@ -169,8 +164,16 @@ and remove the `tick claim` instruction.
 
 ### Wrap-up
 
-1. `tick analyze` — check concurrent-claim time against the **redefined** criterion (work-bounded window, ≥ 50%, both disqualifiers clear). See "Redefined success criterion" above.
-2. Walk the per-agent compliance numbers, then run the manual `git diff` cross-check (overlap = real edits on both halves; no parked claims).
+1. **Compute the redefined metric manually** (the current `tick analyze` reports the *old* earliest-event→latest-event overlap and cannot produce the redefined metric — treat its `concurrent-claim time` line as informational only, not the pass/fail number). Procedure:
+   1. Dump the event log in time order:
+      `cat .tick/events/*.json` (or `ls -1 .tick/events/` — each event is a file; read `type`, `task`, `agent`, `ts`).
+   2. **Work-bounded window** = `[ earliest ts where type == task.claimed , latest ts where type == task.done ]`. Ignore `task.created` (seeding) timestamps entirely.
+   3. **Per-agent claim intervals:** for each agent, each interval runs from a `task.claimed` to that task's next terminal event (`task.done` / `task.released` / `task.circuit_break`). Clip every interval to the work-bounded window.
+   4. **Concurrent-claim time** = total wall-clock inside the window during which **both** agents have ≥ 1 open (clipped) interval. **Pass requires ≥ 50%** of the window, **and** each agent has ≥ 2 `task.done`.
+   5. **Disqualifier — parked claims:** for each claim interval, confirm via `git log --author=<agent> --since/--until` (or `git diff` timestamps on that agent's files) that real edits occurred during it. Any interval > 10 min with no corresponding edit invalidates the run.
+   6. **Disqualifier — serial double-claim:** scan for any agent holding two overlapping-path claims simultaneously. (`take.js` now refuses this; if the log shows it, the run is invalid.)
+   > Optional: if the `analyze.js` prerequisite was implemented instead of relying on this manual pass, read its work-bounded fields directly and skip steps 1–4.
+2. Walk the per-agent compliance numbers, then run the manual `git diff` cross-check (overlapping claim windows correspond to overlapping *real edits* on both halves).
 3. Coordinator integrates the two halves and boots the app.
 4. Append a Run 3 section to `RECAP.md` and update this doc's status.
 
