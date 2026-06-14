@@ -112,6 +112,13 @@ Run 3 passes only if **all** of these hold:
 
 > **50% is a stress bar, not a proof bar.** Crossing it with the guards above is evidence the protocol *can* sustain parallelism in this narrow setup — it is not proof the coordination layer is production-viable (see Open questions).
 
+### Caveats / known limitations (read before running)
+
+- **The parked-claim check is an operational contract, not an inference engine.** It relies on agents actually calling `tick ping` while they work; the tool cannot detect work that produced no heartbeat. A forgotten ping looks identical to a parked claim. The intended handling is therefore **fail/retry the run, not silently treat a missing heartbeat as a pass** — if `tick analyze` reports a parked-claim suspect, treat the run as invalid and re-run, even if you suspect the agent was actually working. Do not relax this into "probably fine."
+- **Concurrent-claim % is computed by hand.** `tick analyze`'s printed `concurrent-claim time` line still uses the *old* earliest-event→latest-event window — it is informational only. The pass/fail number comes from the manual work-bounded calculation in Wrap-up step 1. (Only the parked-claim line from `tick analyze` is authoritative.)
+- **`tick take`'s race-freedom is deployment-specific.** It is atomic only because both agents share one lock + one `.tick/events/`. Separate clones or any non-shared transport reintroduce the soft-mutex gap — do not generalize this result to a distributed setup.
+- **Coarse, half-wide path scopes.** Lane separation is validated at `src/http/**` vs `src/store/**` granularity only; this run does not test per-file drift within a half (deferred to Run 4).
+
 ### Run 3 prerequisites (before agents start)
 
 - [x] Document the manual metric-computation procedure the coordinator runs (done — see Wrap-up step 1). The concurrent-claim pass/fail is executable by hand; the parked-claim disqualifier is now automated.
