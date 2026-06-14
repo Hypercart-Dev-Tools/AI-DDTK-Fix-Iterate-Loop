@@ -23,17 +23,21 @@ function take(repoRoot, { agent }) {
       return { limitReached: true, holding: held };
     }
 
-    const claimedByOthers = [];
+    // Exclude paths held by ANY active claim — other agents (lane separation)
+    // *and* this agent's own (anti-gaming: stops one agent reserving two
+    // overlapping tasks in the same half and working them serially, which
+    // would inflate the concurrent-claim metric without real parallel work).
+    const claimedPaths = [];
     for (const t of tasks.values()) {
-      if (t.status === 'claimed' && t.claim.agent !== agent) {
-        for (const p of t.claim.paths) claimedByOthers.push(p);
+      if (t.status === 'claimed') {
+        for (const p of t.claim.paths) claimedPaths.push(p);
       }
     }
 
     const candidates = [];
     for (const t of tasks.values()) {
       if (t.status !== 'open') continue;
-      if (setsOverlap(t.paths, claimedByOthers)) continue;
+      if (setsOverlap(t.paths, claimedPaths)) continue;
       candidates.push(t);
     }
 

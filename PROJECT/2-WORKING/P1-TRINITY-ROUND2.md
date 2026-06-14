@@ -74,13 +74,13 @@ Path globs had to be copied verbatim from the integration prompt. If the task li
 
 ## What was fixed before closing the session
 
-All 6 items were implemented, tested (validate.sh 10/10), and committed on 2026-05-15.
+All 6 items were implemented and committed on 2026-05-15. `validate.sh` is 10/10 green, but that suite covers `claim`/`scope`/`reap`/etc. — **it does not yet test `tick take`**, the new critical-path verb for Run 3. Adding a `take` test is a Run 3 prerequisite (see "Run 3 prerequisites" below).
 
 | Item | Files changed | What it does |
 |---|---|---|
 | Lock to `.tick/locks/` | `src/lock.js` | Claim lock lives in `.tick/locks/claim.lock` — no `.git/` writes |
-| Ownership enforcement | `src/scope.js` | `done/release/break/scope` throw if `--agent` doesn't match the current claimer; only `tick reap` bypasses |
-| `tick take` | `src/take.js`, `bin/tick` | New verb: atomic next+claim under one lock; uses task's own declared paths; eliminates the race |
+| Ownership enforcement | `src/scope.js` | `done/release/break/scope` throw if `--agent` doesn't match the current claimer; only `tick reap` bypasses. Caveat: the ownership check is **not atomic** with the event append (no `withClaimLock`, unlike `take`), so a concurrent `reap` could in principle interleave. Low practical risk for Run 3 (these are the claimer's own single-window verbs), tracked as a hardening item. |
+| `tick take` | `src/take.js`, `bin/tick` | New verb: atomic next+claim under one lock; uses task's own declared paths. Closes the `next`→`claim` TOCTOU **in this deployment** (single shared lock + shared `.tick/events/`); separate clones or any non-shared transport would reintroduce the soft-mutex gap. Now also refuses a candidate overlapping *any* active claim — including the agent's own — so one agent can't reserve two overlapping tasks in the same half. |
 | Remove identity check | `bin/tick` | `checkAgentIdentity()` removed; `--agent` is the sole authoritative identity |
 | `tick next` read-only | `src/next.js` | Folds events in memory; never writes `STATE.md` |
 | `tick info <TASK-ID>` | `bin/tick` | Prints task id / status / priority / paths / claimer on demand |
@@ -91,7 +91,31 @@ All 6 items were implemented, tested (validate.sh 10/10), and committed on 2026-
 
 The load-bearing question from Run 2 is still open because the metric was uninterpretable: **does a per-agent claim cap produce sustained two-agent parallelism when both agents are active in the same session?**
 
-Success criterion: `tick analyze` shows **≥ 50% concurrent-claim time** — both agents held at least one active claim simultaneously for at least half the run window — with both agents completing ≥ 2 tasks each.
+### Why Run 2's metric can't answer it (and neither can the same-session fix alone)
+
+The current `tick analyze` concurrent-claim metric measures **overlap of open *claim windows*, not overlap of real work** ([`analyze.js` `computeParallelism`](../../experimental/coordination-layer/src/analyze.js)): a claim window opens at `task.claimed` and stays open until a terminal event, and the run window runs from the *earliest* event (task **seeding**) to the latest. Two confounds survive same-session:
+
+1. **Parked claims inflate overlap.** A claim held but idle counts as "active" for its full duration. In Run 2, Gemini held `TASK-A1` from `2026-05-14T20:15Z` until `2026-05-15T17:21Z` while nearly all real edits happened in a ~8-minute burst — that parked window alone would manufacture "overlap."
+2. **Seeding is in the denominator.** The window starts at task creation, not first work.
+
+Same-session removes the overnight *gap*, but not parked-claim overlap or the seeding offset.
+
+### Redefined success criterion (Run 3)
+
+Run 3 passes only if **all** of these hold:
+
+- **Work-bounded window.** Measure concurrent-claim time over **first `task.claimed` → last `task.done`**, not earliest-event → latest-event. Seeding is excluded from the denominator.
+- **≥ 50% concurrent-claim time** within that work-bounded window, with **both agents completing ≥ 2 tasks each**.
+- **Disqualifier — parked claims.** Any claim held with no corresponding work activity for > 10 min while the holder is otherwise idle invalidates the run (it indicates manufactured overlap, not parallel work). With drift/collision detection deferred, this is a **manual coordinator check** against `git diff` timing, not an automated analyzer output — see prerequisites.
+- **Disqualifier — serial double-claim.** No agent may hold two overlapping claims (now enforced in `take.js`); if the event log shows it anyway, the run is invalid.
+- **Cross-check.** Coordinator confirms by `git diff` that overlapping claim windows correspond to overlapping *real edits* on both halves — the overlap metric is necessary but not sufficient.
+
+> **50% is a stress bar, not a proof bar.** Crossing it with the guards above is evidence the protocol *can* sustain parallelism in this narrow setup — it is not proof the coordination layer is production-viable (see Open questions).
+
+### Run 3 prerequisites (before agents start)
+
+- [ ] Update [`analyze.js`](../../experimental/coordination-layer/src/analyze.js) to compute the **work-bounded** window (first `claimed` → last `done`) and to surface parked-claim / serial-double-claim flags, OR document the manual cross-check the coordinator runs instead.
+- [ ] Add a `tick take` test to `validate.sh` (atomicity + the new same-half double-claim refusal). The critical-path verb is currently untested.
 
 ---
 
@@ -140,13 +164,13 @@ and remove the `tick claim` instruction.
 ### Stop conditions (same as Run 2)
 
 - Agent holds a claim and is silent > 15 min → `tick reap <agent> --by coordinator`
-- File collision reported by `tick analyze` → flag immediately
+- **File collision** → flag immediately. Note: `tick analyze` does **not** detect collisions — drift/collision detection is deferred (the git transport was removed, so there are no work commits to attribute). The coordinator catches collisions by inspecting `git diff` by hand, watching both halves stay on their own paths.
 - Both agents done all 6 tasks, or 60-min box expires
 
 ### Wrap-up
 
-1. `tick analyze` — check concurrent-claim-time against the ≥ 50% threshold.
-2. Walk the per-agent compliance numbers.
+1. `tick analyze` — check concurrent-claim time against the **redefined** criterion (work-bounded window, ≥ 50%, both disqualifiers clear). See "Redefined success criterion" above.
+2. Walk the per-agent compliance numbers, then run the manual `git diff` cross-check (overlap = real edits on both halves; no parked claims).
 3. Coordinator integrates the two halves and boots the app.
 4. Append a Run 3 section to `RECAP.md` and update this doc's status.
 

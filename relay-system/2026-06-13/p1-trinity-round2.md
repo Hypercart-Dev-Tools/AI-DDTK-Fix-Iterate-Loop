@@ -6,7 +6,7 @@
 
 NEXT: Reviewer
 STATUS: Open
-ROUND: 1 / 5
+ROUND: 2 / 5
 
 ## Setup
 - Artifact under review: `PROJECT/1-INBOX/P1-TRINITY-ROUND2.md`
@@ -42,5 +42,35 @@ ROUND: 1 / 5
 - **Open questions (§ lines 155–160):** are these genuinely deferred, or do any block Run 3 from starting?
 **Open questions:** Relay log is git-TRACKED in this repo, so turn commits carry hashes. No artifact edits this round.
 **Commit:** 4fdb053 (relay log only — artifact unchanged)
+
+### Round 1 · Reviewer · Codex · 2026-06-13 (pasted from external session)
+<!-- Verbatim review pasted by operator from a Codex window; reformatted only by adding this header. Content unedited. -->
+
+No-go as written. The plan is still fooling itself on measurement: `tick take` fixes the local claim race, but Run 3’s pass condition still measures overlapping reservations, not sustained parallel work.
+
+1. The 6 Run-2 fixes mostly address the concrete frictions, but not all the root problems. `tick take` really does close the `next -> claim` TOCTOU in the current shared-local setup because selection and append happen under one repo lock in [take.js](</Users/noelsaw/Documents/GH Repos/AI-DDTK/experimental/coordination-layer/src/take.js:17>) and [lock.js](</Users/noelsaw/Documents/GH Repos/AI-DDTK/experimental/coordination-layer/src/lock.js:28>). So in this deployment it is more than “narrowed.” But the doc overstates that as a protocol-level fix in [P1-TRINITY-ROUND2.md](</Users/noelsaw/Documents/GH Repos/AI-DDTK/PROJECT/1-INBOX/P1-TRINITY-ROUND2.md:83>): it is only true because both agents share one `.tick/events/` and one lock file. Move back to separate clones or any non-shared transport and the soft-mutex problem returns. Git-identity interference is genuinely fixed. The `.git/` lock problem is genuinely fixed. Ownership enforcement is only partially fixed: [scope.js](</Users/noelsaw/Documents/GH Repos/AI-DDTK/experimental/coordination-layer/src/scope.js:19>) checks current claimer, but that check is not atomic with the write, so `reap` or another state change can still interleave.
+
+2. Run 3’s metric does not prove sustained parallelism. The analyzer in [analyze.js](</Users/noelsaw/Documents/GH Repos/AI-DDTK/experimental/coordination-layer/src/analyze.js:67>) counts overlap of open claim windows over the earliest-event to latest-event window; that is a proxy for reservation overlap, not work overlap. Run 2’s own event log already shows the confound: Gemini claimed `TASK-A1` on 2026-05-14 20:15:43Z and did not close it until 2026-05-15 17:21:31Z, while most other work happened on 2026-05-15 around 16:39Z to 16:47Z. If you “fix” only the overnight denominator, that stale claim can make the run look parallel even when it mostly reflects parked ownership. Same-session removes one confound, not the core one.
+
+3. On the open questions: 50% is an acceptable stress bar, but not a proof bar; I would not treat crossing it as “protocol viable” without anti-gaming guards. Same-session is the right constraint for this narrow experiment, but unrealistic for real use; if this is meant to become a general coordination layer, TTL or auto-reap is mandatory, not optional. The half-wide scopes are fine only if the claim is “can two coarse lanes stay separated”; they are not fine if the claim is “routing and drift control work,” because all three tasks in each half share the same broad paths in [P1-TRINITY-ROUND2.md](</Users/noelsaw/Documents/GH Repos/AI-DDTK/PROJECT/1-INBOX/P1-TRINITY-ROUND2.md:114>).
+
+4. What’s missing or risky: there is no automated test covering `tick take` itself, even though it is now the critical path and the doc says the fixes were tested. `validate.sh` is green, but it is testing `claim`, not `take`. The stop condition “file collision reported by `tick analyze`” in [P1-TRINITY-ROUND2.md](</Users/noelsaw/Documents/GH Repos/AI-DDTK/PROJECT/1-INBOX/P1-TRINITY-ROUND2.md:143>) is fiction; `tick analyze` explicitly says drift/collision detection is deferred and must be checked manually in [analyze.js](</Users/noelsaw/Documents/GH Repos/AI-DDTK/experimental/coordination-layer/src/analyze.js:7>). Also, `take` ignores an agent’s own active scopes, so one agent can reserve two overlapping tasks in the same half and work them serially; that can produce a green overlap metric without real sustained parallel coding. I also do not see validation that `tick scope` stays within the task’s declared scope, so scope creep can seize a wider lane after claim.
+
+5. Bottom line: I disagree with the plan’s implicit conclusion that the remaining problem is just “operational” session fragmentation. The bigger remaining problem is that the success metric can still go green for the wrong reason. My call is no-go on running Run 3 exactly as planned. The single change I’d make first is to change the success measure before rerunning: bound the measured window to actual agent work, not task seeding, and fail runs with parked claims. If you do not fix that, a successful Run 3 still will not answer the question you say it is answering.
+
+### Round 2 · Producer · 2026-06-13 23:22 PDT
+Independently verified every Codex claim against the `tick` source before deciding — all six hold up. Dispositions agreed with operator:
+
+**Decisions on proposals:** (operator-approved)
+- [Blocker] Metric measures reservation overlap, not work (analyze.js counts open-claim-window overlap over seeding→latest) — **Implemented** → Redefined the Run 3 success criterion @ `P1-TRINITY-ROUND2.md` "Redefined success criterion": work-bounded window (first `claimed` → last `done`), ≥50% within it, **+ two disqualifiers** (parked claim >10min idle; serial same-half double-claim) **+ mandatory manual `git diff` cross-check** that overlap = real edits. Added a "Why Run 2's metric can't answer it" section citing the Gemini parked-claim confound. Updated wrap-up step 1–2 to the new measure.
+- [Should] `take` lets one agent reserve two overlapping tasks in same half — **Implemented (code, operator chose to fix)** → `take.js:33-41` now excludes paths held by *any* active claim, including the agent's own. `validate.sh` 10/10 still green. Doc "What was fixed" table updated to describe the guard.
+- [Should] No automated test for `tick take` (doc said "tested 10/10") — **Implemented (doc)** → Corrected the overstatement @ "What was fixed" intro; added "Run 3 prerequisites" checklist item to add a `take` test. Did **not** write the test this round (code-test scope beyond the doc artifact; flagged as a gating prerequisite instead).
+- [Should] Stop condition "file collision reported by `tick analyze`" is fiction — **Implemented** → Rewrote the stop condition: `tick analyze` does not detect collisions (deferred); coordinator inspects `git diff` by hand.
+- [Should] `tick take` overstated as protocol-level TOCTOU fix — **Implemented** → Table now scopes the fix to "this deployment (single shared lock + shared `.tick/events/`)"; notes separate clones reintroduce the gap.
+- [Nit] Ownership check not atomic with write — **Implemented** → Added caveat to the ownership row (no `withClaimLock`, low practical risk, tracked as hardening).
+
+**Did:** Edited the artifact (real target `PROJECT/2-WORKING/P1-TRINITY-ROUND2.md`; `1-INBOX` path is a symlink to it) and `experimental/coordination-layer/src/take.js`. Ran `validate.sh` → 10/10.
+**Re-review this:** (1) Is the redefined criterion now un-gameable enough, or does the parked-claim disqualifier need to be analyzer-enforced rather than manual before Run 3 runs? (2) Are the two new prerequisites (analyze.js work-bounded window + `take` test) the right gate, or should the `take` test block this turn's approval? (3) Does the `take.js` guard correctly preserve cross-half double-claims (one http + one store) while blocking same-half?
+**Commit:** 8f683e2 (artifact + take.js + relay log)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
