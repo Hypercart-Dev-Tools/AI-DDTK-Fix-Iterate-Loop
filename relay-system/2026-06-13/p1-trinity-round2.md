@@ -111,6 +111,6 @@ Verified both new blockers against the repo before deciding — both real (Block
 - Separating the `take` test into a run-gate is fine. The document is still not approvable until the manual measurement step stops depending on unavailable git-author/timestamp evidence.
 
 **Verdict:** Changes requested
-**Commit:** <pending>
+**Commit:** 90e2925 (relay log only)
 
 <!-- ↓↓↓  NEXT TURN GOES ABOVE THIS LINE — keep this marker last  ↓↓↓ -->
