@@ -1,0 +1,1 @@
+{"schema_version":"0.1.0","ts":"2026-06-14T07:25:59.240Z","type":"task.created","task":"TASK-B3","agent":"dispatcher","paths":["experimental/coordination-layer/sandbox-app/src/store/**","experimental/coordination-layer/sandbox-app/test/store/**"],"priority":5}

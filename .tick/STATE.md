@@ -3,18 +3,18 @@
 # Coordination State
 
 ## Open
-_(none)_
+- TASK-A1 (priority: 10) paths: ["experimental/coordination-layer/sandbox-app/src/http/**","experimental/coordination-layer/sandbox-app/test/http/**"]
+- TASK-A2 (priority: 8) paths: ["experimental/coordination-layer/sandbox-app/src/http/**","experimental/coordination-layer/sandbox-app/test/http/**"]
+- TASK-A3 (priority: 5) paths: ["experimental/coordination-layer/sandbox-app/src/http/**","experimental/coordination-layer/sandbox-app/test/http/**"]
+- TASK-B1 (priority: 10) paths: ["experimental/coordination-layer/sandbox-app/src/store/**","experimental/coordination-layer/sandbox-app/test/store/**"]
+- TASK-B2 (priority: 8) paths: ["experimental/coordination-layer/sandbox-app/src/store/**","experimental/coordination-layer/sandbox-app/test/store/**"]
+- TASK-B3 (priority: 5) paths: ["experimental/coordination-layer/sandbox-app/src/store/**","experimental/coordination-layer/sandbox-app/test/store/**"]
 
 ## Claimed
 _(none)_
 
 ## Done
-- TASK-A1
-- TASK-A2
-- TASK-A3
-- TASK-B1
-- TASK-B2
-- TASK-B3
+_(none)_
 
 ## Circuit-Broken
 _(none)_

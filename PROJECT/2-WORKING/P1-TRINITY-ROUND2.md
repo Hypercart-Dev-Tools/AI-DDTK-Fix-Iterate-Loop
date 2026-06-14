@@ -1,7 +1,7 @@
 # Trinity — Run 2 retrospective and Run 3 plan
 
 **Parent:** [`P1-TRINITY.md`](P1-TRINITY.md)
-**Branch:** `experiment/coordination-layer`
+**Branch:** Run 2 ran on `experiment/coordination-layer`; **Run 3 runs on `development`** (where all Run 3 fixes — `tick take` guard, `tick ping`/heartbeat, parked-claim detection, `run3-prompts/` — are committed).
 **Owner:** Noel / Hypercart
 **Run dates:** 2026-05-14 (start) → 2026-05-15 (close)
 **Agents:** Gemini (Google), Codex (OpenAI)
@@ -139,7 +139,7 @@ Run 3 passes only if **all** of these hold:
 
 ### Coordinator setup (before agents start)
 
-1. Pull `experiment/coordination-layer` — all fixes are already committed.
+1. Run on `development` — all Run 3 fixes are committed there (the plan originally said `experiment/coordination-layer`; Run 3 moved to `development`). Ensure your working tree is on `development` and up to date.
 2. Archive Run 2's `.tick/events/` to `.tick/archive/run-2-events/`, re-init with `tick init`.
 3. Re-seed the 6 tasks:
    ```bash
