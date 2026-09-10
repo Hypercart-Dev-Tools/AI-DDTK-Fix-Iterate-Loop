@@ -44,6 +44,7 @@ Thumbs.db
 # Build artifacts (if any)
 dist/
 build/
+__pycache__/
 *.min.js
 *.min.css
 *.map

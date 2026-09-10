@@ -13,6 +13,11 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Do not edit a version block that has already been committed and pushed
 -->
 
+## [2.1.8] - 2026-09-10
+
+### Changed
+- **`.gitignore`** — excludes Python `__pycache__/` directories so local ask-self bytecode is not treated as source work.
+
 ## [2.1.7] - 2026-06-12
 
 ### Changed
